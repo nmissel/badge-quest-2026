@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Badge Quest 2026</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1848BE">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Badge Quest">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="app">
+
+    <!-- App Header (XP Luna gradient, no window chrome) -->
+    <header class="app-header" id="title-bar">
+      <span class="title-icon">🎯</span>
+      <span class="title-text">BADGE QUEST 2026</span>
+      <button class="notif-btn" id="notif-btn" title="Enable quest reminders">🔔</button>
+    </header>
+
+    <!-- Year Countdown Strip -->
+    <div class="year-strip">
+      <span class="year-strip-label" id="year-days">— days left</span>
+      <div class="year-track"><div class="year-fill" id="year-fill" style="width:0%"></div></div>
+      <span class="year-strip-sub" id="year-sub">Year 0%</span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" data-tab="all">📋 ALL</button>
+      <button class="tab" data-tab="together">💎 COUPLE</button>
+      <button class="tab" data-tab="sof">🌸 SOF</button>
+      <button class="tab" data-tab="las">⚔️ LAS</button>
+      <button class="tab team-tab" data-tab="team">🏆 TEAM</button>
+    </div>
+
+    <!-- Main Scrollable Content -->
+    <div class="win-body" id="win-body">
+
+      <!-- Badge Case Panel -->
+      <div class="inset-panel badge-case-panel">
+        <div class="panel-title">✦ BADGE CASE ✦</div>
+        <div class="badge-case" id="badge-case"></div>
+        <div id="badge-detail"></div>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="progress-section">
+        <span class="prog-label" id="prog-label">QUESTS: 0 / 25</span>
+        <div class="prog-track"><div class="prog-fill" id="prog-fill" style="width: 0%"></div></div>
+        <span class="prog-pct" id="prog-pct">0%</span>
+      </div>
+
+      <!-- Quest Log Panel -->
+      <div class="inset-panel quest-panel">
+        <div class="panel-title">📜 QUEST LOG</div>
+        <div class="goal-list" id="goal-list"></div>
+      </div>
+
+    </div>
+
+    <!-- Bottom Toolbar -->
+    <footer class="status-bar">
+      <button class="sb-btn" id="save-btn">💾 SAVE</button>
+      <button class="sb-btn" id="load-btn">📂 LOAD</button>
+      <input type="file" id="file-input" accept=".json" style="display:none">
+      <div class="sb-divider"></div>
+      <span class="sb-text" id="sb-text">READY TO QUEST</span>
+      <div class="sb-divider"></div>
+      <span class="sb-text" id="sb-date">—</span>
+      <div class="sb-divider"></div>
+      <span class="sb-text" id="clock">00:00</span>
+    </footer>
+
+  </div>
+
+  <!-- Goal Complete Overlay -->
+  <div class="overlay" id="goal-overlay" style="display:none">
+    <div class="popup">
+      <div class="popup-titlebar">
+        <span>Quest Complete!</span>
+      </div>
+      <div class="popup-body">
+        <div class="popup-icon">✓</div>
+        <div class="popup-text" id="goal-text"></div>
+        <div class="note-section">
+          <label class="note-label" for="goal-note-input">Add a note (optional):</label>
+          <input type="text" id="goal-note-input" class="note-input" maxlength="80" placeholder="e.g. Ran CPH Half in 1:41! 🏃">
+        </div>
+        <div class="photo-section">
+          <input type="file" id="goal-photo-input" accept="image/*" style="display:none">
+          <button class="photo-btn" id="photo-btn" type="button">📷 Add Photo</button>
+          <div id="photo-preview"></div>
+        </div>
+      </div>
+      <div class="popup-footer">
+        <button class="popup-btn" id="goal-ok">AWESOME!</button>
+      </div>
+    </div>
+    <div class="confetti-wrap" id="confetti-1"></div>
+  </div>
+
+  <!-- Badge Unlock Overlay -->
+  <div class="overlay" id="badge-overlay" style="display:none">
+    <div class="popup badge-popup">
+      <div class="popup-titlebar badge-titlebar">
+        <span class="blink">✦ NEW BADGE OBTAINED! ✦</span>
+      </div>
+      <div class="popup-body">
+        <div class="badge-big" id="badge-big"></div>
+        <div class="badge-popup-name" id="badge-popup-name"></div>
+        <div class="badge-popup-desc" id="badge-popup-desc"></div>
+      </div>
+      <div class="popup-footer">
+        <button class="popup-btn" id="badge-ok">PRESS START!</button>
+      </div>
+    </div>
+    <div class="confetti-wrap" id="confetti-2"></div>
+  </div>
+
+  <!-- Photo Viewer Overlay -->
+  <div class="overlay" id="photo-overlay" style="display:none">
+    <div class="photo-viewer-wrap">
+      <img id="photo-viewer-img" src="" alt="Quest memory">
+      <button class="photo-viewer-close" id="photo-close">✕ CLOSE</button>
+    </div>
+  </div>
+
+  <!-- Floating Deadline Popup -->
+  <div id="deadline-popup" style="display:none">
+    <label class="dl-popup-label" for="dl-popup-input">Set deadline:</label>
+    <input type="date" id="dl-popup-input">
+    <div style="display:flex;gap:6px;justify-content:flex-end">
+      <button class="dl-popup-btn" id="dl-popup-clear">✕ Clear</button>
+      <button class="dl-popup-btn dl-popup-cancel" id="dl-popup-cancel">Cancel</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

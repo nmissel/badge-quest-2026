@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Badge Quest 2026 — Test Suite</title>
+  <style>
+    body { font-family: monospace; background: #1a1a1a; color: #eee; padding: 24px; font-size: 14px; }
+    h1   { color: #FFD700; margin-bottom: 4px; }
+    h2   { color: #88aaff; margin-top: 28px; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px; }
+    .suite-summary { color: #aaa; font-size: 12px; margin-bottom: 16px; }
+    .pass { color: #44ff88; }
+    .fail { color: #ff4444; }
+    .row  { padding: 3px 0 3px 16px; }
+    .icon { font-size: 13px; margin-right: 6px; }
+    #summary { margin-top: 28px; padding: 14px 18px; border-radius: 6px; font-size: 15px; font-weight: bold; }
+    #summary.all-pass { background: #113322; color: #44ff88; border: 1px solid #44ff88; }
+    #summary.some-fail { background: #331111; color: #ff4444; border: 1px solid #ff4444; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Badge Quest 2026 — Test Suite</h1>
+  <p style="color:#aaa;margin:0 0 4px">Tests the core business logic (no DOM, no app.js needed).</p>
+  <div id="output"></div>
+  <div id="summary"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────
+//  MINI TEST RUNNER
+// ─────────────────────────────────────────────────────────────────
+let passed = 0, failed = 0, currentSuite = '';
+const output = document.getElementById('output');
+
+function suite(name) {
+  currentSuite = name;
+  output.innerHTML += `<h2>${name}</h2>`;
+}
+
+function assert(description, actual, expected) {
+  const ok = JSON.stringify(actual) === JSON.stringify(expected);
+  if (ok) passed++; else failed++;
+  const icon = ok ? '✅' : '❌';
+  const cls  = ok ? 'pass' : 'fail';
+  const detail = ok ? '' : ` — got <b>${JSON.stringify(actual)}</b>, expected <b>${JSON.stringify(expected)}</b>`;
+  output.innerHTML += `<div class="row ${cls}"><span class="icon">${icon}</span>${description}${detail}</div>`;
+}
+
+function assertContains(description, str, substring) {
+  const ok = typeof str === 'string' && str.includes(substring);
+  if (ok) passed++; else failed++;
+  const icon = ok ? '✅' : '❌';
+  const cls  = ok ? 'pass' : 'fail';
+  const detail = ok ? '' : ` — string does not contain "${substring}"`;
+  output.innerHTML += `<div class="row ${cls}"><span class="icon">${icon}</span>${description}${detail}</div>`;
+}
+
+function assertNotContains(description, str, substring) {
+  const ok = typeof str === 'string' && !str.includes(substring);
+  if (ok) passed++; else failed++;
+  const icon = ok ? '✅' : '❌';
+  const cls  = ok ? 'pass' : 'fail';
+  const detail = ok ? '' : ` — string unexpectedly contains "${substring}"`;
+  output.innerHTML += `<div class="row ${cls}"><span class="icon">${icon}</span>${description}${detail}</div>`;
+}
+
+function assertTrue(description, value) {
+  assert(description, !!value, true);
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  COPY OF PURE FUNCTIONS FROM app.js (what we're testing)
+// ─────────────────────────────────────────────────────────────────
+
+// ── Deadline helpers (matches refactored app.js) ─────────────────
+function deadlineDays(goal) {
+  if (!goal.deadline || goal.done) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const dl    = new Date(goal.deadline + 'T00:00:00');
+  return Math.round((dl - today) / (1000 * 60 * 60 * 24));
+}
+
+function deadlineUrgency(goal) {
+  const days = deadlineDays(goal);
+  if (days === null) return null;
+  if (days < 0)   return 'overdue';
+  if (days <= 14) return 'urgent';
+  if (days <= 30) return 'warning';
+  if (days <= 60) return 'soon';
+  return 'info';
+}
+
+function deadlineBadgeHTML(goal) {
+  const u = deadlineUrgency(goal);
+  if (!u) return '';
+  const days  = deadlineDays(goal);
+  const label = days < 0  ? `🚨 ${-days}d OVERDUE`
+              : days === 0 ? '🚨 DUE TODAY'
+              : days === 1 ? '⚡ TOMORROW'
+              : `${days}d left`;
+  return `<span class="deadline-badge deadline-${u}">${label}</span>`;
+}
+
+// ── Helper: make a test goal with a deadline N days from today ────
+function goalWithDeadlineInDays(days, done = false) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  const iso = d.toISOString().split('T')[0];
+  return { deadline: iso, done };
+}
+
+// ── Badge definitions (copy from app.js) ─────────────────────────
+const BADGE_DEFS = [
+  { id: 0, name: 'BOULDER BADGE', threshold: ()  => 1  },
+  { id: 1, name: 'CASCADE BADGE', threshold: ()  => 4  },
+  { id: 2, name: 'THUNDER BADGE', threshold: ()  => 8  },
+  { id: 3, name: 'RAINBOW BADGE', threshold: (n) => Math.ceil(n * 0.5) },
+  { id: 4, name: 'SOUL BADGE',    threshold: ()  => 16 },
+  { id: 5, name: 'MARSH BADGE',   threshold: ()  => 19 },
+  { id: 6, name: 'VOLCANO BADGE', threshold: ()  => 22 },
+  { id: 7, name: 'EARTH BADGE',   threshold: (n) => n  },
+];
+
+// ── Progress helpers ──────────────────────────────────────────────
+function countDone(goals) {
+  return goals.filter(g => g.done).length;
+}
+
+function getPct(goals) {
+  if (!goals.length) return 0;
+  return Math.round((countDone(goals) / goals.length) * 100);
+}
+
+function earnedBadges(goals) {
+  const total = goals.length;
+  const done  = countDone(goals);
+  return BADGE_DEFS.filter(b => done >= b.threshold(total));
+}
+
+// ── Fisher-Yates shuffle (copy from migration in loadData) ────────
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ── Goal type migration helpers (copy of migration logic) ─────────
+function migrateGoal7(goals) {
+  const g = goals.find(g => g.id === 7);
+  if (g && g.type === 'binary') {
+    g.type = 'count'; g.target = 12; g.current = 0; g.unit = 'badges';
+    g.done = false; g.doneDate = null;
+  }
+  return goals;
+}
+
+function migrateGoal10(goals) {
+  const g = goals.find(g => g.id === 10);
+  if (g && g.type === 'binary') {
+    g.type = 'count'; g.target = 6; g.current = 0; g.unit = 'film';
+    g.done = false; g.doneDate = null;
+  }
+  return goals;
+}
+
+function migrateGoal16(goals) {
+  const g = goals.find(g => g.id === 16);
+  if (g && g.type === 'count' && g.unit === 'km/barer') {
+    g.type = 'binary'; g.done = false; g.doneDate = null;
+    delete g.target; delete g.current; delete g.unit;
+  }
+  return goals;
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  TESTS
+// ─────────────────────────────────────────────────────────────────
+
+// ── SUITE 1: Deadline urgency ─────────────────────────────────────
+suite('Deadline Urgency');
+
+assert('No deadline → null',
+  deadlineUrgency({ done: false, deadline: null }), null);
+
+assert('Done goal with deadline → null (no urgency shown on completed goals)',
+  deadlineUrgency({ done: true, deadline: goalWithDeadlineInDays(-5).deadline }), null);
+
+assert('Deadline yesterday (-1 day) → overdue',
+  deadlineUrgency(goalWithDeadlineInDays(-1)), 'overdue');
+
+assert('Deadline 10 days ago (-10 days) → overdue',
+  deadlineUrgency(goalWithDeadlineInDays(-10)), 'overdue');
+
+assert('Deadline today (0 days) → urgent',
+  deadlineUrgency(goalWithDeadlineInDays(0)), 'urgent');
+
+assert('Deadline in 7 days → urgent',
+  deadlineUrgency(goalWithDeadlineInDays(7)), 'urgent');
+
+assert('Deadline in 14 days → urgent',
+  deadlineUrgency(goalWithDeadlineInDays(14)), 'urgent');
+
+assert('Deadline in 15 days → warning',
+  deadlineUrgency(goalWithDeadlineInDays(15)), 'warning');
+
+assert('Deadline in 30 days → warning',
+  deadlineUrgency(goalWithDeadlineInDays(30)), 'warning');
+
+assert('Deadline in 31 days → soon',
+  deadlineUrgency(goalWithDeadlineInDays(31)), 'soon');
+
+assert('Deadline in 60 days → soon',
+  deadlineUrgency(goalWithDeadlineInDays(60)), 'soon');
+
+assert('Deadline in 61 days → info',
+  deadlineUrgency(goalWithDeadlineInDays(61)), 'info');
+
+assert('Deadline in 200 days → info',
+  deadlineUrgency(goalWithDeadlineInDays(200)), 'info');
+
+// ── SUITE 2: Deadline badge HTML ──────────────────────────────────
+suite('Deadline Badge HTML');
+
+assert('No deadline → empty string',
+  deadlineBadgeHTML({ done: false, deadline: null }), '');
+
+assertContains('Overdue goal → contains deadline-overdue class',
+  deadlineBadgeHTML(goalWithDeadlineInDays(-3)), 'deadline-overdue');
+
+assertContains('Overdue goal → shows OVERDUE text',
+  deadlineBadgeHTML(goalWithDeadlineInDays(-3)), 'OVERDUE');
+
+assertContains('Today → shows DUE TODAY',
+  deadlineBadgeHTML(goalWithDeadlineInDays(0)), 'DUE TODAY');
+
+assertContains('Tomorrow → shows TOMORROW',
+  deadlineBadgeHTML(goalWithDeadlineInDays(1)), 'TOMORROW');
+
+assertContains('7 days → shows "7d left"',
+  deadlineBadgeHTML(goalWithDeadlineInDays(7)), '7d left');
+
+assertContains('Urgent goal → contains deadline-urgent class',
+  deadlineBadgeHTML(goalWithDeadlineInDays(7)), 'deadline-urgent');
+
+assertContains('Warning goal → contains deadline-warning class',
+  deadlineBadgeHTML(goalWithDeadlineInDays(20)), 'deadline-warning');
+
+// ── SUITE 3: Progress counting ────────────────────────────────────
+suite('Progress Counting (countDone / getPct)');
+
+const noGoals = [];
+const mixGoals = [
+  { id: 1, done: true  },
+  { id: 2, done: false },
+  { id: 3, done: true  },
+  { id: 4, done: false },
+  { id: 5, done: true  },
+];
+const allDone   = [{ id: 1, done: true }, { id: 2, done: true }];
+const noneDone  = [{ id: 1, done: false }, { id: 2, done: false }];
+
+assert('Empty goal list → countDone = 0', countDone(noGoals), 0);
+assert('3 of 5 done → countDone = 3',     countDone(mixGoals), 3);
+assert('All done → countDone = 2',         countDone(allDone), 2);
+assert('None done → countDone = 0',        countDone(noneDone), 0);
+
+assert('Empty list → getPct = 0',          getPct(noGoals), 0);
+assert('3 of 5 → getPct = 60',             getPct(mixGoals), 60);
+assert('All done → getPct = 100',          getPct(allDone), 100);
+assert('None done → getPct = 0',           getPct(noneDone), 0);
+
+const oneOfThree = [{ done: true }, { done: false }, { done: false }];
+assert('1 of 3 → getPct = 33 (rounds down)', getPct(oneOfThree), 33);
+
+const twoOfThree = [{ done: true }, { done: true }, { done: false }];
+assert('2 of 3 → getPct = 67 (rounds)',     getPct(twoOfThree), 67);
+
+// ── SUITE 4: Badge thresholds ─────────────────────────────────────
+suite('Badge Thresholds (earnedBadges)');
+
+function makeGoals(total, doneCount) {
+  return Array.from({ length: total }, (_, i) => ({ done: i < doneCount }));
+}
+
+assert('0 done → no badges earned',
+  earnedBadges(makeGoals(25, 0)).length, 0);
+
+assert('1 done → Boulder Badge unlocked (id=0)',
+  earnedBadges(makeGoals(25, 1)).map(b => b.id), [0]);
+
+assert('4 done → Boulder + Cascade (ids 0,1)',
+  earnedBadges(makeGoals(25, 4)).map(b => b.id), [0, 1]);
+
+assert('8 done → Boulder, Cascade, Thunder (ids 0,1,2)',
+  earnedBadges(makeGoals(25, 8)).map(b => b.id), [0, 1, 2]);
+
+// Rainbow Badge = ceil(25 * 0.5) = 13 done out of 25
+assert('12 done out of 25 → no Rainbow Badge yet',
+  earnedBadges(makeGoals(25, 12)).some(b => b.id === 3), false);
+
+assert('13 done out of 25 → Rainbow Badge earned (ceil(25*0.5)=13)',
+  earnedBadges(makeGoals(25, 13)).some(b => b.id === 3), true);
+
+assert('16 done → Soul Badge earned',
+  earnedBadges(makeGoals(25, 16)).some(b => b.id === 4), true);
+
+assert('22 done → Volcano Badge earned',
+  earnedBadges(makeGoals(25, 22)).some(b => b.id === 6), true);
+
+assert('24 done out of 25 → Earth Badge NOT earned (need all 25)',
+  earnedBadges(makeGoals(25, 24)).some(b => b.id === 7), false);
+
+assert('25 done → Earth Badge earned (all goals complete)',
+  earnedBadges(makeGoals(25, 25)).some(b => b.id === 7), true);
+
+assert('All 8 badges when 100% complete',
+  earnedBadges(makeGoals(25, 25)).length, 8);
+
+// Edge: Rainbow with different total
+assert('Rainbow with 10 total goals: ceil(10*0.5)=5, so 5 done earns it',
+  earnedBadges(makeGoals(10, 5)).some(b => b.id === 3), true);
+
+assert('Rainbow with 10 total goals: 4 done does NOT earn it',
+  earnedBadges(makeGoals(10, 4)).some(b => b.id === 3), false);
+
+// ── SUITE 5: Goal type migrations ────────────────────────────────
+suite('Goal Type Migrations');
+
+// Goal 7: binary → count:12:badges
+const oldGoal7 = [{ id: 7, type: 'binary', done: false, doneDate: null, note: '' }];
+const migratedGoal7 = migrateGoal7([...oldGoal7.map(g => ({...g}))]);
+assert('Goal 7 migrated type: binary → count',
+  migratedGoal7.find(g => g.id === 7).type, 'count');
+assert('Goal 7 migrated target = 12',
+  migratedGoal7.find(g => g.id === 7).target, 12);
+assert('Goal 7 migrated unit = badges',
+  migratedGoal7.find(g => g.id === 7).unit, 'badges');
+assert('Goal 7 migrated current = 0',
+  migratedGoal7.find(g => g.id === 7).current, 0);
+
+// Goal 7 already count: should NOT be changed
+const alreadyCountGoal7 = [{ id: 7, type: 'count', target: 12, current: 5, unit: 'badges', done: false }];
+const noChangedGoal7 = migrateGoal7([...alreadyCountGoal7.map(g => ({...g}))]);
+assert('Goal 7 already count → migration is idempotent (current stays 5)',
+  noChangedGoal7.find(g => g.id === 7).current, 5);
+
+// Goal 10: binary → count:6:film
+const oldGoal10 = [{ id: 10, type: 'binary', done: false, doneDate: null, note: '' }];
+const migratedGoal10 = migrateGoal10([...oldGoal10.map(g => ({...g}))]);
+assert('Goal 10 migrated type: binary → count',
+  migratedGoal10.find(g => g.id === 10).type, 'count');
+assert('Goal 10 migrated target = 6',
+  migratedGoal10.find(g => g.id === 10).target, 6);
+assert('Goal 10 migrated unit = film',
+  migratedGoal10.find(g => g.id === 10).unit, 'film');
+
+// Goal 16: count:km/barer → binary
+const oldGoal16 = [{ id: 16, type: 'count', target: 10, current: 0, unit: 'km/barer', done: false }];
+const migratedGoal16 = migrateGoal16([...oldGoal16.map(g => ({...g}))]);
+assert('Goal 16 migrated type: count → binary',
+  migratedGoal16.find(g => g.id === 16).type, 'binary');
+assert('Goal 16 migrated: target removed',
+  migratedGoal16.find(g => g.id === 16).target, undefined);
+assert('Goal 16 migrated: unit removed',
+  migratedGoal16.find(g => g.id === 16).unit, undefined);
+
+// Goal 16 with different unit: should NOT be affected
+const otherGoal16 = [{ id: 16, type: 'count', target: 5, current: 2, unit: 'ture', done: false }];
+const notMigratedGoal16 = migrateGoal16([...otherGoal16.map(g => ({...g}))]);
+assert('Goal 16 with different unit → not touched by migration',
+  notMigratedGoal16.find(g => g.id === 16).type, 'count');
+
+// ── SUITE 6: Fisher-Yates shuffle ────────────────────────────────
+suite('Fisher-Yates Shuffle');
+
+// Test that shuffle produces all same elements (no loss)
+const original = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const shuffled = shuffleArray(original);
+
+assert('Shuffled array has same length', shuffled.length, original.length);
+assert('Shuffled array contains all original elements',
+  [...shuffled].sort((a,b)=>a-b), original);
+assert('Original array is not mutated',
+  original, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+// Test that shuffle actually shuffles (run 50 times — p of staying identical is 1/10! ≈ 0)
+let shuffledAtLeastOnce = false;
+for (let i = 0; i < 50; i++) {
+  const s = shuffleArray(original);
+  if (JSON.stringify(s) !== JSON.stringify(original)) { shuffledAtLeastOnce = true; break; }
+}
+assertTrue('Shuffle changes order at least once in 50 tries', shuffledAtLeastOnce);
+
+// Single element array stays the same
+assert('Single-element array survives shuffle', shuffleArray([42]), [42]);
+assert('Empty array survives shuffle', shuffleArray([]), []);
+
+// ── SUITE 7: goalsShuffled flag logic ────────────────────────────
+suite('goalsShuffled Flag (prevents double shuffle)');
+
+function simulateLoadWithShuffle(parsed) {
+  // Simulates what loadData() does with the shuffle migration
+  if (!parsed.goalsShuffled) {
+    ['las', 'together', 'sof'].forEach(tab => {
+      const arr = parsed[tab]?.goals;
+      if (arr && arr.length > 1) {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+      }
+    });
+    parsed.goalsShuffled = true;
+  }
+  return parsed;
+}
+
+const freshData = { goalsShuffled: false, las: { goals: [{id:1},{id:2},{id:3},{id:4},{id:5}] }, together: { goals: [] }, sof: { goals: [] } };
+const afterFirstLoad = simulateLoadWithShuffle(JSON.parse(JSON.stringify(freshData)));
+assert('After first load, goalsShuffled is true', afterFirstLoad.goalsShuffled, true);
+
+const goalsAfterFirst = JSON.stringify(afterFirstLoad.las.goals);
+const afterSecondLoad = simulateLoadWithShuffle(JSON.parse(JSON.stringify(afterFirstLoad)));
+const goalsAfterSecond = JSON.stringify(afterSecondLoad.las.goals);
+assert('Second load does not re-shuffle (goalsShuffled guard works)',
+  goalsAfterFirst, goalsAfterSecond);
+
+// ─────────────────────────────────────────────────────────────────
+//  FINAL SUMMARY
+// ─────────────────────────────────────────────────────────────────
+const total = passed + failed;
+const pct   = Math.round((passed / total) * 100);
+const summaryEl = document.getElementById('summary');
+summaryEl.className = failed === 0 ? 'all-pass' : 'some-fail';
+summaryEl.textContent = failed === 0
+  ? `✅ All ${total} tests passed (${pct}%)`
+  : `❌ ${failed} of ${total} tests FAILED (${passed} passed, ${pct}%)`;
+</script>
+</body>
+</html>
