@@ -1955,7 +1955,6 @@ function init() {
 
   // ── Swipe gestures (win-body) ────────────────────────────────
   let _swipeStartX = 0, _swipeStartY = 0, _swipeEl = null;
-  const wb = document.getElementById('win-body');
 
   wb.addEventListener('touchstart', e => {
     const wrapper = e.target.closest('.swipe-wrapper');
