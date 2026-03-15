@@ -4,7 +4,9 @@
 import { initAuth, signOutUser, currentUser, currentProfile } from './auth.js';
 import {
   loadUserData, loadGroupData, loadPartnerData,
-  syncAllToFirestore, saveUserGoal, saveGroupGoal
+  syncAllToFirestore, saveUserGoal, saveGroupGoal,
+  sendGroupInvite, getPendingInvitesForEmail, getSentInvites,
+  acceptGroupInvite, declineGroupInvite, leaveGroup
 } from './db.js';
 
 const MONTHS = ['JAN','FEB','MAR','APR','MAJ','JUN','JUL','AUG','SEP','OKT','NOV','DEC'];
@@ -128,7 +130,9 @@ const BALANCE_BADGE_DEFS = [
 ];
 
 // ── STATE ─────────────────────────────────────────────────────
-let currentGroupId = null;
+let currentGroupId  = null;
+let allGroups       = [];    // [{ id, name, members, ... }] for all user's groups
+let _pendingInvites = [];    // invites waiting for this user
 let data = {
   me:       { name: 'ME', color: '#cc0000', goals: [], unlockedBadges: [], badgeDates: {} },
   partner:  null,
@@ -1053,7 +1057,16 @@ function render() {
 function ensureWinBodyStructure() {
   const wb = document.getElementById('win-body');
   if (!wb.querySelector('#badge-case')) {
+    const groupSwitcherHTML = (activeTab === 'together' && allGroups.length > 1) ? `
+      <div class="group-switcher-row">
+        <span class="group-switcher-label">GROUP:</span>
+        <select class="group-switcher" id="group-switcher">
+          ${allGroups.map(g => `<option value="${g.id}" ${g.id === currentGroupId ? 'selected' : ''}>${g.name}</option>`).join('')}
+        </select>
+      </div>` : '';
+
     wb.innerHTML = `
+      ${groupSwitcherHTML}
       <div class="inset-panel badge-case-panel">
         <div class="panel-title badge-case-toggle">
           <span>✦ BADGE CASE ✦</span>
@@ -1086,6 +1099,25 @@ function ensureWinBodyStructure() {
         </div>
         <div class="goal-list" id="goal-list"></div>
       </div>`;
+
+    // Wire group switcher change event
+    const switcher = wb.querySelector('#group-switcher');
+    if (switcher) {
+      switcher.addEventListener('change', async () => {
+        const gid = switcher.value;
+        if (gid === currentGroupId) return;
+        currentGroupId = gid;
+        const groupData = allGroups.find(g => g.id === gid);
+        data.together   = groupData || { name: 'COUPLE', goals: [], unlockedCombinedBadges: [], unlockedBalanceBadges: [], badgeDates: {} };
+        // Load partner for this group
+        const partnerUid = (groupData?.members || []).find(uid => uid !== currentUser?.uid);
+        data.partner = partnerUid ? await loadPartnerData(partnerUid) : null;
+        updateTabLabels();
+        // Force structure rebuild on next render
+        wb.innerHTML = '';
+        render();
+      });
+    }
   }
 }
 
@@ -1615,6 +1647,214 @@ function launchConfetti(containerId) {
   setTimeout(() => { container.innerHTML = ''; }, 4000);
 }
 
+// ── PARTNERS PANEL ────────────────────────────────────────────
+function openPartnersPanel() {
+  document.getElementById('partners-overlay').style.display = 'flex';
+  renderPartnersPanel();
+}
+
+function closePartnersPanel() {
+  document.getElementById('partners-overlay').style.display = 'none';
+}
+
+async function renderPartnersPanel() {
+  const uid   = currentUser?.uid;
+  const email = currentProfile?.email;
+  if (!uid) return;
+
+  // Groups
+  const groupsEl = document.getElementById('partners-groups-list');
+  if (allGroups.length === 0) {
+    groupsEl.innerHTML = '<div class="partners-empty">No groups yet. Invite someone below!</div>';
+  } else {
+    groupsEl.innerHTML = allGroups.map(g => {
+      const memberStr = (g.memberEmails || g.members || []).join(', ');
+      return `
+        <div class="partners-group-row">
+          <div>
+            <div class="partners-group-name">${g.name || 'Group'}</div>
+            <div class="partners-group-members">${memberStr}</div>
+          </div>
+          <button class="partners-leave-btn" data-group-id="${g.id}">🚪 LEAVE</button>
+        </div>`;
+    }).join('');
+  }
+
+  // Sent invites
+  let sentInvites = [];
+  try { sentInvites = await getSentInvites(uid); } catch (_) {}
+  const sentSection = document.getElementById('partners-sent-section');
+  const sentList    = document.getElementById('partners-sent-list');
+  if (sentInvites.length === 0) {
+    sentSection.style.display = 'none';
+  } else {
+    sentSection.style.display = '';
+    sentList.innerHTML = sentInvites.map(inv => {
+      const statusCls = inv.status === 'accepted' ? 'accepted' : inv.status === 'declined' ? 'declined' : 'pending';
+      const statusLbl = inv.status === 'accepted' ? '✓ ACCEPTED' : inv.status === 'declined' ? '✕ DECLINED' : '⏳ PENDING';
+      return `
+        <div class="partners-sent-row">
+          <div>
+            <span class="partners-sent-to">${inv.toEmail}</span>
+            <span style="font-family:VT323,monospace;font-size:14px;color:#888"> — ${inv.groupName || ''}</span>
+          </div>
+          <span class="partners-sent-status ${statusCls}">${statusLbl}</span>
+        </div>`;
+    }).join('');
+  }
+
+  // Incoming invites (also rendered in panel for convenience)
+  const incomingSection = document.getElementById('partners-incoming-section');
+  const incomingList    = document.getElementById('partners-incoming-list');
+  if (_pendingInvites.length === 0) {
+    incomingSection.style.display = 'none';
+  } else {
+    incomingSection.style.display = '';
+    incomingList.innerHTML = _pendingInvites.map(inv => `
+      <div class="partners-invite-row">
+        <div class="partners-invite-from">${inv.fromUsername || inv.fromEmail} invited you to:</div>
+        <div class="partners-invite-name">"${inv.groupName}"</div>
+        <div class="partners-invite-actions">
+          <button class="partners-accept-btn" data-invite-id="${inv.id}">✓ ACCEPT</button>
+          <button class="partners-decline-btn" data-invite-id="${inv.id}">✕ DECLINE</button>
+        </div>
+      </div>`).join('');
+  }
+}
+
+async function handlePartnersClick(e) {
+  // Leave group
+  const leaveBtn = e.target.closest('.partners-leave-btn');
+  if (leaveBtn) {
+    const groupId = leaveBtn.dataset.groupId;
+    if (!confirm('Leave this group? Your shared quests will remain but you won\'t be linked.')) return;
+    leaveBtn.textContent = '…';
+    leaveBtn.disabled = true;
+    try {
+      await leaveGroup(groupId, currentUser.uid);
+      allGroups    = allGroups.filter(g => g.id !== groupId);
+      if (currentGroupId === groupId) {
+        currentGroupId  = allGroups[0]?.id || null;
+        data.together   = allGroups[0] || { name: 'COUPLE', goals: [], unlockedCombinedBadges: [], unlockedBalanceBadges: [], badgeDates: {} };
+        data.partner    = null;
+      }
+      updateTabLabels();
+      render();
+      renderPartnersPanel();
+    } catch (err) {
+      alert('Could not leave group. Try again.');
+      leaveBtn.disabled = false;
+      leaveBtn.textContent = '🚪 LEAVE';
+    }
+    return;
+  }
+
+  // Accept invite (in panel)
+  const acceptBtn = e.target.closest('.partners-accept-btn');
+  if (acceptBtn) {
+    await handleAcceptInvite(acceptBtn.dataset.inviteId);
+    return;
+  }
+
+  // Decline invite (in panel)
+  const declineBtn = e.target.closest('.partners-decline-btn');
+  if (declineBtn) {
+    await handleDeclineInvite(declineBtn.dataset.inviteId);
+    return;
+  }
+}
+
+async function handleAcceptInvite(inviteId) {
+  const invite = _pendingInvites.find(i => i.id === inviteId);
+  if (!invite) return;
+  setStatus('JOINING GROUP…');
+  try {
+    const groupId = await acceptGroupInvite(inviteId, invite, currentUser.uid, currentProfile.email);
+    _pendingInvites = _pendingInvites.filter(i => i.id !== inviteId);
+    // Load the new group
+    const groupData = await loadGroupData(groupId);
+    groupData.id    = groupId;
+    allGroups.push(groupData);
+    currentGroupId  = groupId;
+    data.together   = groupData;
+    const partnerUid = groupData.members.find(uid => uid !== currentUser.uid);
+    if (partnerUid) data.partner = await loadPartnerData(partnerUid);
+    updateTabLabels();
+    renderInviteBanner();
+    render();
+    renderPartnersPanel();
+    setStatus('GROUP JOINED ✓', 3000);
+  } catch (err) {
+    console.error('Accept invite error:', err);
+    setStatus('ERROR JOINING GROUP', 3000);
+  }
+}
+
+async function handleDeclineInvite(inviteId) {
+  try {
+    await declineGroupInvite(inviteId);
+    _pendingInvites = _pendingInvites.filter(i => i.id !== inviteId);
+    renderInviteBanner();
+    renderPartnersPanel();
+  } catch (_) {}
+}
+
+async function handleSendInvite() {
+  const nameInput   = document.getElementById('invite-name-input');
+  const emailInput  = document.getElementById('invite-email-input');
+  const statusEl    = document.getElementById('invite-status');
+  const groupName   = nameInput.value.trim();
+  const toEmail     = emailInput.value.trim();
+  statusEl.className = 'partners-status';
+  statusEl.textContent = '';
+
+  if (!groupName) { statusEl.className = 'partners-status err'; statusEl.textContent = 'Enter a group name.'; return; }
+  if (!toEmail || !toEmail.includes('@')) { statusEl.className = 'partners-status err'; statusEl.textContent = 'Enter a valid email.'; return; }
+  if (toEmail.toLowerCase() === currentProfile?.email?.toLowerCase()) { statusEl.className = 'partners-status err'; statusEl.textContent = 'That\'s your own email!'; return; }
+
+  const sendBtn = document.getElementById('invite-send-btn');
+  sendBtn.disabled = true;
+  sendBtn.textContent = '⏳ SENDING…';
+
+  try {
+    await sendGroupInvite(currentUser.uid, currentProfile.email, currentProfile.username, toEmail, groupName);
+    statusEl.className   = 'partners-status ok';
+    statusEl.textContent = '✓ Invite sent! They\'ll see it when they log in.';
+    nameInput.value  = '';
+    emailInput.value = '';
+    renderPartnersPanel();
+  } catch (err) {
+    console.error('Send invite error:', err);
+    statusEl.className   = 'partners-status err';
+    statusEl.textContent = 'Could not send. Try again.';
+  }
+  sendBtn.disabled = false;
+  sendBtn.textContent = 'SEND INVITE ▶';
+}
+
+function renderInviteBanner() {
+  // Remove any existing banner
+  const existing = document.getElementById('invite-banner');
+  if (existing) existing.remove();
+  if (!_pendingInvites.length) return;
+
+  // Inject banner at top of win-body
+  const wb = document.getElementById('win-body');
+  if (!wb) return;
+  const tpl     = document.getElementById('invite-banner-tpl');
+  const banner  = tpl.content.cloneNode(true);
+  const content = banner.querySelector('#invite-banner-content');
+  content.innerHTML = _pendingInvites.map(inv => `
+    <div class="invite-banner-item">
+      <span class="invite-banner-text">🎯 <b>${inv.fromUsername || inv.fromEmail}</b> invited you to <b>"${inv.groupName}"</b>!</span>
+      <div class="invite-banner-actions">
+        <button class="invite-banner-accept"  data-banner-accept="${inv.id}">ACCEPT</button>
+        <button class="invite-banner-decline" data-banner-decline="${inv.id}">IGNORE</button>
+      </div>
+    </div>`).join('');
+  wb.insertBefore(banner, wb.firstChild);
+}
+
 // ── TABS ──────────────────────────────────────────────────────
 function switchTab(name) {
   activeTab = name;
@@ -1663,6 +1903,23 @@ function makeDraggable(handle, target) {
 // Attached once to win-body in init(). Handles all dynamic goal/badge interactions
 // so renderGoalList() and renderAllTab() don't need to re-attach handlers every render.
 function handleWinBodyClick(e) {
+
+  // Invite banner — ACCEPT
+  const bannerAccept = e.target.closest('[data-banner-accept]');
+  if (bannerAccept) {
+    handleAcceptInvite(bannerAccept.dataset.bannerAccept);
+    return;
+  }
+  // Invite banner — DECLINE
+  const bannerDecline = e.target.closest('[data-banner-decline]');
+  if (bannerDecline) {
+    handleDeclineInvite(bannerDecline.dataset.bannerDecline);
+    return;
+  }
+
+  // Group switcher (couple tab)
+  const groupSwitcher = e.target.closest('.group-switcher');
+  if (groupSwitcher) return; // handled by 'change' event
 
   // Swipe edit button
   const swipeEdit = e.target.closest('.swipe-edit-btn');
@@ -1872,12 +2129,14 @@ function init() {
     t.addEventListener('click', () => switchTab(t.dataset.tab))
   );
 
-  // Save / Load
-  document.getElementById('save-btn').addEventListener('click', exportJSON);
-  document.getElementById('load-btn').addEventListener('click', () => document.getElementById('file-input').click());
-  document.getElementById('file-input').addEventListener('change', e => {
-    if (e.target.files[0]) { importJSON(e.target.files[0]); e.target.value = ''; }
+  // Partners panel
+  document.getElementById('partners-btn').addEventListener('click', openPartnersPanel);
+  document.getElementById('partners-close').addEventListener('click', closePartnersPanel);
+  document.getElementById('partners-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('partners-overlay')) closePartnersPanel();
   });
+  document.getElementById('partners-overlay').addEventListener('click', handlePartnersClick);
+  document.getElementById('invite-send-btn').addEventListener('click', handleSendInvite);
 
   // Allow Enter to submit note
   document.getElementById('goal-note-input').addEventListener('keydown', e => {
@@ -2086,13 +2345,31 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load personal goals from Firestore
     data.me = await loadUserData(user.uid);
 
-    // Load group + partner if in a group
+    // Load ALL groups this user belongs to
+    allGroups = [];
     if (profile.groups?.length > 0) {
-      currentGroupId  = profile.groups[0];
-      const groupData = await loadGroupData(currentGroupId);
-      data.together   = groupData;
-      const partnerUid = groupData.members.find(uid => uid !== user.uid);
-      if (partnerUid) data.partner = await loadPartnerData(partnerUid);
+      for (const gid of profile.groups) {
+        try {
+          const gd  = await loadGroupData(gid);
+          gd.id     = gid;
+          allGroups.push(gd);
+        } catch (_) {}
+      }
+
+      // Active group = first one (or previously set currentGroupId if already chosen)
+      if (allGroups.length > 0) {
+        currentGroupId = allGroups[0].id;
+        data.together  = allGroups[0];
+        const partnerUid = allGroups[0].members?.find(uid => uid !== user.uid);
+        if (partnerUid) data.partner = await loadPartnerData(partnerUid);
+      }
+    }
+
+    // Check for pending invites
+    if (profile.email) {
+      try {
+        _pendingInvites = await getPendingInvitesForEmail(profile.email);
+      } catch (_) { _pendingInvites = []; }
     }
 
     // Update header + tabs
@@ -2101,6 +2378,9 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTabLabels();
 
     init();
+
+    // Show invite banner if there are pending invites
+    if (_pendingInvites.length > 0) renderInviteBanner();
   });
 
   // Sign-out button

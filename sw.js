@@ -3,7 +3,7 @@
 //  Caches app shell for offline use
 // ============================================================
 
-const CACHE = 'badge-quest-v3';
+const CACHE = 'badge-quest-v4';
 
 const SHELL = [
   './index.html',

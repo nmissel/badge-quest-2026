@@ -2611,3 +2611,271 @@ body {
 .gm-cancel { background: linear-gradient(180deg, #f0f0f0 0%, #d4d0c8 100%); color: #333; }
 .gm-save   { background: linear-gradient(180deg, #3870DA 0%, #1848BE 100%); color: #fff; border-color: #0A246A; }
 .delete-ok { background: linear-gradient(180deg, #e05050 0%, #aa0000 100%); color: #fff; border-color: #880000; }
+
+/* ── Partners Panel ── */
+.partners-popup {
+  width: min(96vw, 440px);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+.partners-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.partners-close-x {
+  background: none;
+  border: none;
+  color: #fff;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  cursor: pointer;
+  padding: 2px 4px;
+  opacity: 0.8;
+}
+.partners-close-x:hover { opacity: 1; }
+
+.partners-body {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+.partners-section-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #0A246A;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 4px;
+}
+.partners-empty {
+  font-family: VT323, monospace;
+  font-size: 18px;
+  color: #888;
+  padding: 4px 2px;
+}
+.partners-group-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(180deg, #f7f6f0 0%, #eceadf 100%);
+  border: 1px solid #bbb;
+  border-radius: 3px;
+  padding: 8px 10px;
+  gap: 8px;
+}
+.partners-group-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #222;
+}
+.partners-group-members {
+  font-family: VT323, monospace;
+  font-size: 16px;
+  color: #555;
+}
+.partners-leave-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 5.5px;
+  background: linear-gradient(180deg, #ffeaea 0%, #ffcccc 100%);
+  color: #880000;
+  border: 1px solid #cc8888;
+  border-radius: 3px;
+  padding: 4px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.partners-leave-btn:hover { filter: brightness(0.95); }
+
+.partners-invite-row {
+  background: linear-gradient(180deg, #f7f6f0 0%, #eceadf 100%);
+  border: 1px solid #bbb;
+  border-radius: 3px;
+  padding: 8px 10px;
+}
+.partners-invite-from {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #222;
+  margin-bottom: 4px;
+}
+.partners-invite-name {
+  font-family: VT323, monospace;
+  font-size: 18px;
+  color: #0A246A;
+  font-weight: bold;
+}
+.partners-invite-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.partners-accept-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  background: linear-gradient(180deg, #3870DA 0%, #1848BE 100%);
+  color: #fff;
+  border: 1px solid #0A246A;
+  border-radius: 3px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+.partners-decline-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  background: linear-gradient(180deg, #f0f0f0 0%, #d4d0c8 100%);
+  color: #444;
+  border: 1px solid #aaa;
+  border-radius: 3px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.partners-sent-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(180deg, #f7f6f0 0%, #eceadf 100%);
+  border: 1px solid #bbb;
+  border-radius: 3px;
+  padding: 6px 10px;
+  gap: 6px;
+}
+.partners-sent-to {
+  font-family: VT323, monospace;
+  font-size: 17px;
+  color: #444;
+}
+.partners-sent-status {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 5.5px;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+.partners-sent-status.pending  { background: #fff3c0; color: #7A5500; }
+.partners-sent-status.accepted { background: #d4edda; color: #155724; }
+.partners-sent-status.declined { background: #f8d7da; color: #721c24; }
+
+.partners-invite-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.partners-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  color: #555;
+  margin-top: 4px;
+}
+.partners-input {
+  font-family: VT323, monospace;
+  font-size: 20px;
+  background: #fff;
+  border: 1px solid #aaa;
+  border-radius: 3px;
+  padding: 5px 8px;
+  color: #222;
+  width: 100%;
+}
+.partners-input:focus {
+  outline: none;
+  border-color: #316AC5;
+  box-shadow: 0 0 0 2px rgba(49,106,197,0.2);
+}
+.partners-send-btn {
+  align-self: flex-end;
+  margin-top: 4px;
+  background: linear-gradient(180deg, #3870DA 0%, #1848BE 100%);
+  color: #fff;
+  border-color: #0A246A;
+}
+.partners-status {
+  font-family: VT323, monospace;
+  font-size: 17px;
+  min-height: 20px;
+  color: #555;
+}
+.partners-status.ok  { color: #155724; }
+.partners-status.err { color: #721c24; }
+
+/* ── Invite Banner (in win-body) ── */
+.invite-banner {
+  background: linear-gradient(135deg, #1848BE, #3870DA);
+  border: 1px solid #0A246A;
+  border-radius: 4px;
+  margin: 8px 8px 0;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.invite-banner-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.invite-banner-text {
+  font-family: VT323, monospace;
+  font-size: 19px;
+  color: #fff;
+  flex: 1;
+  min-width: 180px;
+}
+.invite-banner-actions {
+  display: flex;
+  gap: 6px;
+}
+.invite-banner-accept {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  background: #FFD700;
+  color: #333;
+  border: 1px solid #A87800;
+  border-radius: 3px;
+  padding: 5px 7px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.invite-banner-decline {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 3px;
+  padding: 5px 7px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ── Group Switcher (couple tab) ── */
+.group-switcher-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 2px;
+  flex-shrink: 0;
+}
+.group-switcher-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  color: #555;
+  white-space: nowrap;
+}
+.group-switcher {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  background: linear-gradient(180deg, #fff 0%, #eceadf 100%);
+  border: 1px solid #aaa;
+  border-radius: 3px;
+  padding: 4px 6px;
+  color: #222;
+  flex: 1;
+  cursor: pointer;
+}

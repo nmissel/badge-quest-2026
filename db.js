@@ -5,7 +5,8 @@ import { db } from './firebase.js';
 import {
   doc, collection, getDocs, getDoc,
   setDoc, updateDoc, deleteDoc,
-  writeBatch, serverTimestamp
+  writeBatch, serverTimestamp,
+  query, where, arrayUnion, arrayRemove
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 // ── User ─────────────────────────────────────────────────────
@@ -146,4 +147,75 @@ export async function saveGroupGoal(groupId, goal) {
 
 export async function deleteGroupGoal(groupId, goalId) {
   await deleteDoc(doc(db, 'groups', groupId, 'goals', String(goalId)));
+}
+
+// ── Email ─────────────────────────────────────────────────────
+
+export async function saveUserEmail(uid, email) {
+  await updateDoc(doc(db, 'users', uid), { email }).catch(() => {});
+}
+
+// ── Invite management ─────────────────────────────────────────
+
+export async function sendGroupInvite(fromUid, fromEmail, fromUsername, toEmail, groupName) {
+  const inviteRef = doc(collection(db, 'invites'));
+  await setDoc(inviteRef, {
+    fromUid,
+    fromEmail,
+    fromUsername,
+    toEmail:   toEmail.toLowerCase().trim(),
+    groupName,
+    status:    'pending',
+    createdAt: serverTimestamp()
+  });
+  return inviteRef.id;
+}
+
+export async function getPendingInvitesForEmail(email) {
+  const q    = query(
+    collection(db, 'invites'),
+    where('toEmail', '==', email.toLowerCase().trim())
+  );
+  const snap = await getDocs(q);
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(inv => inv.status === 'pending');
+}
+
+export async function getSentInvites(fromUid) {
+  const q    = query(collection(db, 'invites'), where('fromUid', '==', fromUid));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function acceptGroupInvite(inviteId, invite, acceptingUid, acceptingEmail) {
+  const groupRef = doc(collection(db, 'groups'));
+  const groupId  = groupRef.id;
+  const batch    = writeBatch(db);
+
+  batch.set(groupRef, {
+    name:                   invite.groupName,
+    members:                [invite.fromUid, acceptingUid],
+    memberEmails:           [invite.fromEmail, acceptingEmail],
+    createdAt:              serverTimestamp(),
+    unlockedCombinedBadges: [],
+    unlockedBalanceBadges:  [],
+    badgeDates:             {}
+  });
+  batch.update(doc(db, 'invites', inviteId), { status: 'accepted', groupId });
+  await batch.commit();
+
+  await updateDoc(doc(db, 'users', invite.fromUid), { groups: arrayUnion(groupId) });
+  await updateDoc(doc(db, 'users', acceptingUid),   { groups: arrayUnion(groupId) });
+
+  return groupId;
+}
+
+export async function declineGroupInvite(inviteId) {
+  await updateDoc(doc(db, 'invites', inviteId), { status: 'declined' });
+}
+
+export async function leaveGroup(groupId, uid) {
+  await updateDoc(doc(db, 'users', uid),      { groups: arrayRemove(groupId) });
+  await updateDoc(doc(db, 'groups', groupId), { members: arrayRemove(uid) });
 }

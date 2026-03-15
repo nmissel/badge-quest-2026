@@ -8,7 +8,7 @@ import {
   signOut
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
-  doc, getDoc, setDoc, serverTimestamp
+  doc, getDoc, setDoc, updateDoc, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 // ── Exported state ─────────────────────────────────────────
@@ -38,12 +38,13 @@ async function getProfile(uid) {
   return snap.exists() ? snap.data() : null;
 }
 
-async function saveProfile(uid, username, color) {
+async function saveProfile(uid, username, color, email) {
   await setDoc(doc(db, 'users', uid), {
     username,
     color,
+    email:     email || '',
     createdAt: serverTimestamp(),
-    groups: []
+    groups:    []
   }, { merge: true });
 }
 
@@ -67,8 +68,8 @@ function initUsernameScreen(user, onReady) {
       return;
     }
     try {
-      await saveProfile(user.uid, username, color);
-      currentProfile = { username, color, groups: [] };
+      await saveProfile(user.uid, username, color, user.email);
+      currentProfile = { username, color, email: user.email, groups: [] };
       hideAuthOverlay();
       onReady(user, currentProfile);
     } catch (e) {
@@ -142,9 +143,13 @@ export function initAuth(onReady) {
       initUsernameScreen(user, onReady);
     } else {
       console.log('🚀 Profile loaded, entering app');
-      currentProfile = profile;
+      currentProfile = { ...profile, email: user.email };
+      // Silently ensure email is stored (needed for invite matching)
+      if (!profile.email || profile.email !== user.email) {
+        updateDoc(doc(db, 'users', user.uid), { email: user.email }).catch(() => {});
+      }
       hideAuthOverlay();
-      onReady(user, profile);
+      onReady(user, currentProfile);
     }
   });
 }

@@ -73,9 +73,7 @@
 
     <!-- Bottom Toolbar -->
     <footer class="status-bar">
-      <button class="sb-btn" id="save-btn">💾 SAVE</button>
-      <button class="sb-btn" id="load-btn">📂 LOAD</button>
-      <input type="file" id="file-input" accept=".json" style="display:none">
+      <button class="sb-btn" id="partners-btn">👥 PARTNERS</button>
       <div class="sb-divider"></div>
       <span class="sb-text" id="sb-text">READY TO QUEST</span>
       <div class="sb-divider"></div>
@@ -271,6 +269,55 @@
       </div>
     </div>
   </div>
+
+  <!-- ── Partners Panel Overlay ──────────────────────────────── -->
+  <div class="overlay" id="partners-overlay" style="display:none">
+    <div class="popup partners-popup">
+      <div class="popup-titlebar partners-titlebar">
+        <span>👥 PARTNERS</span>
+        <button class="partners-close-x" id="partners-close">✕</button>
+      </div>
+      <div class="popup-body partners-body">
+
+        <!-- Pending invites TO me -->
+        <div id="partners-incoming-section" style="display:none">
+          <div class="partners-section-title">📬 INCOMING INVITES</div>
+          <div id="partners-incoming-list"></div>
+        </div>
+
+        <!-- Current groups -->
+        <div class="partners-section-title">💎 YOUR GROUPS</div>
+        <div id="partners-groups-list">
+          <div class="partners-empty">No groups yet. Invite someone below!</div>
+        </div>
+
+        <!-- Pending sent invites -->
+        <div id="partners-sent-section" style="display:none">
+          <div class="partners-section-title">📤 SENT INVITES</div>
+          <div id="partners-sent-list"></div>
+        </div>
+
+        <!-- Invite form -->
+        <div class="partners-section-title">✉️ INVITE A PLAYER</div>
+        <div class="partners-invite-form">
+          <label class="partners-label" for="invite-name-input">GROUP NAME</label>
+          <input type="text"  id="invite-name-input"  class="partners-input" maxlength="30" placeholder="e.g. Us 2026">
+          <label class="partners-label" for="invite-email-input">THEIR EMAIL</label>
+          <input type="email" id="invite-email-input" class="partners-input" maxlength="100" placeholder="player@email.com">
+          <button class="popup-btn partners-send-btn" id="invite-send-btn">SEND INVITE ▶</button>
+          <p id="invite-status" class="partners-status"></p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Pending Invite Banner (injected into win-body) ─────── -->
+  <template id="invite-banner-tpl">
+    <div class="invite-banner" id="invite-banner">
+      <div class="invite-banner-content" id="invite-banner-content"></div>
+    </div>
+  </template>
 
   <script type="module" src="app.js"></script>
 </body>
