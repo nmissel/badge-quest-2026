@@ -1,6 +1,7 @@
 // ============================================================
 //  BADGE QUEST 2026 — app.js
 // ============================================================
+import { initAuth, signOutUser, currentUser, currentProfile } from './auth.js';
 
 const MONTHS = ['JAN','FEB','MAR','APR','MAJ','JUN','JUL','AUG','SEP','OKT','NOV','DEC'];
 
@@ -1850,4 +1851,17 @@ function checkInactivity() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  initAuth((user, profile) => {
+    // Update header to show logged-in username
+    document.querySelector('.title-text').textContent =
+      `BADGE QUEST — ${profile.username.toUpperCase()}`;
+    init();
+  });
+
+  // Sign-out button
+  document.getElementById('signout-btn').addEventListener('click', async () => {
+    await signOutUser();
+    // Auth state listener in auth.js will show the login screen automatically
+  });
+});

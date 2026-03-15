@@ -2243,3 +2243,171 @@ body {
   min-width: 52px;
   flex-shrink: 0;
 }
+
+
+/* ============================================================
+   AUTH OVERLAY — Login & Username Setup
+   ============================================================ */
+
+#auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at 60% 40%, #2060C0 0%, #0C2478 55%, #061240 100%);
+  font-family: 'Tahoma', sans-serif;
+}
+
+.auth-window {
+  width: min(340px, 92vw);
+  border: 2px solid #0A246A;
+  border-radius: 6px 6px 4px 4px;
+  box-shadow:
+    2px 2px 0 #0A246A,
+    0 8px 32px rgba(0,0,0,0.6);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: auth-pop 0.25s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+@keyframes auth-pop {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+/* XP title bar */
+.auth-titlebar {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 55%),
+    linear-gradient(90deg,
+      #0C2478 0%, #1848BE 18%, #3870DA 38%,
+      #4A88F0 50%, #3870DA 62%, #1848BE 82%, #0C2478 100%
+    );
+  padding: 0 10px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid #0A246A;
+  user-select: none;
+}
+
+.auth-titlebar-icon { font-size: 14px; }
+
+.auth-titlebar-text {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #fff;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.6);
+  letter-spacing: 0.5px;
+}
+
+/* Window body */
+.auth-body {
+  background: #ECE9D8;
+  padding: 28px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.auth-pixel-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 13px;
+  color: #0C2478;
+  line-height: 1.7;
+  text-shadow: 1px 1px 0 rgba(255,255,255,0.8);
+}
+
+.auth-subtitle {
+  font-size: 12px;
+  color: #444;
+  margin-top: -4px;
+}
+
+/* Google button */
+.google-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  height: 40px;
+  background: linear-gradient(180deg, #fff 0%, #e8e8e8 100%);
+  border: 2px solid;
+  border-color: #fff #888 #888 #fff;
+  border-radius: 3px;
+  font-family: 'Tahoma', sans-serif;
+  font-size: 13px;
+  font-weight: bold;
+  color: #222;
+  cursor: pointer;
+  box-shadow: 1px 1px 0 #ccc;
+  transition: filter 0.1s;
+  margin-top: 4px;
+}
+.google-btn:hover  { filter: brightness(1.04); }
+.google-btn:active { border-color: #888 #fff #fff #888; box-shadow: none; transform: translate(1px,1px); }
+
+/* Auth input */
+.auth-input {
+  width: 100%;
+  height: 26px;
+  padding: 0 6px;
+  background: #fff;
+  border: 2px solid;
+  border-color: #888 #fff #fff #888;
+  font-family: 'Tahoma', sans-serif;
+  font-size: 13px;
+  color: #000;
+  box-shadow: inset 1px 1px 2px rgba(0,0,0,0.15);
+  outline: none;
+}
+.auth-input:focus { border-color: #0A246A #ccc #ccc #0A246A; }
+
+/* Submit button */
+.auth-submit-btn {
+  padding: 0 20px;
+  height: 34px;
+  background: linear-gradient(180deg, #f0f0f0 0%, #d4d0c8 100%);
+  border: 2px solid;
+  border-color: #fff #888 #888 #fff;
+  border-radius: 3px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: #0C2478;
+  cursor: pointer;
+  box-shadow: 1px 1px 0 #aaa;
+  letter-spacing: 0.5px;
+  transition: filter 0.1s;
+}
+.auth-submit-btn:hover  { filter: brightness(1.04); }
+.auth-submit-btn:active { border-color: #888 #fff #fff #888; box-shadow: none; transform: translate(1px,1px); }
+
+.auth-error {
+  font-size: 11px;
+  color: #cc0000;
+  min-height: 14px;
+  margin: -6px 0;
+}
+
+/* ── Sign out button in header ── */
+.signout-btn {
+  margin-left: auto;
+  background: none;
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 3px;
+  color: rgba(255,255,255,0.85);
+  font-family: 'Tahoma', sans-serif;
+  font-size: 10px;
+  padding: 2px 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.signout-btn:hover { background: rgba(255,255,255,0.15); }
