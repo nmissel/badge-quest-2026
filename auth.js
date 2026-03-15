@@ -4,8 +4,6 @@
 import { auth, db, googleProvider } from './firebase.js';
 import {
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   onAuthStateChanged,
   signOut
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
@@ -83,14 +81,10 @@ function initUsernameScreen(user, onReady) {
 async function signInWithGoogle() {
   document.getElementById('auth-error').textContent = '';
   try {
-    const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      await signInWithRedirect(auth, googleProvider);
-    } else {
-      await signInWithPopup(auth, googleProvider);
-    }
+    await signInWithPopup(auth, googleProvider);
   } catch (e) {
-    document.getElementById('auth-error').textContent = 'Sign-in failed. Please try again.';
+    console.error('❌ Popup sign-in error:', e);
+    document.getElementById('auth-error').textContent = 'Sign-in failed: ' + e.message;
   }
 }
 
@@ -101,9 +95,6 @@ export function signOutUser() {
 
 // ── Main init — call once on page load ────────────────────
 export function initAuth(onReady) {
-  // Handle mobile redirect (no-op on desktop)
-  getRedirectResult(auth).catch(() => {});
-
   // Wire Google button
   document.getElementById('google-signin-btn').addEventListener('click', signInWithGoogle);
 
@@ -118,12 +109,28 @@ export function initAuth(onReady) {
     }
 
     currentUser = user;
-    const profile = await getProfile(user.uid);
+    console.log('✅ Signed in as:', user.email);
+
+    let profile = null;
+    try {
+      console.log('📖 Reading Firestore profile...');
+      profile = await getProfile(user.uid);
+      console.log('📖 Profile result:', profile);
+    } catch (e) {
+      console.error('❌ Firestore read error:', e);
+      document.getElementById('auth-error').textContent =
+        'Database error: ' + e.message;
+      showAuthOverlay();
+      showScreen('auth-login-screen');
+      return;
+    }
 
     if (!profile?.username) {
+      console.log('👤 No username yet — showing setup screen');
       showAuthOverlay();
       initUsernameScreen(user, onReady);
     } else {
+      console.log('🚀 Profile loaded, entering app');
       currentProfile = profile;
       hideAuthOverlay();
       onReady(user, profile);
