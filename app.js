@@ -145,6 +145,8 @@ let viewMode            = 'list';  // 'list' | 'card'
 let cardIndex           = {};      // { [tab]: number } — current card per tab
 let _cardSlideDir       = 'none';  // 'right' | 'left' | 'none' — slide animation direction
 let badgeCaseOpen       = false;   // badge case collapsed by default
+let _editCtx            = null;    // { tab, goalId } for edit modal, null = new goal
+let _swipedItem         = null;    // currently swiped goal item DOM element
 let _cardFlipped        = false;   // card showing calendar instead of content
 let _calYear            = new Date().getFullYear();
 let _calMonth           = new Date().getMonth(); // 0-indexed
@@ -578,10 +580,20 @@ function goalItemHTML(g, index, tab, options = {}) {
   const dlBadge  = !g.done ? deadlineBadgeHTML(g) : '';
   const dlBtn    = !g.done ? `<button class="deadline-btn" data-id="${g.id}" data-tab="${tab}" title="Set deadline">📅</button>` : '';
   const tag      = showTag ? `<span class="owner-tag ${tagCls}">${tagText}</span>` : '';
-  const ta       = `data-tab="${tab}"`;  // present on all interactive elements for event delegation
+  const ta       = `data-tab="${tab}"`;
+  const editable = tab === 'me' || tab === 'together';
+  const swipeActions = editable ? `
+    <div class="swipe-actions">
+      <button class="swipe-edit-btn" data-id="${g.id}" data-tab="${tab}">✎<br><span>EDIT</span></button>
+      <button class="swipe-del-btn"  data-id="${g.id}" data-tab="${tab}">🗑<br><span>DEL</span></button>
+    </div>` : '';
+
+  const wrap = inner => editable
+    ? `<div class="swipe-wrapper">${swipeActions}<div class="swipe-content">${inner}</div></div>`
+    : inner;
 
   if (g.type === 'binary') {
-    return `
+    return wrap(`
       <div class="goal-item goal-binary ${g.done ? 'done' : ''}" data-id="${g.id}">
         <span class="goal-num">${num}</span>
         <div class="goal-title-wrap">
@@ -592,12 +604,12 @@ function goalItemHTML(g, index, tab, options = {}) {
           ${photoHTML}
           <button class="goal-check" data-id="${g.id}" ${ta} data-type="binary">${g.done ? '✓' : ''}</button>
         </div>
-      </div>`;
+      </div>`);
   }
 
   if (g.type === 'count') {
     const maxed = g.current >= g.target;
-    return `
+    return wrap(`
       <div class="goal-item count-goal ${g.done ? 'done' : ''}" data-id="${g.id}">
         <span class="goal-num">${num}</span>
         <div class="goal-title-wrap">
@@ -612,13 +624,13 @@ function goalItemHTML(g, index, tab, options = {}) {
           </div>
           ${photoHTML}
         </div>
-      </div>`;
+      </div>`);
   }
 
   if (g.type === 'monthly') {
     const checked = g.months.filter(Boolean).length;
     const maxed   = checked >= 12;
-    return `
+    return wrap(`
       <div class="goal-item monthly-goal ${g.done ? 'done' : ''}" data-id="${g.id}">
         <span class="goal-num">${num}</span>
         <div class="goal-title-wrap">
@@ -633,7 +645,7 @@ function goalItemHTML(g, index, tab, options = {}) {
           </div>
           ${photoHTML}
         </div>
-      </div>`;
+      </div>`);
   }
 
   return '';
@@ -864,6 +876,164 @@ function renderCardView(goals, tab) {
     </div>`;
 }
 
+// ── GOAL CRUD ─────────────────────────────────────────────────
+
+function openGoalModal(tab = 'me', goalId = null) {
+  const isNew = goalId === null;
+  _editCtx = isNew ? null : { tab, goalId };
+
+  document.getElementById('gm-titlebar-text').textContent = isNew ? 'NEW QUEST' : 'EDIT QUEST';
+  document.getElementById('gm-delete-btn').style.display  = isNew ? 'none' : 'inline-flex';
+  document.getElementById('gm-error').textContent = '';
+
+  // Owner field: always show so user can assign/reassign
+  const ownerField  = document.getElementById('gm-owner-field');
+  const coupleBtn   = document.getElementById('gm-couple-btn');
+  const coupleHint  = document.getElementById('gm-couple-hint');
+  const hasGroup    = !!currentGroupId;
+  ownerField.style.display  = 'block';
+  coupleBtn.disabled        = !hasGroup;
+  coupleBtn.style.opacity   = hasGroup ? '1' : '0.45';
+  coupleHint.style.display  = hasGroup ? 'none' : 'block';
+
+  if (isNew) {
+    document.getElementById('gm-title-input').value = '';
+    _setModalType('binary');
+    document.getElementById('gm-target').value = '10';
+    document.getElementById('gm-unit').value   = '';
+    _setModalOwner(tab === 'together' ? 'together' : 'me');
+  } else {
+    const goal = data[tab].goals.find(g => g.id === goalId);
+    if (!goal) return;
+    document.getElementById('gm-title-input').value = goal.title;
+    _setModalType(goal.type);
+    if (goal.type === 'count') {
+      document.getElementById('gm-target').value = goal.target ?? 10;
+      document.getElementById('gm-unit').value   = goal.unit   ?? '';
+    }
+    _setModalOwner(tab === 'together' ? 'together' : 'me');
+  }
+
+  document.getElementById('goal-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('gm-title-input').focus(), 50);
+}
+
+function _setModalType(type) {
+  document.querySelectorAll('#gm-type-row .gm-seg').forEach(b =>
+    b.classList.toggle('active', b.dataset.type === type)
+  );
+  document.getElementById('gm-count-fields').style.display = type === 'count' ? 'flex' : 'none';
+}
+
+function _setModalOwner(owner) {
+  document.querySelectorAll('#gm-owner-row .gm-seg').forEach(b =>
+    b.classList.toggle('active', b.dataset.owner === owner)
+  );
+}
+
+function closeGoalModal() {
+  document.getElementById('goal-modal').style.display = 'none';
+  _editCtx = null;
+}
+
+function saveGoalModal() {
+  const title  = document.getElementById('gm-title-input').value.trim();
+  const errEl  = document.getElementById('gm-error');
+  errEl.textContent = '';
+  if (!title) { errEl.textContent = 'Quest title is required.'; return; }
+
+  const type      = document.querySelector('#gm-type-row .gm-seg.active')?.dataset.type  || 'binary';
+  const ownerSel  = document.querySelector('#gm-owner-row .gm-seg.active')?.dataset.owner || 'me';
+  const newTab    = (ownerSel === 'together' && currentGroupId) ? 'together' : 'me';
+
+  if (_editCtx) {
+    // ── Edit existing ──────────────────────────────────────────
+    const oldTab = _editCtx.tab;
+    const goalId = _editCtx.goalId;
+    let goal = data[oldTab].goals.find(g => g.id === goalId);
+    if (!goal) return;
+
+    goal.title = title;
+
+    // If type changed, reset progress silently
+    if (type !== goal.type) {
+      goal.type = type;
+      goal.done = false; goal.doneDate = null;
+      if (type === 'count')   { goal.target = parseInt(document.getElementById('gm-target').value) || 10; goal.unit = document.getElementById('gm-unit').value.trim() || 'times'; goal.current = 0; delete goal.months; }
+      else if (type === 'monthly') { goal.months = Array(12).fill(false); delete goal.target; delete goal.current; delete goal.unit; }
+      else                    { delete goal.target; delete goal.current; delete goal.unit; delete goal.months; }
+    } else {
+      // Same type — just update count fields
+      if (type === 'count') {
+        goal.target = parseInt(document.getElementById('gm-target').value) || 10;
+        goal.unit   = document.getElementById('gm-unit').value.trim() || 'times';
+      }
+      // Editing a completed goal auto-unmarks it
+      if (goal.done) { goal.done = false; goal.doneDate = null; }
+    }
+
+    // Owner changed — move goal between tabs
+    if (newTab !== oldTab) {
+      data[oldTab].goals = data[oldTab].goals.filter(g => g.id !== goalId);
+      data[newTab].goals.push(goal);
+      recalcBadges(oldTab);
+    }
+    recalcBadges(newTab);
+
+  } else {
+    // ── Create new ─────────────────────────────────────────────
+    const goals  = data[newTab].goals;
+    const newId  = goals.length > 0 ? Math.max(...goals.map(g => g.id)) + 1 : 1;
+    const newGoal = { id: newId, title, type, done: false, doneDate: null, note: '', photo: null, deadline: null, order: goals.length };
+    if (type === 'count')        { newGoal.target = parseInt(document.getElementById('gm-target').value) || 10; newGoal.unit = document.getElementById('gm-unit').value.trim() || 'times'; newGoal.current = 0; }
+    else if (type === 'monthly') { newGoal.months = Array(12).fill(false); }
+    data[newTab].goals.push(newGoal);
+  }
+
+  saveData();
+  render();
+  closeGoalModal();
+  sfxClick();
+}
+
+function openDeleteConfirm() {
+  document.getElementById('delete-overlay').style.display = 'flex';
+}
+
+async function executeDelete() {
+  if (!_editCtx) return;
+  const { tab, goalId } = _editCtx;
+
+  // Delete from Firestore directly (syncAllToFirestore won't remove it)
+  if (currentUser) {
+    const { deleteUserGoal, deleteGroupGoal } = await import('./db.js');
+    if (tab === 'me')                  await deleteUserGoal(currentUser.uid, goalId);
+    else if (tab === 'together' && currentGroupId) await deleteGroupGoal(currentGroupId, goalId);
+  }
+
+  data[tab].goals = data[tab].goals.filter(g => g.id !== goalId);
+  recalcBadges(tab);
+  document.getElementById('delete-overlay').style.display = 'none';
+  closeGoalModal();
+  render();
+  sfxClick();
+}
+
+function shuffleGoals(tab) {
+  const goals = data[tab]?.goals;
+  if (!goals || goals.length < 2) return;
+  for (let i = goals.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [goals[i], goals[j]] = [goals[j], goals[i]];
+  }
+  goals.forEach((g, i) => { g.order = i; });
+  saveData();
+  const list = document.getElementById('goal-list');
+  if (list) { list.style.animation = 'none'; list.offsetHeight; list.style.animation = 'shuffle-flash 0.35s ease'; }
+  render();
+  sfxClick();
+}
+
 // ── RENDER ────────────────────────────────────────────────────
 function render() {
   if (activeTab === 'all') {
@@ -903,9 +1073,15 @@ function ensureWinBodyStructure() {
       <div class="inset-panel quest-panel">
         <div class="panel-title-row">
           <span class="panel-title">📜 QUEST LOG</span>
-          <div class="view-toggle">
-            <button class="view-btn ${viewMode === 'list' ? 'active' : ''}" data-view="list" title="List view">☰</button>
-            <button class="view-btn ${viewMode === 'card' ? 'active' : ''}" data-view="card" title="Card view">▣</button>
+          <div class="panel-title-actions">
+            ${(activeTab === 'me' || activeTab === 'together') ? `
+              <button class="shuffle-btn" id="shuffle-btn" title="Shuffle quest order">🔀</button>
+              <button class="add-quest-btn" id="add-quest-btn" title="Add new quest">+ NEW</button>
+            ` : ''}
+            <div class="view-toggle">
+              <button class="view-btn ${viewMode === 'list' ? 'active' : ''}" data-view="list" title="List view">☰</button>
+              <button class="view-btn ${viewMode === 'card' ? 'active' : ''}" data-view="card" title="Card view">▣</button>
+            </div>
           </div>
         </div>
         <div class="goal-list" id="goal-list"></div>
@@ -1488,6 +1664,33 @@ function makeDraggable(handle, target) {
 // so renderGoalList() and renderAllTab() don't need to re-attach handlers every render.
 function handleWinBodyClick(e) {
 
+  // Swipe edit button
+  const swipeEdit = e.target.closest('.swipe-edit-btn');
+  if (swipeEdit) {
+    openGoalModal(swipeEdit.dataset.tab, parseInt(swipeEdit.dataset.id));
+    return;
+  }
+
+  // Swipe delete button
+  const swipeDel = e.target.closest('.swipe-del-btn');
+  if (swipeDel) {
+    _editCtx = { tab: swipeDel.dataset.tab, goalId: parseInt(swipeDel.dataset.id) };
+    openDeleteConfirm();
+    return;
+  }
+
+  // + NEW QUEST button
+  if (e.target.closest('#add-quest-btn')) {
+    openGoalModal(activeTab === 'together' ? 'together' : 'me');
+    return;
+  }
+
+  // Shuffle button
+  if (e.target.closest('#shuffle-btn')) {
+    shuffleGoals(activeTab);
+    return;
+  }
+
   // Badge case collapse toggle
   const badgeCaseToggle = e.target.closest('.badge-case-toggle');
   if (badgeCaseToggle) {
@@ -1723,6 +1926,74 @@ function init() {
     if (viewMode !== 'card') return;
     if (e.key === 'ArrowUp')   navigateCard(activeTab, -1);
     if (e.key === 'ArrowDown') navigateCard(activeTab,  1);
+  });
+
+  // ── Goal modal ───────────────────────────────────────────────
+  document.getElementById('gm-cancel').addEventListener('click', closeGoalModal);
+  document.getElementById('gm-save').addEventListener('click', saveGoalModal);
+  document.getElementById('gm-delete-btn').addEventListener('click', openDeleteConfirm);
+  document.getElementById('goal-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('goal-modal')) closeGoalModal();
+  });
+  document.getElementById('gm-title-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveGoalModal();
+  });
+
+  // Type + owner segment buttons
+  document.querySelectorAll('#gm-type-row .gm-seg').forEach(btn =>
+    btn.addEventListener('click', () => _setModalType(btn.dataset.type))
+  );
+  document.querySelectorAll('#gm-owner-row .gm-seg').forEach(btn =>
+    btn.addEventListener('click', () => { if (!btn.disabled) _setModalOwner(btn.dataset.owner); })
+  );
+
+  // Delete confirm
+  document.getElementById('delete-cancel').addEventListener('click', () => {
+    document.getElementById('delete-overlay').style.display = 'none';
+  });
+  document.getElementById('delete-ok').addEventListener('click', executeDelete);
+
+  // ── Swipe gestures (win-body) ────────────────────────────────
+  let _swipeStartX = 0, _swipeStartY = 0, _swipeEl = null;
+  const wb = document.getElementById('win-body');
+
+  wb.addEventListener('touchstart', e => {
+    const wrapper = e.target.closest('.swipe-wrapper');
+    if (!wrapper) return;
+    _swipeStartX = e.touches[0].clientX;
+    _swipeStartY = e.touches[0].clientY;
+    _swipeEl     = wrapper;
+  }, { passive: true });
+
+  wb.addEventListener('touchmove', e => {
+    if (!_swipeEl) return;
+    const dx = e.touches[0].clientX - _swipeStartX;
+    const dy = e.touches[0].clientY - _swipeStartY;
+    if (Math.abs(dy) > Math.abs(dx)) { _swipeEl = null; return; }
+    if (dx < -8) e.preventDefault();
+  }, { passive: false });
+
+  wb.addEventListener('touchend', e => {
+    if (!_swipeEl) return;
+    const dx = e.changedTouches[0].clientX - _swipeStartX;
+    const el = _swipeEl;
+    _swipeEl = null;
+    if (dx < -55) {
+      if (_swipedItem && _swipedItem !== el) _swipedItem.classList.remove('revealed');
+      el.classList.add('revealed');
+      _swipedItem = el;
+    } else if (dx > 20) {
+      el.classList.remove('revealed');
+      if (_swipedItem === el) _swipedItem = null;
+    }
+  }, { passive: true });
+
+  // Close swipe on tap outside actions
+  document.addEventListener('click', e => {
+    if (_swipedItem && !e.target.closest('.swipe-actions')) {
+      _swipedItem.classList.remove('revealed');
+      _swipedItem = null;
+    }
   });
 
   updateClock();

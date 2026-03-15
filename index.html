@@ -201,6 +201,77 @@
 
   </div>
 
+  <!-- ── Goal Create / Edit Modal ──────────────────────────── -->
+  <div class="overlay" id="goal-modal" style="display:none">
+    <div class="popup gm-popup">
+      <div class="popup-titlebar">
+        <span id="gm-titlebar-text">NEW QUEST</span>
+      </div>
+      <div class="popup-body gm-body">
+
+        <div class="gm-field">
+          <label class="gm-label" for="gm-title-input">QUEST TITLE</label>
+          <input type="text" id="gm-title-input" class="gm-input" maxlength="100" placeholder="What's the quest?">
+        </div>
+
+        <div class="gm-field">
+          <label class="gm-label">QUEST TYPE</label>
+          <div class="gm-seg-row" id="gm-type-row">
+            <button class="gm-seg active" data-type="binary">✓ ONCE</button>
+            <button class="gm-seg" data-type="count">🔢 COUNT</button>
+            <button class="gm-seg" data-type="monthly">📅 MONTHLY</button>
+          </div>
+        </div>
+
+        <div class="gm-count-fields" id="gm-count-fields" style="display:none">
+          <div class="gm-row">
+            <div class="gm-field gm-field-half">
+              <label class="gm-label" for="gm-target">TARGET</label>
+              <input type="number" id="gm-target" class="gm-input" min="1" max="9999" value="10">
+            </div>
+            <div class="gm-field gm-field-half">
+              <label class="gm-label" for="gm-unit">UNIT</label>
+              <input type="text" id="gm-unit" class="gm-input" maxlength="20" placeholder="e.g. times">
+            </div>
+          </div>
+        </div>
+
+        <div class="gm-field" id="gm-owner-field">
+          <label class="gm-label">ASSIGN TO</label>
+          <div class="gm-seg-row" id="gm-owner-row">
+            <button class="gm-seg active" data-owner="me">👤 MINE</button>
+            <button class="gm-seg" data-owner="together" id="gm-couple-btn">💎 COUPLE</button>
+          </div>
+          <p class="gm-hint" id="gm-couple-hint" style="display:none">Link a partner first to use couple quests</p>
+        </div>
+
+        <p id="gm-error" class="gm-error"></p>
+      </div>
+      <div class="popup-footer gm-footer">
+        <button class="gm-delete-btn" id="gm-delete-btn" style="display:none">🗑 DELETE</button>
+        <div class="gm-footer-actions">
+          <button class="popup-btn gm-cancel" id="gm-cancel">CANCEL</button>
+          <button class="popup-btn gm-save" id="gm-save">SAVE ▶</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Delete Confirmation ─────────────────────────────── -->
+  <div class="overlay" id="delete-overlay" style="display:none">
+    <div class="popup">
+      <div class="popup-titlebar"><span>Delete Quest?</span></div>
+      <div class="popup-body">
+        <div class="popup-icon">🗑</div>
+        <div class="popup-text">This permanently deletes the quest and all its progress.</div>
+      </div>
+      <div class="popup-footer">
+        <button class="popup-btn gm-cancel" id="delete-cancel">KEEP IT</button>
+        <button class="popup-btn delete-ok" id="delete-ok">DELETE</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="app.js"></script>
 </body>
 </html>
