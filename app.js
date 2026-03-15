@@ -2,6 +2,10 @@
 //  BADGE QUEST 2026 — app.js
 // ============================================================
 import { initAuth, signOutUser, currentUser, currentProfile } from './auth.js';
+import {
+  loadUserData, loadGroupData, loadPartnerData,
+  syncAllToFirestore, saveUserGoal, saveGroupGoal
+} from './db.js';
 
 const MONTHS = ['JAN','FEB','MAR','APR','MAJ','JUN','JUL','AUG','SEP','OKT','NOV','DEC'];
 
@@ -124,7 +128,13 @@ const BALANCE_BADGE_DEFS = [
 ];
 
 // ── STATE ─────────────────────────────────────────────────────
-let data                = loadData();
+let currentGroupId = null;
+let data = {
+  me:       { name: 'ME', color: '#cc0000', goals: [], unlockedBadges: [], badgeDates: {} },
+  partner:  null,
+  together: { name: 'COUPLE', goals: [], unlockedCombinedBadges: [], unlockedBalanceBadges: [], badgeDates: {} },
+  team:     { unlockedCombinedBadges: [], unlockedBalanceBadges: [], badgeDates: {} }
+};
 let activeTab           = 'all';
 let pendingCelebrations = [];
 let celebrating         = false;
@@ -264,7 +274,7 @@ function resizeImage(file) {
       const img = new Image();
       img.onerror = reject;
       img.onload = () => {
-        const MAX = 900;
+        const MAX = 600;
         let w = img.width, h = img.height;
         if (w > MAX || h > MAX) {
           if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
@@ -273,7 +283,7 @@ function resizeImage(file) {
         const canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.72));
+        resolve(canvas.toDataURL('image/jpeg', 0.55));
       };
       img.src = e.target.result;
     };
@@ -282,89 +292,18 @@ function resizeImage(file) {
 }
 
 // ── STORAGE ───────────────────────────────────────────────────
-function loadData() {
-  try {
-    const stored = localStorage.getItem('badgequest2026');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      // Ensure team object exists (migration for older saves)
-      if (!parsed.team) parsed.team = { unlockedCombinedBadges: [], unlockedBalanceBadges: [] };
-      // Migrate sof.goals: populate from DEFAULT_DATA if still empty (Sof's goals added 2026-03-01)
-      if (parsed.sof && (!parsed.sof.goals || parsed.sof.goals.length === 0)) {
-        parsed.sof.goals = JSON.parse(JSON.stringify(DEFAULT_DATA.sof.goals));
-        const arr = parsed.sof.goals;
-        for (let i = arr.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [arr[i], arr[j]] = [arr[j], arr[i]];
-        }
-      }
-      // Migrate together.goals: populate from DEFAULT_DATA if still empty (added 2026-03-01)
-      if (parsed.together && (!parsed.together.goals || parsed.together.goals.length === 0)) {
-        parsed.together.goals = JSON.parse(JSON.stringify(DEFAULT_DATA.together.goals));
-      }
-      // Ensure note field on all goals (migration)
-      ['las','together','sof'].forEach(tab => {
-        if (parsed[tab] && parsed[tab].goals) {
-          parsed[tab].goals.forEach(g => { if (g.note === undefined) g.note = ''; });
-        }
-      });
-      // Ensure badgeDates (migration)
-      ['las','together','sof'].forEach(tab => {
-        if (parsed[tab] && !parsed[tab].badgeDates) parsed[tab].badgeDates = {};
-      });
-      if (!parsed.team.badgeDates) parsed.team.badgeDates = {};
-      // Ensure photo + deadline fields on all goals (migration)
-      ['las','together','sof'].forEach(tab => {
-        if (parsed[tab] && parsed[tab].goals) {
-          parsed[tab].goals.forEach(g => {
-            if (g.photo    === undefined) g.photo    = null;
-            if (g.deadline === undefined) g.deadline = null;
-          });
-        }
-      });
-      // Migrate goal 7: binary → count (Pokémon gym badges + Elite Four)
-      const g7 = parsed.las?.goals?.find(g => g.id === 7);
-      if (g7 && g7.type === 'binary') {
-        g7.type = 'count'; g7.target = 12; g7.current = 0; g7.unit = 'badges';
-        g7.done = false; g7.doneDate = null;
-      }
-      // Migrate goal 10: binary → count (LOTR + Hobbit films)
-      const g10 = parsed.las?.goals?.find(g => g.id === 10);
-      if (g10 && g10.type === 'binary') {
-        g10.type = 'count'; g10.target = 6; g10.current = 0; g10.unit = 'film';
-        g10.done = false; g10.doneDate = null;
-      }
-      // Migrate goal 16: count → binary (beer run is a one-time event)
-      const g16 = parsed.las?.goals?.find(g => g.id === 16);
-      if (g16 && g16.type === 'count' && g16.unit === 'km/barer') {
-        g16.type = 'binary'; g16.done = false; g16.doneDate = null;
-        delete g16.target; delete g16.current; delete g16.unit;
-      }
-      // One-time Fisher-Yates shuffle (interleave goal types)
-      if (!parsed.goalsShuffled) {
-        ['las', 'together', 'sof'].forEach(tab => {
-          const arr = parsed[tab]?.goals;
-          if (arr && arr.length > 1) {
-            for (let i = arr.length - 1; i > 0; i--) {
-              const j = Math.floor(Math.random() * (i + 1));
-              [arr[i], arr[j]] = [arr[j], arr[i]];
-            }
-          }
-        });
-        parsed.goalsShuffled = true;
-      }
-      return parsed;
-    }
-  } catch (_) {}
-  return JSON.parse(JSON.stringify(DEFAULT_DATA));
-}
-
 function saveData() {
-  try {
-    localStorage.setItem('badgequest2026', JSON.stringify(data));
-    localStorage.setItem('badgequest_lastSave', Date.now().toString());
-    setStatus('SAVED ✓', 2000);
-  } catch (_) { setStatus('SAVE FAILED!'); }
+  if (!currentUser) return;
+  setStatus('SAVING…');
+  syncAllToFirestore(currentUser.uid, currentGroupId, data)
+    .then(() => {
+      localStorage.setItem('badgequest_lastSave', Date.now().toString());
+      setStatus('SAVED ✓', 2000);
+    })
+    .catch(e => {
+      console.error('Save error:', e);
+      setStatus('SAVE FAILED!');
+    });
 }
 
 function exportJSON() {
@@ -407,11 +346,11 @@ function getPct(tab) {
 }
 
 function totalDoneAll() {
-  return countDone('las') + countDone('together') + countDone('sof');
+  return countDone('me') + countDone('together') + (data.partner ? countDone('partner') : 0);
 }
 
 function totalGoalsAll() {
-  return data.las.goals.length + data.together.goals.length + data.sof.goals.length;
+  return data.me.goals.length + data.together.goals.length + (data.partner ? data.partner.goals.length : 0);
 }
 
 // ── BADGE LOGIC ───────────────────────────────────────────────
@@ -445,9 +384,10 @@ function earnedTeamBadges() {
   if (!data.team) data.team = { unlockedCombinedBadges: [], unlockedBalanceBadges: [] };
   const totalDone  = totalDoneAll();
   const totalGoals = totalGoalsAll();
-  const lasPct = getPct('las'), sofPct = getPct('sof');
+  const mePct      = getPct('me');
+  const partnerPct = data.partner ? getPct('partner') : 0;
   const combined = COMBINED_BADGE_DEFS.filter(b => totalDone >= b.threshold(totalGoals));
-  const balance  = BALANCE_BADGE_DEFS.filter(b => lasPct >= b.threshold && sofPct >= b.threshold);
+  const balance  = BALANCE_BADGE_DEFS.filter(b => mePct >= b.threshold && partnerPct >= b.threshold);
   return { combined, balance };
 }
 
@@ -706,9 +646,9 @@ function goalItemHTML(g, index, tab, options = {}) {
 function getCardGoals(tab) {
   if (tab === 'all') {
     return [
-      ...data.together.goals.map(g => ({ ...g, _tab: 'together', _tagCls: 'owner-couple', _tagText: 'COUPLE' })),
-      ...data.sof.goals.map(g      => ({ ...g, _tab: 'sof',      _tagCls: 'owner-sof',    _tagText: 'SOF'    })),
-      ...data.las.goals.map(g      => ({ ...g, _tab: 'las',      _tagCls: 'owner-las',    _tagText: 'LAS'    })),
+      ...data.together.goals.map(g   => ({ ...g, _tab: 'together', _tagCls: 'owner-couple',  _tagText: 'COUPLE'              })),
+      ...(data.partner?.goals || []).map(g => ({ ...g, _tab: 'partner',  _tagCls: 'owner-partner', _tagText: (data.partner?.name || 'PARTNER').toUpperCase() })),
+      ...data.me.goals.map(g         => ({ ...g, _tab: 'me',       _tagCls: 'owner-me',      _tagText: (data.me?.name || 'ME').toUpperCase()               })),
     ];
   }
   return (data[tab]?.goals || []).map(g => ({ ...g, _tab: tab }));
@@ -1084,13 +1024,13 @@ function renderGoalList() {
   if (!list) return;
 
   if (!goals.length) {
-    const icon = tab === 'together' ? '💎' : '🌸';
-    const who  = tab === 'sof' ? "Sof's" : 'couple';
+    const icon  = tab === 'together' ? '💎' : '🌸';
+    const label = tab === 'me' ? data.me.name : tab === 'partner' ? (data.partner?.name || 'Partner') : 'Couple';
     list.innerHTML = `
       <div class="locked-panel">
         <div class="locked-icon">${icon}</div>
-        <div class="locked-title">${tab.toUpperCase()} QUESTS COMING SOON</div>
-        <div class="locked-sub">Add ${who} goals to unlock this quest board!</div>
+        <div class="locked-title">${label.toUpperCase()} QUESTS COMING SOON</div>
+        <div class="locked-sub">Add goals to unlock this quest board!</div>
       </div>`;
     return;
   }
@@ -1131,10 +1071,12 @@ function renderAllTab() {
   if (viewMode === 'card') {
     goalListContent = renderCardView(getCardGoals('all'), 'all');
   } else {
+    const meName      = (data.me?.name      || 'ME').toUpperCase();
+    const partnerName = (data.partner?.name || '').toUpperCase();
     const sections = [
-      { tab: 'together', label: '💎 COUPLE',      cls: 'couple-header', tagCls: 'owner-couple', tagText: 'COUPLE' },
-      { tab: 'sof',      label: SOF_SVG + ' SOF', cls: 'sof-header',    tagCls: 'owner-sof',    tagText: 'SOF'    },
-      { tab: 'las',      label: LAS_SVG + ' LAS', cls: 'las-header',    tagCls: 'owner-las',    tagText: 'LAS'    },
+      { tab: 'together', label: '💎 COUPLE',      cls: 'couple-header',  tagCls: 'owner-couple',  tagText: 'COUPLE'      },
+      ...(data.partner ? [{ tab: 'partner', label: '👤 ' + partnerName, cls: 'partner-header', tagCls: 'owner-partner', tagText: partnerName }] : []),
+      { tab: 'me',       label: '👤 ' + meName,   cls: 'me-header',      tagCls: 'owner-me',      tagText: meName        },
     ];
 
     const goalsHTML = sections.map(sec => {
@@ -1159,7 +1101,7 @@ function renderAllTab() {
       return header + items;
     }).join('');
 
-    goalListContent = urgentWarningsHTML(['las', 'together', 'sof']) + goalsHTML;
+    goalListContent = urgentWarningsHTML(['me', 'together', ...(data.partner ? ['partner'] : [])]) + goalsHTML;
   }
 
   wb.innerHTML = `
@@ -1194,15 +1136,17 @@ function renderTeamTab() {
   const wb = document.getElementById('win-body');
   wb.className = 'win-body team-body';
 
-  const lasDone  = countDone('las');
-  const sofDone  = countDone('sof');
-  const togDone  = countDone('together');
-  const allDone  = lasDone + sofDone + togDone;
-  const allTotal = totalGoalsAll();
-  const allPct   = allTotal ? Math.round((allDone / allTotal) * 100) : 0;
+  const meDone      = countDone('me');
+  const partnerDone = data.partner ? countDone('partner') : 0;
+  const togDone     = countDone('together');
+  const allDone     = meDone + partnerDone + togDone;
+  const allTotal    = totalGoalsAll();
+  const allPct      = allTotal ? Math.round((allDone / allTotal) * 100) : 0;
 
-  const lasPct  = getPct('las');
-  const sofPct  = getPct('sof');
+  const mePct      = getPct('me');
+  const partnerPct = data.partner ? getPct('partner') : 0;
+  const meName      = data.me?.name    || 'ME';
+  const partnerName = data.partner?.name || 'PARTNER';
 
   const unlockedC = (data.team || {}).unlockedCombinedBadges || [];
   const unlockedB = (data.team || {}).unlockedBalanceBadges  || [];
@@ -1211,12 +1155,12 @@ function renderTeamTab() {
     <!-- Stats row -->
     <div class="team-stats-row">
       <div class="team-stat-box">
-        <span class="team-stat-num">${lasDone}</span>
-        <span class="team-stat-label">${LAS_SVG} LAS</span>
+        <span class="team-stat-num">${meDone}</span>
+        <span class="team-stat-label">👤 ${meName.toUpperCase()}</span>
       </div>
       <div class="team-stat-box">
-        <span class="team-stat-num">${sofDone}</span>
-        <span class="team-stat-label">${SOF_SVG} SOF</span>
+        <span class="team-stat-num">${partnerDone}</span>
+        <span class="team-stat-label">👤 ${partnerName.toUpperCase()}</span>
       </div>
       <div class="team-stat-box">
         <span class="team-stat-num">${togDone}</span>
@@ -1251,9 +1195,9 @@ function renderTeamTab() {
 
     <!-- Balance badges -->
     <div class="inset-panel balance-badge-panel">
-      <div class="panel-title">⚖️ BALANCE BADGES — unlock when BOTH Las &amp; Sof hit the same %</div>
+      <div class="panel-title">⚖️ BALANCE BADGES — unlock when BOTH players hit the same %</div>
       <div style="font-family:VT323,monospace;font-size:16px;color:#555;margin-bottom:8px;padding:0 4px">
-        Las: ${lasPct}% · Sof: ${sofPct > 0 ? sofPct + '%' : '(no goals yet)'}
+        ${meName}: ${mePct}% · ${partnerName}: ${data.partner ? partnerPct + '%' : '(no partner yet)'}
       </div>
       <div class="badge-case">
         ${BALANCE_BADGE_DEFS.map(b => {
@@ -1758,9 +1702,7 @@ function init() {
     }
   });
 
-  // Inject character SVG avatars into tab buttons
-  document.querySelector('.tab[data-tab="sof"]').innerHTML = SOF_SVG + ' SOF';
-  document.querySelector('.tab[data-tab="las"]').innerHTML = LAS_SVG + ' LAS';
+  // Tab labels are set dynamically by updateTabLabels() after auth
 
   // Swipe support for card view (vertical: swipe up = next, swipe down = prev)
   let _touchStartY = 0;
@@ -1851,17 +1793,47 @@ function checkInactivity() {
   }
 }
 
+// ── Tab label helper ─────────────────────────────────────────
+function updateTabLabels() {
+  const meTab      = document.getElementById('tab-me');
+  const partnerTab = document.getElementById('tab-partner');
+  if (meTab) meTab.textContent = '👤 ' + (data.me?.name || 'ME').toUpperCase();
+  if (partnerTab) {
+    if (data.partner) {
+      partnerTab.textContent    = '👤 ' + data.partner.name.toUpperCase();
+      partnerTab.style.display  = '';
+    } else {
+      partnerTab.style.display  = 'none';
+    }
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-  initAuth((user, profile) => {
-    // Update header to show logged-in username
+  initAuth(async (user, profile) => {
+    setStatus('LOADING QUESTS…');
+
+    // Load personal goals from Firestore
+    data.me = await loadUserData(user.uid);
+
+    // Load group + partner if in a group
+    if (profile.groups?.length > 0) {
+      currentGroupId  = profile.groups[0];
+      const groupData = await loadGroupData(currentGroupId);
+      data.together   = groupData;
+      const partnerUid = groupData.members.find(uid => uid !== user.uid);
+      if (partnerUid) data.partner = await loadPartnerData(partnerUid);
+    }
+
+    // Update header + tabs
     document.querySelector('.title-text').textContent =
       `BADGE QUEST — ${profile.username.toUpperCase()}`;
+    updateTabLabels();
+
     init();
   });
 
   // Sign-out button
   document.getElementById('signout-btn').addEventListener('click', async () => {
     await signOutUser();
-    // Auth state listener in auth.js will show the login screen automatically
   });
 });

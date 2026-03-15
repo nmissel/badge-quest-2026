@@ -41,8 +41,8 @@
     <div class="tabs">
       <button class="tab active" data-tab="all">📋 ALL</button>
       <button class="tab" data-tab="together">💎 COUPLE</button>
-      <button class="tab" data-tab="sof">🌸 SOF</button>
-      <button class="tab" data-tab="las">⚔️ LAS</button>
+      <button class="tab" id="tab-partner" data-tab="partner" style="display:none">👤 ?</button>
+      <button class="tab" id="tab-me" data-tab="me">👤 ME</button>
       <button class="tab team-tab" data-tab="team">🏆 TEAM</button>
     </div>
 
@@ -183,6 +183,17 @@
         <div class="auth-pixel-title">CHOOSE YOUR<br>NAME</div>
         <p class="auth-subtitle">This is how others will see you</p>
         <input id="username-input" class="auth-input" type="text" maxlength="20" placeholder="e.g. Niklas" autocomplete="off">
+        <div class="color-picker-row">
+          <span class="color-picker-label">PICK YOUR COLOR:</span>
+          <div class="color-swatches">
+            <button class="color-swatch selected" data-color="#cc0000" style="background:#cc0000" title="Red"></button>
+            <button class="color-swatch" data-color="#1848BE" style="background:#1848BE" title="Blue"></button>
+            <button class="color-swatch" data-color="#2E7D32" style="background:#2E7D32" title="Green"></button>
+            <button class="color-swatch" data-color="#7B2D8B" style="background:#7B2D8B" title="Purple"></button>
+            <button class="color-swatch" data-color="#E65100" style="background:#E65100" title="Orange"></button>
+            <button class="color-swatch" data-color="#880E4F" style="background:#880E4F" title="Pink"></button>
+          </div>
+        </div>
         <p id="username-error" class="auth-error"></p>
         <button id="username-submit" class="auth-submit-btn">PRESS START ▶</button>
       </div>

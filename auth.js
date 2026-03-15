@@ -38,9 +38,10 @@ async function getProfile(uid) {
   return snap.exists() ? snap.data() : null;
 }
 
-async function saveProfile(uid, username) {
+async function saveProfile(uid, username, color) {
   await setDoc(doc(db, 'users', uid), {
     username,
+    color,
     createdAt: serverTimestamp(),
     groups: []
   }, { merge: true });
@@ -55,8 +56,10 @@ function initUsernameScreen(user, onReady) {
   if (user.displayName) input.value = user.displayName.split(' ')[0];
 
   async function submit() {
-    const username = input.value.trim();
-    const errEl    = document.getElementById('username-error');
+    const username  = input.value.trim();
+    const errEl     = document.getElementById('username-error');
+    const activeCol = document.querySelector('.color-swatch.selected');
+    const color     = activeCol ? activeCol.dataset.color : '#cc0000';
     errEl.textContent = '';
 
     if (username.length < 2) {
@@ -64,14 +67,22 @@ function initUsernameScreen(user, onReady) {
       return;
     }
     try {
-      await saveProfile(user.uid, username);
-      currentProfile = { username, groups: [] };
+      await saveProfile(user.uid, username, color);
+      currentProfile = { username, color, groups: [] };
       hideAuthOverlay();
       onReady(user, currentProfile);
     } catch (e) {
       errEl.textContent = 'Could not save. Try again.';
     }
   }
+
+  // Color swatch selection
+  document.querySelectorAll('.color-swatch').forEach(sw => {
+    sw.addEventListener('click', () => {
+      document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+      sw.classList.add('selected');
+    });
+  });
 
   document.getElementById('username-submit').onclick = submit;
   input.onkeydown = e => { if (e.key === 'Enter') submit(); };
