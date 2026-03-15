@@ -312,6 +312,38 @@ function saveData() {
     });
 }
 
+async function seedGoals(presetKey) {
+  const presetMap = {
+    las:     { tab: 'me',       goals: DEFAULT_DATA.las.goals },
+    sof:     { tab: 'me',       goals: DEFAULT_DATA.sof.goals },
+    together:{ tab: 'together', goals: DEFAULT_DATA.together.goals }
+  };
+  const preset = presetMap[presetKey];
+  if (!preset) return;
+
+  setStatus('SEEDING QUESTS…');
+  // Stamp order onto goals
+  const goalsWithOrder = preset.goals.map((g, i) => ({ ...g, order: i }));
+  if (preset.tab === 'me') {
+    data.me.goals = goalsWithOrder;
+  } else {
+    data.together.goals = goalsWithOrder;
+  }
+  saveData();
+  // Reload fresh from Firestore so we get proper _fsId stamps
+  if (preset.tab === 'me') {
+    data.me = await loadUserData(currentUser.uid);
+  } else if (currentGroupId) {
+    const gd = await loadGroupData(currentGroupId);
+    gd.id    = currentGroupId;
+    data.together = gd;
+    const idx = allGroups.findIndex(g => g.id === currentGroupId);
+    if (idx >= 0) allGroups[idx] = gd;
+  }
+  setStatus('QUESTS LOADED ✓', 2000);
+  render();
+}
+
 function exportJSON() {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
@@ -1235,11 +1267,25 @@ function renderGoalList() {
   if (!goals.length) {
     const icon  = tab === 'together' ? '💎' : '🌸';
     const label = tab === 'me' ? data.me.name : tab === 'partner' ? (data.partner?.name || 'Partner') : 'Couple';
+
+    // Show starter preset buttons for editable tabs (me + together)
+    const starterHTML = (tab === 'me') ? `
+      <div class="starter-row">
+        <div class="starter-label">Load a starter set?</div>
+        <button class="starter-btn" data-seed="las">👤 NIKLAS (${DEFAULT_DATA.las.goals.length} quests)</button>
+        <button class="starter-btn" data-seed="sof">👤 SOFIE (${DEFAULT_DATA.sof.goals.length} quests)</button>
+      </div>` : (tab === 'together' && currentGroupId) ? `
+      <div class="starter-row">
+        <div class="starter-label">Load starter couple quests?</div>
+        <button class="starter-btn" data-seed="together">💎 COUPLE (${DEFAULT_DATA.together.goals.length} quests)</button>
+      </div>` : '';
+
     list.innerHTML = `
       <div class="locked-panel">
         <div class="locked-icon">${icon}</div>
         <div class="locked-title">${label.toUpperCase()} QUESTS COMING SOON</div>
         <div class="locked-sub">Add goals to unlock this quest board!</div>
+        ${starterHTML}
       </div>`;
     return;
   }
@@ -1933,6 +1979,13 @@ function handleWinBodyClick(e) {
   if (swipeDel) {
     _editCtx = { tab: swipeDel.dataset.tab, goalId: parseInt(swipeDel.dataset.id) };
     openDeleteConfirm();
+    return;
+  }
+
+  // Starter preset seed button
+  const seedBtn = e.target.closest('.starter-btn[data-seed]');
+  if (seedBtn) {
+    seedGoals(seedBtn.dataset.seed);
     return;
   }
 

@@ -14,3 +14,4 @@ Ideas to explore in future sessions. Not committed to — just captured.
 
 ## Social
 - More group types beyond couples (friend groups, etc.)
+- Add more sign-in providers: Facebook and Apple (already available in Firebase console)
