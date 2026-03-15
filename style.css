@@ -2788,6 +2788,27 @@ body {
 .partners-sent-status.accepted { background: #d4edda; color: #155724; }
 .partners-sent-status.declined { background: #f8d7da; color: #721c24; }
 
+.partners-rename-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 5.5px;
+  background: linear-gradient(180deg, #f7f6f0 0%, #eceadf 100%);
+  color: #333;
+  border: 1px solid #bbb;
+  border-radius: 3px;
+  padding: 4px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.partners-rename-btn:hover { filter: brightness(0.95); }
+.partners-rename-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+  flex-wrap: wrap;
+}
+.partners-rename-input { font-size: 17px; padding: 3px 6px; }
+
 .partners-invite-form {
   display: flex;
   flex-direction: column;

@@ -52,7 +52,7 @@ const DEFAULT_DATA = {
     ],
     unlockedBadges: [], badgeDates: {}
   },
-  together: { name: 'TOGETHER', color: '#7B2D8B', goals: [
+  together: { name: 'PARTY', color: '#7B2D8B', goals: [
     { id: 1, title: 'Byt lejligheden',                type: 'binary',  done: false, doneDate: null, note: '' },
     { id: 2, title: 'Lang togtur',                    type: 'binary',  done: false, doneDate: null, note: '' },
     { id: 3, title: 'Planlæg Japan (ihvertfald lidt)', type: 'binary',  done: false, doneDate: null, note: '' },
@@ -136,7 +136,7 @@ let _pendingInvites = [];    // invites waiting for this user
 let data = {
   me:       { name: 'ME', color: '#cc0000', goals: [], unlockedBadges: [], badgeDates: {} },
   partner:  null,
-  together: { name: 'COUPLE', goals: [], unlockedCombinedBadges: [], unlockedBalanceBadges: [], badgeDates: {} },
+  together: { name: 'PARTY', goals: [], unlockedCombinedBadges: [], unlockedBalanceBadges: [], badgeDates: {} },
   team:     { unlockedCombinedBadges: [], unlockedBalanceBadges: [], badgeDates: {} }
 };
 let activeTab           = 'all';
@@ -694,7 +694,7 @@ function goalItemHTML(g, index, tab, options = {}) {
 function getCardGoals(tab) {
   if (tab === 'all') {
     return [
-      ...data.together.goals.map(g   => ({ ...g, _tab: 'together', _tagCls: 'owner-couple',  _tagText: 'COUPLE'              })),
+      ...data.together.goals.map(g   => ({ ...g, _tab: 'together', _tagCls: 'owner-couple',  _tagText: (data.together?.name || 'PARTY').toUpperCase() })),
       ...(data.partner?.goals || []).map(g => ({ ...g, _tab: 'partner',  _tagCls: 'owner-partner', _tagText: (data.partner?.name || 'PARTNER').toUpperCase() })),
       ...data.me.goals.map(g         => ({ ...g, _tab: 'me',       _tagCls: 'owner-me',      _tagText: (data.me?.name || 'ME').toUpperCase()               })),
     ];
@@ -1140,7 +1140,7 @@ function ensureWinBodyStructure() {
         if (gid === currentGroupId) return;
         currentGroupId = gid;
         const groupData = allGroups.find(g => g.id === gid);
-        data.together   = groupData || { name: 'COUPLE', goals: [], unlockedCombinedBadges: [], unlockedBalanceBadges: [], badgeDates: {} };
+        data.together   = groupData || { name: 'PARTY', goals: [], unlockedCombinedBadges: [], unlockedBalanceBadges: [], badgeDates: {} };
         // Load partner for this group
         const partnerUid = (groupData?.members || []).find(uid => uid !== currentUser?.uid);
         data.partner = partnerUid ? await loadPartnerData(partnerUid) : null;
@@ -1276,8 +1276,8 @@ function renderGoalList() {
         <button class="starter-btn" data-seed="sof">👤 SOFIE (${DEFAULT_DATA.sof.goals.length} quests)</button>
       </div>` : (tab === 'together' && currentGroupId) ? `
       <div class="starter-row">
-        <div class="starter-label">Load starter couple quests?</div>
-        <button class="starter-btn" data-seed="together">💎 COUPLE (${DEFAULT_DATA.together.goals.length} quests)</button>
+        <div class="starter-label">Load starter party quests?</div>
+        <button class="starter-btn" data-seed="together">💎 PARTY (${DEFAULT_DATA.together.goals.length} quests)</button>
       </div>` : '';
 
     list.innerHTML = `
@@ -1329,7 +1329,7 @@ function renderAllTab() {
     const meName      = (data.me?.name      || 'ME').toUpperCase();
     const partnerName = (data.partner?.name || '').toUpperCase();
     const sections = [
-      { tab: 'together', label: '💎 COUPLE',      cls: 'couple-header',  tagCls: 'owner-couple',  tagText: 'COUPLE'      },
+      { tab: 'together', label: '💎 ' + (data.together?.name || 'PARTY').toUpperCase(), cls: 'couple-header', tagCls: 'owner-couple', tagText: (data.together?.name || 'PARTY').toUpperCase() },
       ...(data.partner ? [{ tab: 'partner', label: '👤 ' + partnerName, cls: 'partner-header', tagCls: 'owner-partner', tagText: partnerName }] : []),
       { tab: 'me',       label: '👤 ' + meName,   cls: 'me-header',      tagCls: 'owner-me',      tagText: meName        },
     ];
@@ -1716,12 +1716,21 @@ async function renderPartnersPanel() {
     groupsEl.innerHTML = allGroups.map(g => {
       const memberStr = (g.memberEmails || g.members || []).join(', ');
       return `
-        <div class="partners-group-row">
-          <div>
-            <div class="partners-group-name">${g.name || 'Group'}</div>
+        <div class="partners-group-row" data-group-row="${g.id}">
+          <div style="flex:1;min-width:0">
+            <div class="partners-group-name" id="group-name-display-${g.id}">${g.name || 'PARTY'}</div>
             <div class="partners-group-members">${memberStr}</div>
+            <div class="partners-rename-row" id="group-rename-row-${g.id}" style="display:none">
+              <input class="partners-input partners-rename-input" id="group-rename-input-${g.id}"
+                     value="${g.name || 'PARTY'}" maxlength="30">
+              <button class="partners-accept-btn" data-rename-save="${g.id}">✓ SAVE</button>
+              <button class="partners-decline-btn" data-rename-cancel="${g.id}">✕</button>
+            </div>
           </div>
-          <button class="partners-leave-btn" data-group-id="${g.id}">🚪 LEAVE</button>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+            <button class="partners-rename-btn" data-rename-group="${g.id}">✏️ RENAME</button>
+            <button class="partners-leave-btn"  data-group-id="${g.id}">🚪 LEAVE</button>
+          </div>
         </div>`;
     }).join('');
   }
@@ -1769,6 +1778,48 @@ async function renderPartnersPanel() {
 }
 
 async function handlePartnersClick(e) {
+  // Rename group — show input
+  const renameBtn = e.target.closest('[data-rename-group]');
+  if (renameBtn) {
+    const gid = renameBtn.dataset.renameGroup;
+    document.getElementById(`group-rename-row-${gid}`).style.display = 'flex';
+    document.getElementById(`group-rename-input-${gid}`).focus();
+    return;
+  }
+
+  // Rename group — save
+  const renameSave = e.target.closest('[data-rename-save]');
+  if (renameSave) {
+    const gid   = renameSave.dataset.renameSave;
+    const input = document.getElementById(`group-rename-input-${gid}`);
+    const name  = input?.value.trim();
+    if (!name) return;
+    renameSave.disabled = true;
+    try {
+      const { db } = await import('./firebase.js');
+      const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      await updateDoc(doc(db, 'groups', gid), { name });
+      const g = allGroups.find(g => g.id === gid);
+      if (g) g.name = name;
+      if (currentGroupId === gid) data.together.name = name;
+      updateTabLabels();
+      render();
+      renderPartnersPanel();
+    } catch (err) {
+      console.error('Rename error:', err);
+    }
+    renameSave.disabled = false;
+    return;
+  }
+
+  // Rename group — cancel
+  const renameCancel = e.target.closest('[data-rename-cancel]');
+  if (renameCancel) {
+    const gid = renameCancel.dataset.renameCancel;
+    document.getElementById(`group-rename-row-${gid}`).style.display = 'none';
+    return;
+  }
+
   // Leave group
   const leaveBtn = e.target.closest('.partners-leave-btn');
   if (leaveBtn) {
@@ -2380,7 +2431,9 @@ function checkInactivity() {
 function updateTabLabels() {
   const meTab      = document.getElementById('tab-me');
   const partnerTab = document.getElementById('tab-partner');
-  if (meTab) meTab.textContent = '👤 ' + (data.me?.name || 'ME').toUpperCase();
+  const togetherTab = document.getElementById('tab-together');
+  if (meTab)      meTab.textContent = '👤 ' + (data.me?.name || 'ME').toUpperCase();
+  if (togetherTab) togetherTab.textContent = '💎 ' + (data.together?.name || 'PARTY').toUpperCase();
   if (partnerTab) {
     if (data.partner) {
       partnerTab.textContent    = '👤 ' + data.partner.name.toUpperCase();

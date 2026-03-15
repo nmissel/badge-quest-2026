@@ -2,6 +2,10 @@
 
 Ideas to explore in future sessions. Not committed to — just captured.
 
+## Profile & Account
+- User profile panel: change username, color, and avatar
+- Avatar builder: pixel-art style character creator (builds on the existing LAS/SOF SVG heads)
+
 ## AI & Personalisation
 - Based on existing goals / personality patterns, suggest new goals to users
 

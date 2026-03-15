@@ -44,7 +44,7 @@ export async function loadGroupData(groupId) {
     .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
 
   return {
-    name:                    gd.name                    || 'COUPLE',
+    name:                    gd.name                    || 'PARTY',
     members:                 gd.members                 || [],
     pendingInvites:          gd.pendingInvites           || [],
     goals,
