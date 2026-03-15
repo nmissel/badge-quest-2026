@@ -913,18 +913,19 @@ function ensureWinBodyStructure() {
   }
 }
 
+function colorToGradient(hex) {
+  // Build an XP-style sweep gradient from a base hex color
+  return `linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 50%),
+          linear-gradient(90deg, ${hex}CC 0%, ${hex} 30%, ${hex}FF 50%, ${hex} 70%, ${hex}CC 100%)`;
+}
+
 function updateTitleBarColor() {
   const gradients = {
-    all: `linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 50%),
-          linear-gradient(90deg, #0C2478 0%, #1848BE 18%, #3870DA 38%, #4A88F0 50%, #3870DA 62%, #1848BE 82%, #0C2478 100%)`,
-    las: `linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 50%),
-          linear-gradient(90deg, #6A0C0C 0%, #BE1818 18%, #DA3838 38%, #F05050 50%, #DA3838 62%, #BE1818 82%, #6A0C0C 100%)`,
-    together: `linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 50%),
-               linear-gradient(90deg, #3A0C6A 0%, #7818BE 18%, #9838DA 38%, #B050F0 50%, #9838DA 62%, #7818BE 82%, #3A0C6A 100%)`,
-    sof: `linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 50%),
-          linear-gradient(90deg, #0C3A0C 0%, #18801A 18%, #28A030 38%, #38C040 50%, #28A030 62%, #18801A 82%, #0C3A0C 100%)`,
-    team: `linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 50%),
-           linear-gradient(90deg, #5A3800 0%, #C88000 18%, #F0B800 38%, #FFD700 50%, #F0B800 62%, #C88000 82%, #5A3800 100%)`
+    all:      colorToGradient('#1848BE'),
+    together: colorToGradient('#7818BE'),
+    team:     colorToGradient('#C88000'),
+    me:       colorToGradient(data.me?.color      || '#cc0000'),
+    partner:  colorToGradient(data.partner?.color || '#2E7D32'),
   };
   document.getElementById('title-bar').style.background = gradients[activeTab] || gradients.all;
 }
