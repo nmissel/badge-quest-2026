@@ -3057,3 +3057,244 @@ body {
   font-size: 14px;
   color: #666;
 }
+
+/* ============ BADGES TAB ============ */
+
+.badges-body {
+  background: #ECE9D8;
+  padding: 8px;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.badges-section {
+  background: #ffffff;
+  border: 1px solid;
+  border-color: #ACA899 #FFFFFF #FFFFFF #ACA899;
+  padding: 10px 10px 8px;
+  flex-shrink: 0;
+}
+
+.badges-section-header {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6.5px;
+  color: #0A246A;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #ECE9D8;
+}
+
+.badges-grid {
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.badges-empty {
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  color: #ACA899;
+  padding: 8px 4px;
+}
+
+.badge-detail-wrap {
+  margin-top: 6px;
+}
+
+/* Rarity — subtle visual distinction, not loud */
+.badge-slot.rarity-rare .badge-gem.unlocked {
+  animation: badge-pulse-rare 2.5s ease-in-out infinite alternate;
+}
+@keyframes badge-pulse-rare {
+  from { filter: drop-shadow(0 0 3px #64D8FF) drop-shadow(0 0 1px #0088CC); }
+  to   { filter: drop-shadow(0 0 8px #64D8FF) drop-shadow(0 0 4px #0088CC); }
+}
+
+.badge-slot.rarity-epic .badge-gem.unlocked {
+  animation: badge-pulse-epic 2.5s ease-in-out infinite alternate;
+}
+@keyframes badge-pulse-epic {
+  from { filter: drop-shadow(0 0 3px #CE93D8) drop-shadow(0 0 1px #7B1FA2); }
+  to   { filter: drop-shadow(0 0 10px #CE93D8) drop-shadow(0 0 5px #7B1FA2); }
+}
+
+.badge-slot.rarity-legendary .badge-gem.unlocked {
+  animation: badge-pulse-legendary 2s ease-in-out infinite alternate;
+}
+@keyframes badge-pulse-legendary {
+  from { filter: drop-shadow(0 0 5px gold) drop-shadow(0 0 2px orange); }
+  to   { filter: drop-shadow(0 0 16px gold) drop-shadow(0 0 8px #ffaa00); }
+}
+
+.badge-slot.rarity-legendary::after {
+  content: '★';
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  font-size: 8px;
+  color: #FFD700;
+  text-shadow: 0 0 4px orange;
+}
+.badge-slot { position: relative; }
+
+.badge-rarity-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 4px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+.badge-rarity-label.rarity-common    { background: #E0E0E0; color: #555; }
+.badge-rarity-label.rarity-rare      { background: #B3E5FC; color: #01579B; }
+.badge-rarity-label.rarity-epic      { background: #E1BEE7; color: #6A1B9A; }
+.badge-rarity-label.rarity-legendary { background: #FFF9C4; color: #E65100; }
+
+/* ============ LEAN QUEST ROWS ============ */
+
+/* Override the old complex row layout with the lean RPG log style */
+.goal-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  background: #FFFFFF;
+  min-height: 44px;
+  border-bottom: 1px solid #F0EEE8;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+.goal-item:nth-child(even) { background: #F5F3EE; }
+.goal-item:active {
+  background: linear-gradient(90deg, #316AC5, #2154B0) !important;
+  color: #fff;
+}
+.goal-item:active .goal-title,
+.goal-item:active .goal-num,
+.goal-item:active .goal-progress { color: #fff !important; }
+
+.goal-num {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  color: #ACA899;
+  min-width: 22px;
+  flex-shrink: 0;
+}
+.goal-item.done .goal-num { color: #4CAF50; }
+
+.goal-title {
+  font-family: 'VT323', monospace;
+  font-size: 20px;
+  flex: 1;
+  line-height: 1.1;
+  color: #111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.goal-item.done .goal-title {
+  text-decoration: line-through;
+  color: #999;
+}
+
+.goal-progress {
+  font-family: 'VT323', monospace;
+  font-size: 14px;
+  color: #555;
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0;
+}
+.goal-progress.maxed { color: #2E7D32; }
+.goal-item.done .goal-progress { color: #4CAF50; }
+
+/* ============ QUEST DIALOG ============ */
+
+.quest-dialog-popup {
+  width: min(340px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.quest-dialog-titlebar {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.quest-dialog-number {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 18px;
+  color: #ffffff;
+  letter-spacing: 2px;
+}
+
+.quest-dialog-type {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 1px;
+}
+
+.quest-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.qd-title {
+  font-family: 'VT323', monospace;
+  font-size: 24px;
+  color: #111;
+  line-height: 1.2;
+}
+
+.qd-monthly-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+}
+
+.qd-month-count {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: #0A246A;
+  min-width: 100px;
+  text-align: center;
+}
+.qd-month-count.maxed { color: #2E7D32; }
+
+.qd-more-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: left;
+}
+.qd-more-btn:hover { color: #0A246A; }
+
+.qd-deadline {
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  color: #555;
+}
+
+.qd-photo {
+  max-width: 100%;
+  border-radius: 3px;
+  margin-top: 4px;
+  border: 1px solid #DDD9C8;
+}
+
+.popup-btn-secondary {
+  background: linear-gradient(180deg, #F4F2EA 0%, #DDD9C8 100%);
+  color: #333;
+  border-color: #ACA899 #FFFFFF #FFFFFF #ACA899;
+}
+.popup-btn-secondary:hover {
+  background: linear-gradient(180deg, #FFFFFF 0%, #EAE7D8 100%);
+}

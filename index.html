@@ -41,10 +41,9 @@
     <div class="tabs">
       <button class="tab active" data-tab="all">📋 ALL</button>
       <button class="tab" id="tab-together" data-tab="together">💎 PARTY</button>
-      <button class="tab" id="tab-partner" data-tab="partner" style="display:none">👤 ?</button>
-      <button class="tab" id="tab-teams" data-tab="teams" style="display:none">👥 TEAMS</button>
       <button class="tab" id="tab-me" data-tab="me">👤 ME</button>
-      <button class="tab team-tab" data-tab="team">🏆 TEAM</button>
+      <button class="tab" id="tab-teams" data-tab="teams" style="display:none">👥 TEAM</button>
+      <button class="tab" data-tab="badges">🏅 BADGES</button>
     </div>
 
     <!-- Main Scrollable Content -->
@@ -127,6 +126,26 @@
       </div>
     </div>
     <div class="confetti-wrap" id="confetti-2"></div>
+  </div>
+
+  <!-- Quest Dialog -->
+  <div class="overlay" id="quest-dialog" style="display:none">
+    <div class="popup quest-dialog-popup">
+      <div class="popup-titlebar quest-dialog-titlebar">
+        <span class="quest-dialog-number" id="qd-num">001</span>
+        <span class="quest-dialog-type" id="qd-type">QUEST</span>
+      </div>
+      <div class="popup-body quest-dialog-body">
+        <div class="qd-title" id="qd-title"></div>
+        <div class="qd-controls" id="qd-controls"></div>
+        <div class="qd-meta" id="qd-meta"></div>
+        <button class="qd-more-btn" id="qd-more-btn" style="display:none">▼ DETAILS</button>
+      </div>
+      <div class="popup-footer">
+        <button class="popup-btn popup-btn-secondary" id="qd-close">CLOSE</button>
+        <button class="popup-btn" id="qd-edit">✏ EDIT</button>
+      </div>
+    </div>
   </div>
 
   <!-- Photo Viewer Overlay -->
