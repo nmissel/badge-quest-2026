@@ -1062,74 +1062,41 @@ function renderGoalList() {
     return;
   }
 
-  const wb = document.getElementById('win-body');
-  if (viewMode === 'card') {
-    wb?.classList.add('card-mode');
-    list.innerHTML = renderCardView(goals.map(g => ({ ...g, _tab: tab })), tab);
-  } else {
-    wb?.classList.remove('card-mode');
-    // All interaction handled by handleWinBodyClick() delegation.
-    list.innerHTML = urgentWarningsHTML([tab])
-      + goals.map((g, i) => goalItemHTML(g, i, tab)).join('');
-  }
-
-  // Keep toggle button active state in sync (structure may have been rebuilt)
-  document.querySelectorAll('.view-btn[data-view]').forEach(btn =>
-    btn.classList.toggle('active', btn.dataset.view === viewMode)
-  );
+  document.getElementById('win-body')?.classList.remove('card-mode');
+  list.innerHTML = urgentWarningsHTML([tab])
+    + goals.map((g, i) => goalItemHTML(g, i, tab)).join('');
 }
 
 // ── ALL TAB RENDER ────────────────────────────────────────────
 function renderAllTab() {
   const wb = document.getElementById('win-body');
-  wb.className = viewMode === 'card' ? 'win-body card-mode' : 'win-body';
+  wb.className = 'win-body';
 
   const allDone  = totalDoneAll(data);
   const allTotal = totalGoalsAll(data);
   const allPct   = allTotal ? Math.round((allDone / allTotal) * 100) : 0;
 
-  const toggleBtnsHTML = `
-    <div class="view-toggle">
-      <button class="view-btn ${viewMode === 'list' ? 'active' : ''}" data-view="list" title="List view">☰</button>
-      <button class="view-btn ${viewMode === 'card' ? 'active' : ''}" data-view="card" title="Card view">▣</button>
+  const meName      = (data.me?.name      || 'ME').toUpperCase();
+  const partnerName = (data.partner?.name || '').toUpperCase();
+  const sections = [
+    { tab: 'together', label: '💎 ' + (data.together?.name || 'PARTY').toUpperCase(), cls: 'couple-header', tagCls: 'owner-couple', tagText: (data.together?.name || 'PARTY').toUpperCase() },
+    ...(data.partner ? [{ tab: 'partner', label: '👤 ' + partnerName, cls: 'partner-header', tagCls: 'owner-partner', tagText: partnerName }] : []),
+    { tab: 'me', label: '👤 ' + meName, cls: 'me-header', tagCls: 'owner-me', tagText: meName },
+  ];
+
+  const goalsHTML = sections.map(sec => {
+    const goals = data[sec.tab].goals;
+    const done  = countDone(data, sec.tab);
+    const total = goals.length;
+    const header = `<div class="all-section-header ${sec.cls}">
+      <span class="all-section-label">${sec.label}</span>
+      <span class="all-section-count">${total === 0 ? 'No quests yet' : `${done} / ${total} done`}</span>
     </div>`;
-
-  let goalListContent;
-  if (viewMode === 'card') {
-    goalListContent = renderCardView(getCardGoals('all'), 'all');
-  } else {
-    const meName      = (data.me?.name      || 'ME').toUpperCase();
-    const partnerName = (data.partner?.name || '').toUpperCase();
-    const sections = [
-      { tab: 'together', label: '💎 ' + (data.together?.name || 'PARTY').toUpperCase(), cls: 'couple-header', tagCls: 'owner-couple', tagText: (data.together?.name || 'PARTY').toUpperCase() },
-      ...(data.partner ? [{ tab: 'partner', label: '👤 ' + partnerName, cls: 'partner-header', tagCls: 'owner-partner', tagText: partnerName }] : []),
-      { tab: 'me',       label: '👤 ' + meName,   cls: 'me-header',      tagCls: 'owner-me',      tagText: meName        },
-    ];
-
-    const goalsHTML = sections.map(sec => {
-      const goals = data[sec.tab].goals;
-      const done  = countDone(data, sec.tab);
-      const total = goals.length;
-
-      const header = total === 0
-        ? `<div class="all-section-header ${sec.cls}">
-             <span class="all-section-label">${sec.label}</span>
-             <span class="all-section-count">No goals yet</span>
-           </div>`
-        : `<div class="all-section-header ${sec.cls}">
-             <span class="all-section-label">${sec.label}</span>
-             <span class="all-section-count">${done} / ${total} done</span>
-           </div>`;
-
-      const items = goals.map((g, i) => goalItemHTML(g, i, sec.tab, {
-        showTag: true, tagCls: sec.tagCls, tagText: sec.tagText
-      })).join('');
-
-      return header + items;
-    }).join('');
-
-    goalListContent = urgentWarningsHTML(['me', 'together', ...(data.partner ? ['partner'] : [])]) + goalsHTML;
-  }
+    const items = goals.map((g, i) => goalItemHTML(g, i, sec.tab, {
+      showTag: true, tagCls: sec.tagCls, tagText: sec.tagText
+    })).join('');
+    return header + items;
+  }).join('');
 
   wb.innerHTML = `
     <div class="progress-section">
@@ -1140,9 +1107,8 @@ function renderAllTab() {
     <div class="inset-panel quest-panel">
       <div class="panel-title-row">
         <span class="panel-title">📋 ALL QUESTS</span>
-        ${toggleBtnsHTML}
       </div>
-      <div class="goal-list" id="goal-list">${goalListContent}</div>
+      <div class="goal-list" id="goal-list">${urgentWarningsHTML(['me', 'together', ...(data.partner ? ['partner'] : [])]) + goalsHTML}</div>
     </div>`;
 }
 
@@ -1726,7 +1692,11 @@ function init() {
     if (e.target.id === 'quest-dialog') closeQuestDialog();
   });
   document.getElementById('qd-edit').addEventListener('click', () => {
-    if (_qdGoal && _qdTab) { closeQuestDialog(); openGoalModal(_qdTab, _qdGoal.id); }
+    if (_qdGoal && _qdTab) {
+      const tab = _qdTab, id = _qdGoal.id;
+      closeQuestDialog();
+      openGoalModal(tab, id);
+    }
   });
   document.getElementById('qd-more-btn').addEventListener('click', () => {
     _qdMetaOpen = !_qdMetaOpen;
@@ -1891,9 +1861,9 @@ function updateTabLabels() {
   const meTab = document.getElementById('tab-me');
   if (meTab && data.me?.name) meTab.textContent = `👤 ${data.me.name.toUpperCase()}`;
 
-  // TEAM tab — only visible when user is in a team group
+  // TEAM tab — always visible (shows empty state if not in a team)
   const teamTab = document.getElementById('tab-teams');
-  if (teamTab) teamTab.style.display = allGroups.some(g => g.type === 'team') ? '' : 'none';
+  if (teamTab) teamTab.style.display = '';
 }
 
 document.addEventListener('DOMContentLoaded', () => {
