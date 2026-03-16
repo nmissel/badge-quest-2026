@@ -9,6 +9,9 @@ import {
   loadGroupData, loadPartnerData
 } from './db.js';
 
+// Escape user-controlled strings before inserting into innerHTML
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
 // Callbacks wired by app.js on init
 let _render          = null;
 let _setStatus       = null;
@@ -53,11 +56,11 @@ export async function renderPartnersPanel() {
       return `
         <div class="partners-group-row" data-group-row="${g.id}">
           <div style="flex:1;min-width:0">
-            <div class="partners-group-name" id="group-name-display-${g.id}">${g.name || 'PARTY'} <span class="group-type-badge ${typeCls}">${typeLabel}</span></div>
-            <div class="partners-group-members">${memberStr}</div>
+            <div class="partners-group-name" id="group-name-display-${g.id}">${esc(g.name || 'PARTY')} <span class="group-type-badge ${typeCls}">${typeLabel}</span></div>
+            <div class="partners-group-members">${esc(memberStr)}</div>
             <div class="partners-rename-row" id="group-rename-row-${g.id}" style="display:none">
               <input class="partners-input partners-rename-input" id="group-rename-input-${g.id}"
-                     value="${g.name || 'PARTY'}" maxlength="30">
+                     value="${esc(g.name || 'PARTY')}" maxlength="30">
               <button class="partners-accept-btn" data-rename-save="${g.id}">✓ SAVE</button>
               <button class="partners-decline-btn" data-rename-cancel="${g.id}">✕</button>
             </div>
@@ -86,7 +89,7 @@ export async function renderPartnersPanel() {
         <div class="partners-sent-row">
           <div>
             <span class="partners-sent-to">${inv.toEmail}</span>
-            <span style="font-family:VT323,monospace;font-size:14px;color:#888"> — ${inv.groupName || ''}</span>
+            <span style="font-family:VT323,monospace;font-size:14px;color:#888"> — ${esc(inv.groupName || '')}</span>
           </div>
           <span class="partners-sent-status ${statusCls}">${statusLbl}</span>
         </div>`;
@@ -102,8 +105,8 @@ export async function renderPartnersPanel() {
     incomingSection.style.display = '';
     incomingList.innerHTML = _pendingInvites.map(inv => `
       <div class="partners-invite-row">
-        <div class="partners-invite-from">${inv.fromUsername || inv.fromEmail} invited you to:</div>
-        <div class="partners-invite-name">"${inv.groupName}"</div>
+        <div class="partners-invite-from">${esc(inv.fromUsername || inv.fromEmail)} invited you to:</div>
+        <div class="partners-invite-name">"${esc(inv.groupName)}"</div>
         <div class="partners-invite-actions">
           <button class="partners-accept-btn" data-invite-id="${inv.id}">✓ ACCEPT</button>
           <button class="partners-decline-btn" data-invite-id="${inv.id}">✕ DECLINE</button>
@@ -305,7 +308,7 @@ export function renderInviteBanner() {
   const banner = tpl.content.cloneNode(true);
   banner.querySelector('#invite-banner-content').innerHTML = _pendingInvites.map(inv => `
     <div class="invite-banner-item">
-      <span class="invite-banner-text">🎯 <b>${inv.fromUsername || inv.fromEmail}</b> invited you to <b>"${inv.groupName}"</b>!</span>
+      <span class="invite-banner-text">🎯 <b>${esc(inv.fromUsername || inv.fromEmail)}</b> invited you to <b>"${esc(inv.groupName)}"</b>!</span>
       <div class="invite-banner-actions">
         <button class="invite-banner-accept"  data-banner-accept="${inv.id}">ACCEPT</button>
         <button class="invite-banner-decline" data-banner-decline="${inv.id}">IGNORE</button>

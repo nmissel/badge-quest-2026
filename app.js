@@ -31,6 +31,9 @@ import {
 
 const MONTHS = ['JAN','FEB','MAR','APR','MAJ','JUN','JUL','AUG','SEP','OKT','NOV','DEC'];
 
+// Escape user-controlled strings before inserting into innerHTML
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
 // ── GOAL TYPE REGISTRY ─────────────────────────────────────────
 // To add a new goal type: add one entry here. Nothing else to touch.
 // Each type defines:
@@ -56,7 +59,7 @@ const GOAL_TYPES = {
         <div class="goal-item goal-binary ${g.done ? 'done' : ''}" data-id="${g.id}">
           <span class="goal-num">${num}</span>
           <div class="goal-title-wrap">
-            <span class="goal-title">${g.title}</span>
+            <span class="goal-title">${esc(g.title)}</span>
             ${noteHTML}
           </div>
           <div class="gi-actions">
@@ -112,7 +115,7 @@ const GOAL_TYPES = {
         <div class="goal-item count-goal ${g.done ? 'done' : ''}" data-id="${g.id}">
           <span class="goal-num">${num}</span>
           <div class="goal-title-wrap">
-            <span class="goal-title">${g.title}</span>
+            <span class="goal-title">${esc(g.title)}</span>
             ${noteHTML}
           </div>
           <div class="gi-actions">
@@ -138,7 +141,7 @@ const GOAL_TYPES = {
             </div>
             <div class="card-count-label">
               <span class="card-count-num ${maxed ? 'maxed' : ''}">${g.current} / ${g.target}</span>
-              <span class="card-count-unit">${g.unit}</span>
+              <span class="card-count-unit">${esc(g.unit)}</span>
             </div>
           </div>
           <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${realTab}" data-action="inc" ${maxed ? 'disabled' : ''}>+</button>
@@ -173,7 +176,7 @@ const GOAL_TYPES = {
         <div class="goal-item monthly-goal ${g.done ? 'done' : ''}" data-id="${g.id}">
           <span class="goal-num">${num}</span>
           <div class="goal-title-wrap">
-            <span class="goal-title">${g.title}</span>
+            <span class="goal-title">${esc(g.title)}</span>
             ${noteHTML}
           </div>
           <div class="gi-actions">
@@ -426,7 +429,7 @@ function urgentWarningsHTML(tabs) {
   if (!items.length) return '';
   const hasOverdue = items.some(x => x.u === 'overdue');
   const rows = items.map(x =>
-    `<div class="deadline-warning-item">${x.u === 'overdue' ? '🚨' : '⚡'} ${x.title} — ${x.dayStr}</div>`
+    `<div class="deadline-warning-item">${x.u === 'overdue' ? '🚨' : '⚡'} ${esc(x.title)} — ${x.dayStr}</div>`
   ).join('');
   return `
     <div class="deadline-warning-panel ${hasOverdue ? 'deadline-warning-overdue' : ''}">
@@ -507,11 +510,11 @@ function setStatus(msg, resetAfter = 0) {
 function goalItemHTML(g, index, tab, options = {}) {
   const { showTag = false, tagCls = '', tagText = '' } = options;
   const num      = String(index + 1).padStart(2, '0');
-  const noteHTML = g.done && g.note  ? `<span class="goal-note-text">✎ ${g.note}</span>` : '';
+  const noteHTML = g.done && g.note  ? `<span class="goal-note-text">✎ ${esc(g.note)}</span>` : '';
   const photoHTML= g.done && g.photo ? `<img class="goal-photo-thumb" src="${g.photo}" data-photo alt="Memory">` : '';
   const dlBadge  = !g.done ? deadlineBadgeHTML(g) : '';
   const dlBtn    = !g.done ? `<button class="deadline-btn" data-id="${g.id}" data-tab="${tab}" title="Set deadline">📅</button>` : '';
-  const tag      = showTag ? `<span class="owner-tag ${tagCls}">${tagText}</span>` : '';
+  const tag      = showTag ? `<span class="owner-tag ${tagCls}">${esc(tagText)}</span>` : '';
   const ta       = `data-tab="${tab}"`;
   const editable = tab === 'me' || tab === 'together';
   const swipeActions = editable ? `
@@ -631,7 +634,7 @@ function renderCardView(goals, tab) {
 
   // Owner tag (visible in ALL tab card view)
   const ownerTag = g._tagText
-    ? `<span class="owner-tag ${g._tagCls}" style="font-size:4.5px">${g._tagText}</span>`
+    ? `<span class="owner-tag ${g._tagCls}" style="font-size:4.5px">${esc(g._tagText)}</span>`
     : '';
 
   // Human-readable type label
@@ -642,7 +645,7 @@ function renderCardView(goals, tab) {
 
   // ── Meta (note + photo — deadline has its own bar) ───────────
   const dlBadge  = !g.done ? deadlineBadgeHTML(g) : '';
-  const noteHTML = g.done && g.note  ? `<div class="card-note">✎ ${g.note}</div>` : '';
+  const noteHTML = g.done && g.note  ? `<div class="card-note">✎ ${esc(g.note)}</div>` : '';
   const photoHTML= g.done && g.photo ? `<img class="card-photo goal-photo-thumb" src="${g.photo}" alt="Memory">` : '';
   const hasMeta  = noteHTML || photoHTML;
 
@@ -654,7 +657,7 @@ function renderCardView(goals, tab) {
         <div class="card-titlebar ${g.done ? 'done' : ''}">
           <div class="card-tb-left">
             <span class="card-tb-icon">🎯</span>
-            <span class="card-tb-title">${g.title}</span>
+            <span class="card-tb-title">${esc(g.title)}</span>
           </div>
           <div class="card-tb-right">
             ${ownerTag}
@@ -884,7 +887,7 @@ function ensureWinBodyStructure() {
       <div class="group-switcher-row">
         <span class="group-switcher-label">GROUP:</span>
         <select class="group-switcher" id="group-switcher">
-          ${allGroups.map(g => `<option value="${g.id}" ${g.id === currentGroupId ? 'selected' : ''}>${g.name}</option>`).join('')}
+          ${allGroups.map(g => `<option value="${g.id}" ${g.id === currentGroupId ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}
         </select>
       </div>` : '';
 
@@ -1284,9 +1287,9 @@ function renderTeamsTab() {
     <div class="group-switcher-row">
       <span class="group-switcher-label">TEAM:</span>
       <select class="group-switcher" id="team-switcher">
-        ${teamGroups.map(g => `<option value="${g.id}" ${g.id === currentTeamId ? 'selected' : ''}>${g.name}</option>`).join('')}
+        ${teamGroups.map(g => `<option value="${g.id}" ${g.id === currentTeamId ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}
       </select>
-    </div>` : `<div class="group-switcher-row"><span class="group-switcher-label">👥 ${teamGroups[0].name}</span></div>`;
+    </div>` : `<div class="group-switcher-row"><span class="group-switcher-label">👥 ${esc(teamGroups[0].name)}</span></div>`;
 
   const activeTeam = teamGroups.find(g => g.id === currentTeamId) || teamGroups[0];
   if (!currentTeamId || !teamGroups.find(g => g.id === currentTeamId)) currentTeamId = activeTeam.id;
@@ -1299,7 +1302,7 @@ function renderTeamsTab() {
     const badges = (m.unlockedBadges || []).length;
     return `
       <div class="team-member-card">
-        <div class="team-member-name">👤 ${(m.name || 'PLAYER').toUpperCase()}</div>
+        <div class="team-member-name">👤 ${esc((m.name || 'PLAYER').toUpperCase())}</div>
         <div class="team-member-prog-track">
           <div class="team-member-prog-fill" style="width:${pct}%"></div>
         </div>
