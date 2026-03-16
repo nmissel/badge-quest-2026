@@ -45,7 +45,9 @@ export async function loadGroupData(groupId) {
 
   return {
     name:                    gd.name                    || 'PARTY',
+    type:                    gd.type                    || 'party',
     members:                 gd.members                 || [],
+    memberEmails:            gd.memberEmails             || [],
     pendingInvites:          gd.pendingInvites           || [],
     goals,
     unlockedCombinedBadges:  gd.unlockedCombinedBadges  || [],
@@ -157,7 +159,7 @@ export async function saveUserEmail(uid, email) {
 
 // ── Invite management ─────────────────────────────────────────
 
-export async function sendGroupInvite(fromUid, fromEmail, fromUsername, toEmail, groupName) {
+export async function sendGroupInvite(fromUid, fromEmail, fromUsername, toEmail, groupName, groupType = 'party') {
   const inviteRef = doc(collection(db, 'invites'));
   await setDoc(inviteRef, {
     fromUid,
@@ -165,6 +167,7 @@ export async function sendGroupInvite(fromUid, fromEmail, fromUsername, toEmail,
     fromUsername,
     toEmail:   toEmail.toLowerCase().trim(),
     groupName,
+    groupType,
     status:    'pending',
     createdAt: serverTimestamp()
   });
@@ -195,6 +198,7 @@ export async function acceptGroupInvite(inviteId, invite, acceptingUid, acceptin
 
   batch.set(groupRef, {
     name:                   invite.groupName,
+    type:                   invite.groupType || 'party',
     members:                [invite.fromUid, acceptingUid],
     memberEmails:           [invite.fromEmail, acceptingEmail],
     createdAt:              serverTimestamp(),

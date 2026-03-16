@@ -42,6 +42,7 @@
       <button class="tab active" data-tab="all">📋 ALL</button>
       <button class="tab" id="tab-together" data-tab="together">💎 PARTY</button>
       <button class="tab" id="tab-partner" data-tab="partner" style="display:none">👤 ?</button>
+      <button class="tab" id="tab-teams" data-tab="teams" style="display:none">👥 TEAMS</button>
       <button class="tab" id="tab-me" data-tab="me">👤 ME</button>
       <button class="tab team-tab" data-tab="team">🏆 TEAM</button>
     </div>
@@ -299,13 +300,39 @@
 
         <!-- Invite form -->
         <div class="partners-section-title">✉️ INVITE A PLAYER</div>
-        <div class="partners-invite-form">
-          <label class="partners-label" for="invite-name-input">GROUP NAME</label>
-          <input type="text"  id="invite-name-input"  class="partners-input" maxlength="30" placeholder="e.g. Us 2026">
-          <label class="partners-label" for="invite-email-input">THEIR EMAIL</label>
-          <input type="email" id="invite-email-input" class="partners-input" maxlength="100" placeholder="player@email.com">
-          <button class="popup-btn partners-send-btn" id="invite-send-btn">SEND INVITE ▶</button>
-          <p id="invite-status" class="partners-status"></p>
+
+        <!-- Step 1: Type picker -->
+        <div id="invite-type-picker">
+          <div class="invite-type-cards">
+            <div class="invite-type-card" data-invite-type="party">
+              <div class="invite-type-icon">💎</div>
+              <div class="invite-type-name">PARTY</div>
+              <div class="invite-type-desc">One shared quest list. Pick challenges you'll take on side by side and celebrate every win together.</div>
+              <button class="invite-type-btn" data-invite-type="party">START A PARTY ▶</button>
+            </div>
+            <div class="invite-type-card" data-invite-type="team">
+              <div class="invite-type-icon">👥</div>
+              <div class="invite-type-name">TEAM</div>
+              <div class="invite-type-desc">Everyone keeps their own goals, but you travel the same road. Earn badges together — no one left behind.</div>
+              <button class="invite-type-btn" data-invite-type="team">FORM A TEAM ▶</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Invite form (shown after type is picked) -->
+        <div id="invite-form-step" style="display:none">
+          <div class="invite-type-chosen" id="invite-type-chosen"></div>
+          <div class="partners-invite-form">
+            <label class="partners-label" for="invite-name-input">GROUP NAME</label>
+            <input type="text"  id="invite-name-input"  class="partners-input" maxlength="30" placeholder="e.g. Us 2026">
+            <label class="partners-label" for="invite-email-input">THEIR EMAIL</label>
+            <input type="email" id="invite-email-input" class="partners-input" maxlength="100" placeholder="player@email.com">
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="popup-btn partners-send-btn" id="invite-send-btn">SEND INVITE ▶</button>
+              <button class="invite-back-btn" id="invite-back-btn">← BACK</button>
+            </div>
+            <p id="invite-status" class="partners-status"></p>
+          </div>
         </div>
 
       </div>

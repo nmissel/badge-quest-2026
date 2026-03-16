@@ -5,22 +5,260 @@ import { initAuth, signOutUser, currentUser, currentProfile } from './auth.js';
 import {
   loadUserData, loadGroupData, loadPartnerData,
   syncAllToFirestore, saveUserGoal, saveGroupGoal,
-  sendGroupInvite, getPendingInvitesForEmail, getSentInvites,
-  acceptGroupInvite, declineGroupInvite, leaveGroup
+  getPendingInvitesForEmail
 } from './db.js';
+import {
+  BADGE_DEFS, COMBINED_BADGE_DEFS, BALANCE_BADGE_DEFS, TEAM_BADGE_DEFS,
+  makeBadgeSVG, badgeSlotHTML,
+  countDone, getPct, totalDoneAll, totalGoalsAll,
+  earnedBadges, recalcBadges, checkAndAwardBadges,
+  earnedTeamBadges, recalcTeamBadges, checkAndAwardTeamBadges,
+  earnedTeamGroupBadges
+} from './badges.js';
+import {
+  sfxClick, sfxCount, sfxMonthTick, sfxGoalComplete, sfxBadgeUnlock,
+  resizeImage, launchConfetti,
+  openPhotoViewer, closePhotoViewer,
+  updateClock, updateYearWidget,
+  enableNotifications, updateNotifBtn, checkInactivity
+} from './ui.js';
+import {
+  initPartners,
+  openPartnersPanel, closePartnersPanel,
+  handlePartnersClick, handleAcceptInvite, handleDeclineInvite,
+  handleSendInvite, renderInviteBanner
+} from './partners.js';
 
 const MONTHS = ['JAN','FEB','MAR','APR','MAJ','JUN','JUL','AUG','SEP','OKT','NOV','DEC'];
 
-// ── CHARACTER AVATARS (pixel-art SVG heads) ────────────────────
-const SOF_SVG = `<svg class="char-svg" width="18" height="22" viewBox="0 0 18 22" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="3" width="3" height="16" fill="#B82200"/><rect x="14" y="3" width="3" height="16" fill="#B82200"/><rect x="2" y="1" width="14" height="5" fill="#B82200"/><rect x="3" y="5" width="12" height="11" fill="#FACBA0"/><rect x="5" y="8" width="2" height="2" fill="#1A0808"/><rect x="11" y="8" width="2" height="2" fill="#1A0808"/><rect x="6" y="13" width="5" height="1" fill="#C0607A"/><circle cx="16.5" cy="10" r="1.5" fill="#FFD700"/><rect x="7" y="16" width="4" height="2" fill="#FACBA0"/><rect x="4" y="18" width="10" height="1" fill="#5599EE" opacity="0.7"/><rect x="6" y="19" width="6" height="1" fill="#5599EE" opacity="0.6"/></svg>`;
+// ── GOAL TYPE REGISTRY ─────────────────────────────────────────
+// To add a new goal type: add one entry here. Nothing else to touch.
+// Each type defines:
+//   label          — display name shown on card type badge
+//   modalFields    — (optional) true if the modal shows extra fields (currently only 'count')
+//   initialState() — returns type-specific fields to spread onto a new/switched goal
+//   updateFields(goal) — updates type-specific fields when editing same type in modal
+//   clearFields(goal)  — deletes all type-specific fields (called when switching type)
+//   listItemHTML(g, ctx) — renders the list-view item; ctx has: num, ta, noteHTML, photoHTML, wrap
+//   cardControlsHTML(g, realTab) — renders the card-view interactive controls
+//   applyChange(goal, action) — mutates goal, returns 'complete' | 'uncomplete' | null
+const GOAL_TYPES = {
 
-const LAS_SVG = `<svg class="char-svg" width="18" height="22" viewBox="0 0 18 22" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="4" width="3" height="14" fill="#6B3A1F"/><rect x="14" y="4" width="3" height="9" fill="#6B3A1F"/><rect x="2" y="1" width="14" height="7" fill="#6B3A1F"/><rect x="4" y="1" width="10" height="3" fill="#8B4A25"/><rect x="3" y="7" width="12" height="10" fill="#F0C880"/><rect x="5" y="10" width="2" height="2" fill="#1A0808"/><rect x="11" y="10" width="2" height="2" fill="#1A0808"/><rect x="7" y="14" width="4" height="1" fill="#B07850"/><rect x="5" y="15" width="2" height="1" fill="#9A7060" opacity="0.6"/><rect x="8" y="16" width="2" height="1" fill="#9A7060" opacity="0.55"/><rect x="11" y="15" width="2" height="1" fill="#9A7060" opacity="0.6"/><rect x="7" y="17" width="4" height="2" fill="#F0C880"/></svg>`;
+  binary: {
+    label: 'QUEST',
 
-// ── DEFAULT DATA ──────────────────────────────────────────────
-const DEFAULT_DATA = {
-  las: {
-    name: 'LAS', color: '#cc0000',
-    goals: [
+    initialState: () => ({}),
+    updateFields() {},
+    clearFields(goal) { delete goal.target; delete goal.current; delete goal.unit; delete goal.months; },
+
+    listItemHTML(g, { num, ta, noteHTML, photoHTML, wrap }) {
+      return wrap(`
+        <div class="goal-item goal-binary ${g.done ? 'done' : ''}" data-id="${g.id}">
+          <span class="goal-num">${num}</span>
+          <div class="goal-title-wrap">
+            <span class="goal-title">${g.title}</span>
+            ${noteHTML}
+          </div>
+          <div class="gi-actions">
+            ${photoHTML}
+            <button class="goal-check" data-id="${g.id}" ${ta} data-type="binary">${g.done ? '✓' : ''}</button>
+          </div>
+        </div>`);
+    },
+
+    cardControlsHTML(g, realTab) {
+      return g.done
+        ? `<button class="goal-check card-check-btn card-done-btn" data-id="${g.id}" data-tab="${realTab}" data-type="binary">
+             ✓ QUEST COMPLETE!
+             <span class="card-btn-sub">tap to undo</span>
+           </button>`
+        : `<button class="goal-check card-check-btn" data-id="${g.id}" data-tab="${realTab}" data-type="binary">
+             ◻ MARK AS DONE
+           </button>`;
+    },
+
+    applyChange(goal, action) {
+      if (action.type === 'toggle') {
+        if (goal.done) {
+          sfxClick();
+          goal.done = false; goal.doneDate = null;
+          return 'uncomplete';
+        }
+        goal.done = true; goal.doneDate = new Date().toISOString();
+        return 'complete';
+      }
+      return null;
+    },
+  },
+
+  count: {
+    label: 'COUNT',
+    modalFields: true,
+
+    initialState: () => ({
+      target:  parseInt(document.getElementById('gm-target').value) || 10,
+      unit:    document.getElementById('gm-unit').value.trim() || 'times',
+      current: 0,
+    }),
+    updateFields(goal) {
+      goal.target = parseInt(document.getElementById('gm-target').value) || 10;
+      goal.unit   = document.getElementById('gm-unit').value.trim() || 'times';
+    },
+    clearFields(goal) { delete goal.months; },
+
+    listItemHTML(g, { num, ta, noteHTML, photoHTML, wrap }) {
+      const maxed = g.current >= g.target;
+      return wrap(`
+        <div class="goal-item count-goal ${g.done ? 'done' : ''}" data-id="${g.id}">
+          <span class="goal-num">${num}</span>
+          <div class="goal-title-wrap">
+            <span class="goal-title">${g.title}</span>
+            ${noteHTML}
+          </div>
+          <div class="gi-actions">
+            <div class="gi-count-inline">
+              <button class="cnt-btn gi-cnt-btn" data-id="${g.id}" ${ta} data-action="dec" ${g.current===0?'disabled':''}>−</button>
+              <span class="gi-count-num ${maxed?'maxed':''}">${g.current}/${g.target}</span>
+              <button class="cnt-btn gi-cnt-btn" data-id="${g.id}" ${ta} data-action="inc" ${maxed?'disabled':''}>+</button>
+            </div>
+            ${photoHTML}
+          </div>
+        </div>`);
+    },
+
+    cardControlsHTML(g, realTab) {
+      const maxed = g.current >= g.target;
+      const pct   = g.target > 0 ? (g.current / g.target) * 100 : 0;
+      return `
+        <div class="card-count-row">
+          <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${realTab}" data-action="dec" ${g.current === 0 ? 'disabled' : ''}>−</button>
+          <div class="card-count-bar-wrap">
+            <div class="card-count-track">
+              <div class="card-count-fill ${maxed ? 'maxed' : ''}" style="width:${pct}%"></div>
+            </div>
+            <div class="card-count-label">
+              <span class="card-count-num ${maxed ? 'maxed' : ''}">${g.current} / ${g.target}</span>
+              <span class="card-count-unit">${g.unit}</span>
+            </div>
+          </div>
+          <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${realTab}" data-action="inc" ${maxed ? 'disabled' : ''}>+</button>
+        </div>`;
+    },
+
+    applyChange(goal, action) {
+      if (action.type === 'adjust') {
+        const { delta } = action;
+        const wasDone   = goal.done;
+        goal.current    = Math.max(0, Math.min(goal.target, goal.current + delta));
+        sfxCount(delta > 0);
+        const justCompleted = !wasDone && goal.current >= goal.target;
+        if (justCompleted)                         { goal.done = true;  goal.doneDate = new Date().toISOString(); return 'complete';   }
+        if (wasDone && goal.current < goal.target) { goal.done = false; goal.doneDate = null;                    return 'uncomplete'; }
+      }
+      return null;
+    },
+  },
+
+  monthly: {
+    label: 'MONTHLY',
+
+    initialState: () => ({ months: Array(12).fill(false) }),
+    updateFields() {},
+    clearFields(goal) { delete goal.target; delete goal.current; delete goal.unit; },
+
+    listItemHTML(g, { num, ta, noteHTML, photoHTML, wrap }) {
+      const checked = g.months.filter(Boolean).length;
+      const maxed   = checked >= 12;
+      return wrap(`
+        <div class="goal-item monthly-goal ${g.done ? 'done' : ''}" data-id="${g.id}">
+          <span class="goal-num">${num}</span>
+          <div class="goal-title-wrap">
+            <span class="goal-title">${g.title}</span>
+            ${noteHTML}
+          </div>
+          <div class="gi-actions">
+            <div class="gi-count-inline">
+              <button class="cnt-btn gi-cnt-btn" data-id="${g.id}" ${ta} data-action="dec" data-type="monthly" ${checked===0?'disabled':''}>−</button>
+              <span class="gi-count-num ${maxed?'maxed':''}">${checked}/12</span>
+              <button class="cnt-btn gi-cnt-btn" data-id="${g.id}" ${ta} data-action="inc" data-type="monthly" ${maxed?'disabled':''}>+</button>
+            </div>
+            ${photoHTML}
+          </div>
+        </div>`);
+    },
+
+    cardControlsHTML(g, realTab) {
+      const checked = g.months.filter(Boolean).length;
+      const maxed   = checked >= 12;
+      const cells   = MONTHS.map((m, i) => `
+        <div class="month-cell ${g.months[i] ? 'checked' : ''}"
+             data-id="${g.id}" data-tab="${realTab}" data-month="${i}">${m}</div>`).join('');
+      return `
+        <div class="card-monthly-wrap">
+          <div class="month-grid card-month-grid">${cells}</div>
+          <div class="card-monthly-count">
+            <span class="card-monthly-count-label ${maxed ? 'maxed' : ''}">${checked} / 12 mdr.</span>
+          </div>
+        </div>`;
+    },
+
+    applyChange(goal, action) {
+      const wasDone = goal.done;
+      if (action.type === 'month') {
+        goal.months[action.index] = !goal.months[action.index];
+        sfxMonthTick();
+      } else if (action.type === 'adjust') {
+        const { delta } = action;
+        if (delta > 0) {
+          const idx = goal.months.findIndex(m => !m);
+          if (idx === -1) return null;
+          goal.months[idx] = true;
+        } else {
+          let last = -1;
+          for (let i = 11; i >= 0; i--) { if (goal.months[i]) { last = i; break; } }
+          if (last === -1) return null;
+          goal.months[last] = false;
+        }
+        sfxMonthTick();
+      }
+      const checked       = goal.months.filter(Boolean).length;
+      const justCompleted = !wasDone && checked >= 12;
+      if (justCompleted)             { goal.done = true;  goal.doneDate = new Date().toISOString(); return 'complete';   }
+      if (wasDone && checked < 12)   { goal.done = false; goal.doneDate = null;                    return 'uncomplete'; }
+      return null;
+    },
+  },
+};
+
+// ── GOAL INTERACTION DISPATCHER ───────────────────────────────
+// Single entry point for all goal state changes. Calls the type's
+// applyChange(), then handles save/render/badges/celebrations.
+function applyGoalInteraction(tab, id, action) {
+  const goal = data[tab]?.goals.find(g => g.id === id);
+  if (!goal) return;
+  const typeDef = GOAL_TYPES[goal.type];
+  if (!typeDef) return;
+
+  const result = typeDef.applyChange(goal, action);
+
+  if (result === 'uncomplete') {
+    recalcBadges(data, tab);
+    recalcTeamBadges(data);
+    saveData(); render();
+  } else if (result === 'complete') {
+    pendingCelebrations.push({ type: 'goal', title: goal.title, goalRef: goal, tab });
+    saveData(); render();
+    if (!celebrating) processCelebrations();
+  } else {
+    saveData(); render();
+  }
+}
+
+// ── STARTER QUEST PRESETS ─────────────────────────────────────
+// Sample goals shown to new users on empty tabs.
+// Keys are generic (a / b / party) — not tied to any specific user.
+const STARTER_PRESETS = {
+  a: { goals: [
       // ── BINARY GOALS ──
       { id: 1,  title: 'Lancér noget (produkt/idé) sammen med en ven',                                type: 'binary',  done: false, doneDate: null, note: '' },
       { id: 2,  title: 'Brug en hel weekend på at bygge i Cursor/Gemini/Claude',                      type: 'binary',  done: false, doneDate: null, note: '' },
@@ -50,9 +288,8 @@ const DEFAULT_DATA = {
       { id: 22, title: 'Spar/invester 3.000 DKK pr. måned (mål: 36.000 DKK/år)',       type: 'monthly', months: Array(12).fill(false), done: false, doneDate: null, note: '' },
       { id: 25, title: 'Lav et fysisk minde med dit instant-kamera 📸',                 type: 'monthly', months: Array(12).fill(false), done: false, doneDate: null, note: '' },
     ],
-    unlockedBadges: [], badgeDates: {}
   },
-  together: { name: 'PARTY', color: '#7B2D8B', goals: [
+  party: { goals: [
     { id: 1, title: 'Byt lejligheden',                type: 'binary',  done: false, doneDate: null, note: '' },
     { id: 2, title: 'Lang togtur',                    type: 'binary',  done: false, doneDate: null, note: '' },
     { id: 3, title: 'Planlæg Japan (ihvertfald lidt)', type: 'binary',  done: false, doneDate: null, note: '' },
@@ -60,8 +297,8 @@ const DEFAULT_DATA = {
     { id: 5, title: 'Spise mere hjemmelavet mad',     type: 'monthly', months: Array(12).fill(false), done: false, doneDate: null, note: '' },
     { id: 6, title: 'Mere (spontan) sex',             type: 'monthly', months: Array(12).fill(false), done: false, doneDate: null, note: '' },
     { id: 7, title: 'Læs højt for hinanden',          type: 'monthly', months: Array(12).fill(false), done: false, doneDate: null, note: '' },
-  ], unlockedBadges: [], badgeDates: {} },
-  sof: { name: 'SOF', color: '#2E7D32', goals: [
+  ] },
+  b: { goals: [
     // ── BINARY GOALS ──
     { id: 1,  title: 'Byt lejlighed',                                    type: 'binary',  done: false, doneDate: null, note: '' },
     { id: 2,  title: 'Vær glad for hele mit hjem',                       type: 'binary',  done: false, doneDate: null, note: '' },
@@ -90,47 +327,12 @@ const DEFAULT_DATA = {
     // ── MONTHLY GOALS ──
     { id: 24, title: '1 bog om måneden', type: 'monthly', months: Array(12).fill(false), done: false, doneDate: null, note: '' },
     { id: 25, title: 'Fredagsløbeture',  type: 'monthly', months: Array(12).fill(false), done: false, doneDate: null, note: '' },
-  ], unlockedBadges: [], badgeDates: {} },
-  team: {
-    unlockedCombinedBadges: [],
-    unlockedBalanceBadges:  [],
-    badgeDates: {}
-  },
-  goalsShuffled: false
+  ] },
 };
-
-// ── INDIVIDUAL BADGE DEFINITIONS ─────────────────────────────
-const BADGE_DEFS = [
-  { id: 0, name: 'BOULDER BADGE', desc: 'Complete your very first quest!',             emoji: '🪨', color: '#9E9E9E', color2: '#424242', shape: 'octagon', threshold: ()  => 1                  },
-  { id: 1, name: 'CASCADE BADGE', desc: 'Complete 4 quests — the momentum builds!',    emoji: '💧', color: '#42A5F5', color2: '#0D47A1', shape: 'drop',    threshold: ()  => 4                  },
-  { id: 2, name: 'THUNDER BADGE', desc: 'Complete 8 quests — crackling energy!',       emoji: '⚡', color: '#FFEE58', color2: '#E65100', shape: 'star',    threshold: ()  => 8                  },
-  { id: 3, name: 'RAINBOW BADGE', desc: 'Halfway there! Keep shining!',                emoji: '🌈', color: '#FF80AB', color2: '#880E4F', shape: 'diamond', threshold: (n) => Math.ceil(n * 0.5) },
-  { id: 4, name: 'SOUL BADGE',    desc: 'Complete 16 quests — your spirit is strong!', emoji: '✨', color: '#CE93D8', color2: '#6A1B9A', shape: 'circle',  threshold: ()  => 16                 },
-  { id: 5, name: 'MARSH BADGE',   desc: 'Complete 19 quests — deep in the quest!',     emoji: '🌿', color: '#81C784', color2: '#1B5E20', shape: 'hexagon', threshold: ()  => 19                 },
-  { id: 6, name: 'VOLCANO BADGE', desc: 'Complete 22 quests — unstoppable!',           emoji: '🌋', color: '#EF5350', color2: '#B71C1C', shape: 'shield',  threshold: ()  => 22                 },
-  { id: 7, name: 'EARTH BADGE',   desc: '🏆 ALL quests complete! TRUE CHAMPION!',      emoji: '🏆', color: '#FFD700', color2: '#E65100', shape: 'star6',   threshold: (n) => n                  },
-];
-
-// ── TEAM BADGE DEFINITIONS ────────────────────────────────────
-// All team badges use UNIQUE shapes not found in individual badges:
-// ring, cross, star4, heart, arrow, crown
-
-// Combined: unlock when total done across all tabs hits X
-const COMBINED_BADGE_DEFS = [
-  { id: 'c0', name: 'STARTER TEAM', desc: "Together you've completed 10 quests!",              color: '#B0C4DE', color2: '#4A6FA5', shape: 'ring',  threshold: ()      => 10   },
-  { id: 'c1', name: 'POWER COUPLE', desc: "Together you've completed 30 quests — unstoppable!", color: '#FFD060', color2: '#A86000', shape: 'cross', threshold: ()      => 30   },
-  { id: 'c2', name: 'DREAM TEAM',   desc: 'LEGENDARY! Every single quest complete! 🎊',         color: '#FFD700', color2: '#CC4400', shape: 'star4', threshold: (total) => total },
-];
-
-// Balance: unlock when BOTH Las AND Sof are each at ≥ X% done
-const BALANCE_BADGE_DEFS = [
-  { id: 'b0', name: 'IN SYNC',  desc: 'Both of you hit 25%! Matching energy! ⚡',     color: '#64D8FF', color2: '#005A8A', shape: 'heart',  threshold: 25 },
-  { id: 'b1', name: 'PARTNERS', desc: 'Both of you hit 50%! Perfect partnership! 💞', color: '#FF8FAB', color2: '#9A0030', shape: 'arrow',  threshold: 50 },
-  { id: 'b2', name: 'LEGENDS',  desc: 'Both of you hit 75%! Absolute legends! 👑',    color: '#D070FF', color2: '#5A0090', shape: 'crown',  threshold: 75 },
-];
 
 // ── STATE ─────────────────────────────────────────────────────
 let currentGroupId  = null;
+let currentTeamId   = null;  // active team group (for TEAMS tab switcher)
 let allGroups       = [];    // [{ id, name, members, ... }] for all user's groups
 let _pendingInvites = [];    // invites waiting for this user
 let data = {
@@ -154,35 +356,6 @@ let _swipedItem         = null;    // currently swiped goal item DOM element
 let _cardFlipped        = false;   // card showing calendar instead of content
 let _calYear            = new Date().getFullYear();
 let _calMonth           = new Date().getMonth(); // 0-indexed
-
-// ── AUDIO ENGINE (8-bit chiptune) ─────────────────────────────
-let _audioCtx = null;
-function _audio() {
-  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  return _audioCtx;
-}
-function playTone(freq, dur, type = 'square', vol = 0.15, delay = 0) {
-  try {
-    const ctx  = _audio();
-    const osc  = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.type = type; osc.frequency.value = freq;
-    const t = ctx.currentTime + delay;
-    gain.gain.setValueAtTime(vol, t);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    osc.start(t); osc.stop(t + dur + 0.01);
-  } catch (_) {}
-}
-function sfxClick()        { playTone(440, 0.06, 'square', 0.10); }
-function sfxCount(up)      { playTone(up ? 660 : 400, 0.05, 'square', 0.08); }
-function sfxMonthTick()    { playTone(880, 0.06, 'square', 0.10); }
-function sfxGoalComplete() {
-  [[523,0],[659,0.10],[784,0.20],[1047,0.33]].forEach(([f,d]) => playTone(f, 0.20, 'square', 0.22, d));
-}
-function sfxBadgeUnlock() {
-  [[392,0],[523,0.12],[659,0.25],[784,0.38],[1047,0.52],[1319,0.68]].forEach(([f,d]) => playTone(f, 0.25, 'square', 0.28, d));
-}
 
 // ── DEADLINE HELPERS ──────────────────────────────────────────
 // Single source of truth for the days calculation used by all deadline functions.
@@ -271,32 +444,6 @@ function setDeadline(tab, id, dateStr) {
   render();
 }
 
-// ── IMAGE RESIZE (compress before storing) ────────────────────
-function resizeImage(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = e => {
-      const img = new Image();
-      img.onerror = reject;
-      img.onload = () => {
-        const MAX = 600;
-        let w = img.width, h = img.height;
-        if (w > MAX || h > MAX) {
-          if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
-          else        { w = Math.round(w * MAX / h); h = MAX; }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.55));
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 // ── STORAGE ───────────────────────────────────────────────────
 function saveData() {
   if (!currentUser) return;
@@ -314,9 +461,9 @@ function saveData() {
 
 async function seedGoals(presetKey) {
   const presetMap = {
-    las:     { tab: 'me',       goals: DEFAULT_DATA.las.goals },
-    sof:     { tab: 'me',       goals: DEFAULT_DATA.sof.goals },
-    together:{ tab: 'together', goals: DEFAULT_DATA.together.goals }
+    a:     { tab: 'me',       goals: STARTER_PRESETS.a.goals },
+    b:     { tab: 'me',       goals: STARTER_PRESETS.b.goals },
+    party: { tab: 'together', goals: STARTER_PRESETS.party.goals }
   };
   const preset = presetMap[presetKey];
   if (!preset) return;
@@ -344,27 +491,6 @@ async function seedGoals(presetKey) {
   render();
 }
 
-function exportJSON() {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = 'badge-quest-2026.json'; a.click();
-  URL.revokeObjectURL(url);
-  setStatus('EXPORTED ✓', 2000);
-}
-
-function importJSON(file) {
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      data = JSON.parse(e.target.result);
-      if (!data.team) data.team = { unlockedCombinedBadges: [], unlockedBalanceBadges: [] };
-      localStorage.setItem('badgequest2026', JSON.stringify(data));
-      render(); setStatus('LOADED ✓', 2000);
-    } catch (_) { setStatus('LOAD FAILED!', 3000); }
-  };
-  reader.readAsText(file);
-}
 
 function setStatus(msg, resetAfter = 0) {
   const el = document.getElementById('sb-text');
@@ -372,241 +498,11 @@ function setStatus(msg, resetAfter = 0) {
   if (resetAfter) setTimeout(() => { el.textContent = 'READY TO QUEST'; }, resetAfter);
 }
 
-// ── HELPERS ───────────────────────────────────────────────────
-function countDone(tab) {
-  return data[tab].goals.filter(g => g.done).length;
-}
-
-function getPct(tab) {
-  const total = data[tab].goals.length;
-  if (!total) return 0;
-  return Math.round((countDone(tab) / total) * 100);
-}
-
-function totalDoneAll() {
-  return countDone('me') + countDone('together') + (data.partner ? countDone('partner') : 0);
-}
-
-function totalGoalsAll() {
-  return data.me.goals.length + data.together.goals.length + (data.partner ? data.partner.goals.length : 0);
-}
-
-// ── BADGE LOGIC ───────────────────────────────────────────────
-// Badges always reflect current state — they're removed if you un-complete goals.
-
-// Returns which individual badges SHOULD be earned right now
-function earnedBadges(tab) {
-  const total = data[tab].goals.length;
-  const done  = countDone(tab);
-  return BADGE_DEFS.filter(b => done >= b.threshold(total));
-}
-
-// Silently sync badges to current state (called on un-complete)
-function recalcBadges(tab) {
-  data[tab].unlockedBadges = earnedBadges(tab).map(b => b.id);
-}
-
-// Check for NEWLY earned badges, update stored list, return new ones for celebration
-function checkAndAwardBadges(tab) {
-  const prev      = data[tab].unlockedBadges || [];
-  const nowEarned = earnedBadges(tab);
-  const newOnes   = nowEarned.filter(b => !prev.includes(b.id));
-  data[tab].unlockedBadges = nowEarned.map(b => b.id);
-  if (!data[tab].badgeDates) data[tab].badgeDates = {};
-  newOnes.forEach(b => { data[tab].badgeDates[b.id] = new Date().toISOString(); });
-  return newOnes;
-}
-
-// Returns which team badges SHOULD be earned right now
-function earnedTeamBadges() {
-  if (!data.team) data.team = { unlockedCombinedBadges: [], unlockedBalanceBadges: [] };
-  const totalDone  = totalDoneAll();
-  const totalGoals = totalGoalsAll();
-  const mePct      = getPct('me');
-  const partnerPct = data.partner ? getPct('partner') : 0;
-  const combined = COMBINED_BADGE_DEFS.filter(b => totalDone >= b.threshold(totalGoals));
-  const balance  = BALANCE_BADGE_DEFS.filter(b => mePct >= b.threshold && partnerPct >= b.threshold);
-  return { combined, balance };
-}
-
-// Silently sync team badges to current state (called on un-complete)
-function recalcTeamBadges() {
-  const { combined, balance } = earnedTeamBadges();
-  data.team.unlockedCombinedBadges = combined.map(b => b.id);
-  data.team.unlockedBalanceBadges  = balance.map(b => b.id);
-}
-
-// Check for NEWLY earned team badges, return new ones for celebration
-function checkAndAwardTeamBadges() {
-  const prevC = data.team?.unlockedCombinedBadges || [];
-  const prevB = data.team?.unlockedBalanceBadges  || [];
-  const { combined, balance } = earnedTeamBadges();
-  const newOnes = [
-    ...combined.filter(b => !prevC.includes(b.id)),
-    ...balance.filter(b  => !prevB.includes(b.id)),
-  ];
-  data.team.unlockedCombinedBadges = combined.map(b => b.id);
-  data.team.unlockedBalanceBadges  = balance.map(b => b.id);
-  if (!data.team.badgeDates) data.team.badgeDates = {};
-  newOnes.forEach(b => { data.team.badgeDates[b.id] = new Date().toISOString(); });
-  return newOnes;
-}
-
-// ── SVG BADGE RENDERER ────────────────────────────────────────
-function makeBadgeSVG(badge, size = 52) {
-  const { color: c, color2: c2, shape, id } = badge;
-  const h = size / 2, r = h - 2;
-  const gId = `g${String(id).replace(/[^a-z0-9]/gi,'')}_${size}`;
-  let inner = '';
-
-  switch (shape) {
-    case 'octagon': {
-      const o = size * 0.28;
-      inner = `<polygon points="${o},0 ${size-o},0 ${size},${o} ${size},${size-o} ${size-o},${size} ${o},${size} 0,${size-o} 0,${o}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
-      break;
-    }
-    case 'drop':
-      inner = `<path d="M${h} ${size} C${size*0.08} ${size*0.7},${size*0.08} ${size*0.25},${h} 0 C${size*0.92} ${size*0.25},${size*0.92} ${size*0.7},${h} ${size}Z" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
-      break;
-    case 'star': {
-      const pts = Array.from({length:10}, (_,i) => {
-        const rad = i%2===0 ? r : r*0.42;
-        const a   = (i*36 - 90) * Math.PI/180;
-        return `${h+rad*Math.cos(a)},${h+rad*Math.sin(a)}`;
-      });
-      inner = `<polygon points="${pts.join(' ')}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
-      break;
-    }
-    case 'diamond':
-      inner = `<polygon points="${h},2 ${size-2},${h} ${h},${size-2} 2,${h}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
-      break;
-    case 'circle':
-      inner = `<circle cx="${h}" cy="${h}" r="${r}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>
-               <circle cx="${h}" cy="${h}" r="${r*0.5}" fill="none" stroke="${c2}" stroke-width="1.5" opacity="0.45"/>`;
-      break;
-    case 'hexagon': {
-      const hpts = Array.from({length:6}, (_,i) => {
-        const a = (i*60 - 30) * Math.PI/180;
-        return `${h+r*Math.cos(a)},${h+r*Math.sin(a)}`;
-      });
-      inner = `<polygon points="${hpts.join(' ')}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
-      break;
-    }
-    case 'shield':
-      inner = `<path d="M${h} 0 L${size-2} ${size*0.22} L${size-2} ${size*0.65} L${h} ${size} L2 ${size*0.65} L2 ${size*0.22}Z" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
-      break;
-    case 'star6': {
-      const s6 = Array.from({length:12}, (_,i) => {
-        const rad = i%2===0 ? r : r*0.48;
-        const a   = (i*30 - 90) * Math.PI/180;
-        return `${h+rad*Math.cos(a)},${h+rad*Math.sin(a)}`;
-      });
-      inner = `<polygon points="${s6.join(' ')}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
-      break;
-    }
-
-    // ── TEAM-ONLY SHAPES (never used for individual badges) ──────
-    case 'ring':
-      // Donut / ring — silver team badge
-      inner = `<circle cx="${h}" cy="${h}" r="${r}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>
-               <circle cx="${h}" cy="${h}" r="${r*0.44}" fill="#ECE9D8" stroke="${c2}" stroke-width="1.5"/>`;
-      break;
-
-    case 'cross': {
-      // Plus / cross sign — power couple badge
-      const t = size * 0.28;
-      const pts = [
-        `${h-t},2`,        `${h+t},2`,
-        `${h+t},${h-t}`,   `${size-2},${h-t}`,
-        `${size-2},${h+t}`, `${h+t},${h+t}`,
-        `${h+t},${size-2}`, `${h-t},${size-2}`,
-        `${h-t},${h+t}`,   `2,${h+t}`,
-        `2,${h-t}`,         `${h-t},${h-t}`
-      ].join(' ');
-      inner = `<polygon points="${pts}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
-      break;
-    }
-
-    case 'star4': {
-      // 4-pointed star burst (✦) — dream team badge
-      const pts4 = Array.from({length:8}, (_,i) => {
-        const rad = i%2===0 ? r : r*0.32;
-        const a   = (i*45 - 90) * Math.PI/180;
-        return `${h+rad*Math.cos(a)},${h+rad*Math.sin(a)}`;
-      });
-      inner = `<polygon points="${pts4.join(' ')}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
-      break;
-    }
-
-    case 'heart':
-      // Heart — in sync badge
-      inner = `<path d="M ${h} ${h+r*0.95}
-        C ${h-r*0.45} ${h+r*0.35}, ${2} ${h+r*0.1}, ${2} ${h-r*0.1}
-        A ${r*0.58} ${r*0.58} 0 0 1 ${h} ${h-r*0.62}
-        A ${r*0.58} ${r*0.58} 0 0 1 ${size-2} ${h-r*0.1}
-        C ${size-2} ${h+r*0.1}, ${h+r*0.45} ${h+r*0.35}, ${h} ${h+r*0.95} Z"
-        fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
-      break;
-
-    case 'arrow': {
-      // Right-pointing arrow — partners badge
-      const pts5 = [
-        `2,${h*0.62}`,         `${size*0.56},${h*0.62}`,
-        `${size*0.56},${h*0.28}`, `${size-2},${h}`,
-        `${size*0.56},${h*1.72}`, `${size*0.56},${h*1.38}`,
-        `2,${h*1.38}`
-      ].join(' ');
-      inner = `<polygon points="${pts5}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
-      break;
-    }
-
-    case 'crown': {
-      // Crown with 3 peaks — legends badge
-      const baseY = size * 0.70;
-      const rimY  = size * 0.82;
-      const ptsCr = [
-        `2,${size-3}`,        `2,${baseY}`,
-        `${h*0.4},${h*0.52}`, `${h*0.28},${baseY}`,
-        `${h},${3}`,
-        `${h*1.72},${baseY}`, `${h*1.6},${h*0.52}`,
-        `${size-2},${baseY}`, `${size-2},${size-3}`
-      ].join(' ');
-      inner = `<polygon points="${ptsCr}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>
-               <rect x="2" y="${rimY}" width="${size-4}" height="${size-3-rimY}" rx="2" fill="${c2}" opacity="0.45"/>`;
-      break;
-    }
-
-    default:
-      inner = `<circle cx="${h}" cy="${h}" r="${r}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
-  }
-
-  const shine = `<ellipse cx="${h*0.72}" cy="${h*0.38}" rx="${h*0.18}" ry="${h*0.13}" fill="white" opacity="0.38"/>`;
-
-  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="${gId}" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${c}"/>
-      <stop offset="100%" stop-color="${c2}"/>
-    </linearGradient>
-  </defs>
-  ${inner}${shine}
-</svg>`;
-}
-
-function badgeSlotHTML(b, isUnlocked, labelOverride = null, isSelected = false) {
-  const label = labelOverride ?? (isUnlocked ? b.name.split(' ')[0] : '?');
-  return `
-    <div class="badge-slot ${isUnlocked ? '' : 'locked'} ${isSelected ? 'selected' : ''}"
-         data-badge-id="${b.id}" title="${b.name}: ${b.desc}">
-      <div class="badge-gem ${isUnlocked ? 'unlocked' : 'locked'}">${makeBadgeSVG(b, 52)}</div>
-      <div class="badge-label">${label}</div>
-    </div>`;
-}
 
 // ── GOAL ITEM TEMPLATE ────────────────────────────────────────
 // Single source of truth for goal HTML.
 // Used by both renderGoalList() (individual tabs) and renderAllTab().
-// options.showTag  — show the COUPLE/SOF/LAS owner chip
+// options.showTag  — show the owner chip (party / partner / me)
 // options.tagCls / options.tagText — owner chip styling
 function goalItemHTML(g, index, tab, options = {}) {
   const { showTag = false, tagCls = '', tagText = '' } = options;
@@ -628,63 +524,8 @@ function goalItemHTML(g, index, tab, options = {}) {
     ? `<div class="swipe-wrapper">${swipeActions}<div class="swipe-content">${inner}</div></div>`
     : inner;
 
-  if (g.type === 'binary') {
-    return wrap(`
-      <div class="goal-item goal-binary ${g.done ? 'done' : ''}" data-id="${g.id}">
-        <span class="goal-num">${num}</span>
-        <div class="goal-title-wrap">
-          <span class="goal-title">${g.title}</span>
-          ${noteHTML}
-        </div>
-        <div class="gi-actions">
-          ${photoHTML}
-          <button class="goal-check" data-id="${g.id}" ${ta} data-type="binary">${g.done ? '✓' : ''}</button>
-        </div>
-      </div>`);
-  }
-
-  if (g.type === 'count') {
-    const maxed = g.current >= g.target;
-    return wrap(`
-      <div class="goal-item count-goal ${g.done ? 'done' : ''}" data-id="${g.id}">
-        <span class="goal-num">${num}</span>
-        <div class="goal-title-wrap">
-          <span class="goal-title">${g.title}</span>
-          ${noteHTML}
-        </div>
-        <div class="gi-actions">
-          <div class="gi-count-inline">
-            <button class="cnt-btn gi-cnt-btn" data-id="${g.id}" ${ta} data-action="dec" ${g.current===0?'disabled':''}>−</button>
-            <span class="gi-count-num ${maxed?'maxed':''}">${g.current}/${g.target}</span>
-            <button class="cnt-btn gi-cnt-btn" data-id="${g.id}" ${ta} data-action="inc" ${maxed?'disabled':''}>+</button>
-          </div>
-          ${photoHTML}
-        </div>
-      </div>`);
-  }
-
-  if (g.type === 'monthly') {
-    const checked = g.months.filter(Boolean).length;
-    const maxed   = checked >= 12;
-    return wrap(`
-      <div class="goal-item monthly-goal ${g.done ? 'done' : ''}" data-id="${g.id}">
-        <span class="goal-num">${num}</span>
-        <div class="goal-title-wrap">
-          <span class="goal-title">${g.title}</span>
-          ${noteHTML}
-        </div>
-        <div class="gi-actions">
-          <div class="gi-count-inline">
-            <button class="cnt-btn gi-cnt-btn" data-id="${g.id}" ${ta} data-action="dec" data-type="monthly" ${checked===0?'disabled':''}>−</button>
-            <span class="gi-count-num ${maxed?'maxed':''}">${checked}/12</span>
-            <button class="cnt-btn gi-cnt-btn" data-id="${g.id}" ${ta} data-action="inc" data-type="monthly" ${maxed?'disabled':''}>+</button>
-          </div>
-          ${photoHTML}
-        </div>
-      </div>`);
-  }
-
-  return '';
+  const typeDef = GOAL_TYPES[g.type];
+  return typeDef ? typeDef.listItemHTML(g, { num, ta, noteHTML, photoHTML, wrap }) : '';
 }
 
 // ── CARD VIEW HELPERS ─────────────────────────────────────────
@@ -794,55 +635,10 @@ function renderCardView(goals, tab) {
     : '';
 
   // Human-readable type label
-  const typeLabel = { binary: 'QUEST', count: 'COUNT', monthly: 'MONTHLY' }[g.type] || g.type.toUpperCase();
+  const typeLabel = GOAL_TYPES[g.type]?.label || g.type.toUpperCase();
 
   // ── Controls (type-specific) ──────────────────────────────────
-  let controlsHTML = '';
-
-  if (g.type === 'binary') {
-    if (g.done) {
-      controlsHTML = `
-        <button class="goal-check card-check-btn card-done-btn" data-id="${g.id}" data-tab="${realTab}" data-type="binary">
-          ✓ QUEST COMPLETE!
-          <span class="card-btn-sub">tap to undo</span>
-        </button>`;
-    } else {
-      controlsHTML = `
-        <button class="goal-check card-check-btn" data-id="${g.id}" data-tab="${realTab}" data-type="binary">
-          ◻ MARK AS DONE
-        </button>`;
-    }
-  } else if (g.type === 'count') {
-    const maxed = g.current >= g.target;
-    const pct   = g.target > 0 ? (g.current / g.target) * 100 : 0;
-    controlsHTML = `
-      <div class="card-count-row">
-        <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${realTab}" data-action="dec" ${g.current === 0 ? 'disabled' : ''}>−</button>
-        <div class="card-count-bar-wrap">
-          <div class="card-count-track">
-            <div class="card-count-fill ${maxed ? 'maxed' : ''}" style="width:${pct}%"></div>
-          </div>
-          <div class="card-count-label">
-            <span class="card-count-num ${maxed ? 'maxed' : ''}">${g.current} / ${g.target}</span>
-            <span class="card-count-unit">${g.unit}</span>
-          </div>
-        </div>
-        <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${realTab}" data-action="inc" ${maxed ? 'disabled' : ''}>+</button>
-      </div>`;
-  } else if (g.type === 'monthly') {
-    const checked = g.months.filter(Boolean).length;
-    const maxed   = checked >= 12;
-    const cells   = MONTHS.map((m, i) => `
-      <div class="month-cell ${g.months[i] ? 'checked' : ''}"
-           data-id="${g.id}" data-tab="${realTab}" data-month="${i}">${m}</div>`).join('');
-    controlsHTML = `
-      <div class="card-monthly-wrap">
-        <div class="month-grid card-month-grid">${cells}</div>
-        <div class="card-monthly-count">
-          <span class="card-monthly-count-label ${maxed ? 'maxed' : ''}">${checked} / 12 mdr.</span>
-        </div>
-      </div>`;
-  }
+  const controlsHTML = GOAL_TYPES[g.type]?.cardControlsHTML(g, realTab) ?? '';
 
   // ── Meta (note + photo — deadline has its own bar) ───────────
   const dlBadge  = !g.done ? deadlineBadgeHTML(g) : '';
@@ -958,7 +754,7 @@ function _setModalType(type) {
   document.querySelectorAll('#gm-type-row .gm-seg').forEach(b =>
     b.classList.toggle('active', b.dataset.type === type)
   );
-  document.getElementById('gm-count-fields').style.display = type === 'count' ? 'flex' : 'none';
+  document.getElementById('gm-count-fields').style.display = GOAL_TYPES[type]?.modalFields ? 'flex' : 'none';
 }
 
 function _setModalOwner(owner) {
@@ -995,16 +791,10 @@ function saveGoalModal() {
     if (type !== goal.type) {
       goal.type = type;
       goal.done = false; goal.doneDate = null;
-      if (type === 'count')   { goal.target = parseInt(document.getElementById('gm-target').value) || 10; goal.unit = document.getElementById('gm-unit').value.trim() || 'times'; goal.current = 0; delete goal.months; }
-      else if (type === 'monthly') { goal.months = Array(12).fill(false); delete goal.target; delete goal.current; delete goal.unit; }
-      else                    { delete goal.target; delete goal.current; delete goal.unit; delete goal.months; }
+      Object.values(GOAL_TYPES).forEach(t => t.clearFields(goal));
+      Object.assign(goal, GOAL_TYPES[type].initialState());
     } else {
-      // Same type — just update count fields
-      if (type === 'count') {
-        goal.target = parseInt(document.getElementById('gm-target').value) || 10;
-        goal.unit   = document.getElementById('gm-unit').value.trim() || 'times';
-      }
-      // Editing a completed goal auto-unmarks it
+      GOAL_TYPES[type]?.updateFields(goal);
       if (goal.done) { goal.done = false; goal.doneDate = null; }
     }
 
@@ -1012,17 +802,16 @@ function saveGoalModal() {
     if (newTab !== oldTab) {
       data[oldTab].goals = data[oldTab].goals.filter(g => g.id !== goalId);
       data[newTab].goals.push(goal);
-      recalcBadges(oldTab);
+      recalcBadges(data, oldTab);
     }
-    recalcBadges(newTab);
+    recalcBadges(data, newTab);
 
   } else {
     // ── Create new ─────────────────────────────────────────────
     const goals  = data[newTab].goals;
     const newId  = goals.length > 0 ? Math.max(...goals.map(g => g.id)) + 1 : 1;
-    const newGoal = { id: newId, title, type, done: false, doneDate: null, note: '', photo: null, deadline: null, order: goals.length };
-    if (type === 'count')        { newGoal.target = parseInt(document.getElementById('gm-target').value) || 10; newGoal.unit = document.getElementById('gm-unit').value.trim() || 'times'; newGoal.current = 0; }
-    else if (type === 'monthly') { newGoal.months = Array(12).fill(false); }
+    const newGoal = { id: newId, title, type, done: false, doneDate: null, note: '', photo: null, deadline: null, order: goals.length,
+                      ...GOAL_TYPES[type].initialState() };
     data[newTab].goals.push(newGoal);
   }
 
@@ -1048,7 +837,7 @@ async function executeDelete() {
   }
 
   data[tab].goals = data[tab].goals.filter(g => g.id !== goalId);
-  recalcBadges(tab);
+  recalcBadges(data, tab);
   document.getElementById('delete-overlay').style.display = 'none';
   closeGoalModal();
   render();
@@ -1076,6 +865,8 @@ function render() {
     renderAllTab();
   } else if (activeTab === 'team') {
     renderTeamTab();
+  } else if (activeTab === 'teams') {
+    renderTeamsTab();
   } else {
     ensureWinBodyStructure();
     renderBadgeCase();
@@ -1250,7 +1041,7 @@ function renderProgress() {
   const tab   = activeTab;
   const goals = data[tab].goals;
   if (!goals.length) return;
-  const done  = countDone(tab);
+  const done  = countDone(data, tab);
   const total = goals.length;
   const pct   = Math.round((done / total) * 100);
   document.getElementById('prog-label').textContent = `QUESTS: ${done} / ${total}`;
@@ -1265,19 +1056,32 @@ function renderGoalList() {
   if (!list) return;
 
   if (!goals.length) {
+    // Together tab with no group yet — prompt to invite someone
+    if (tab === 'together' && !currentGroupId) {
+      list.innerHTML = `
+        <div class="locked-panel">
+          <div class="locked-icon">👥</div>
+          <div class="locked-title">NO PARTY YET</div>
+          <div class="locked-sub">Invite someone to start your party and unlock shared quests!</div>
+          <button class="starter-btn" id="empty-invite-btn" style="margin-top:12px">👥 INVITE SOMEONE ▶</button>
+        </div>`;
+      document.getElementById('empty-invite-btn')?.addEventListener('click', openPartnersPanel);
+      return;
+    }
+
     const icon  = tab === 'together' ? '💎' : '🌸';
-    const label = tab === 'me' ? data.me.name : tab === 'partner' ? (data.partner?.name || 'Partner') : 'Couple';
+    const label = tab === 'me' ? data.me.name : tab === 'partner' ? (data.partner?.name || 'Partner') : (data.together?.name || 'PARTY');
 
     // Show starter preset buttons for editable tabs (me + together)
     const starterHTML = (tab === 'me') ? `
       <div class="starter-row">
         <div class="starter-label">Load a starter set?</div>
-        <button class="starter-btn" data-seed="las">👤 NIKLAS (${DEFAULT_DATA.las.goals.length} quests)</button>
-        <button class="starter-btn" data-seed="sof">👤 SOFIE (${DEFAULT_DATA.sof.goals.length} quests)</button>
+        <button class="starter-btn" data-seed="a">📋 PRESET A (${STARTER_PRESETS.a.goals.length} quests)</button>
+        <button class="starter-btn" data-seed="b">📋 PRESET B (${STARTER_PRESETS.b.goals.length} quests)</button>
       </div>` : (tab === 'together' && currentGroupId) ? `
       <div class="starter-row">
         <div class="starter-label">Load starter party quests?</div>
-        <button class="starter-btn" data-seed="together">💎 PARTY (${DEFAULT_DATA.together.goals.length} quests)</button>
+        <button class="starter-btn" data-seed="party">💎 PARTY (${STARTER_PRESETS.party.goals.length} quests)</button>
       </div>` : '';
 
     list.innerHTML = `
@@ -1312,8 +1116,8 @@ function renderAllTab() {
   const wb = document.getElementById('win-body');
   wb.className = viewMode === 'card' ? 'win-body card-mode' : 'win-body';
 
-  const allDone  = totalDoneAll();
-  const allTotal = totalGoalsAll();
+  const allDone  = totalDoneAll(data);
+  const allTotal = totalGoalsAll(data);
   const allPct   = allTotal ? Math.round((allDone / allTotal) * 100) : 0;
 
   const toggleBtnsHTML = `
@@ -1336,7 +1140,7 @@ function renderAllTab() {
 
     const goalsHTML = sections.map(sec => {
       const goals = data[sec.tab].goals;
-      const done  = countDone(sec.tab);
+      const done  = countDone(data, sec.tab);
       const total = goals.length;
 
       const header = total === 0
@@ -1374,32 +1178,20 @@ function renderAllTab() {
     </div>`;
 }
 
-// ── PHOTO VIEWER ──────────────────────────────────────────────
-function openPhotoViewer(src) {
-  const overlay = document.getElementById('photo-overlay');
-  document.getElementById('photo-viewer-img').src = src;
-  overlay.style.display = 'flex';
-}
-
-function closePhotoViewer() {
-  document.getElementById('photo-overlay').style.display = 'none';
-  document.getElementById('photo-viewer-img').src = '';
-}
-
 // ── TEAM TAB RENDER ───────────────────────────────────────────
 function renderTeamTab() {
   const wb = document.getElementById('win-body');
   wb.className = 'win-body team-body';
 
-  const meDone      = countDone('me');
-  const partnerDone = data.partner ? countDone('partner') : 0;
-  const togDone     = countDone('together');
+  const meDone      = countDone(data, 'me');
+  const partnerDone = data.partner ? countDone(data, 'partner') : 0;
+  const togDone     = countDone(data, 'together');
   const allDone     = meDone + partnerDone + togDone;
-  const allTotal    = totalGoalsAll();
+  const allTotal    = totalGoalsAll(data);
   const allPct      = allTotal ? Math.round((allDone / allTotal) * 100) : 0;
 
-  const mePct      = getPct('me');
-  const partnerPct = data.partner ? getPct('partner') : 0;
+  const mePct      = getPct(data, 'me');
+  const partnerPct = data.partner ? getPct(data, 'partner') : 0;
   const meName      = data.me?.name    || 'ME';
   const partnerName = data.partner?.name || 'PARTNER';
 
@@ -1457,7 +1249,7 @@ function renderTeamTab() {
       <div class="badge-case">
         ${BALANCE_BADGE_DEFS.map(b => {
           const unlocked = unlockedB.includes(b.id);
-          const bothAt   = lasPct >= b.threshold && sofPct >= b.threshold;
+          const bothAt   = mePct >= b.threshold && partnerPct >= b.threshold;
           return badgeSlotHTML(b, unlocked, unlocked ? b.name : `BOTH @ ${b.threshold}%`);
         }).join('')}
       </div>
@@ -1468,125 +1260,83 @@ function renderTeamTab() {
   wb.className = 'win-body team-body';
 }
 
-// ── YEAR COUNTDOWN WIDGET ─────────────────────────────────────
-function updateYearWidget() {
-  const now      = new Date();
-  const start    = new Date('2026-01-01');
-  const end      = new Date('2027-01-01');
-  const total    = end - start;
-  const elapsed  = now - start;
-  const pct      = Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
-  const daysLeft = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
 
-  const daysEl = document.getElementById('year-days');
-  const fillEl = document.getElementById('year-fill');
-  const subEl  = document.getElementById('year-sub');
-  if (!daysEl) return;
+// ── TEAMS TAB RENDER ──────────────────────────────────────────
+function renderTeamsTab() {
+  const wb = document.getElementById('win-body');
+  wb.className = 'win-body team-body';
 
-  daysEl.textContent = `${daysLeft} DAYS LEFT`;
-  fillEl.style.width = `${pct}%`;
-  subEl.textContent  = `Year ${pct}% done`;
+  const teamGroups = allGroups.filter(g => g.type === 'team');
+  if (!teamGroups.length) {
+    wb.innerHTML = `
+      <div class="locked-panel">
+        <div class="locked-icon">👥</div>
+        <div class="locked-title">NO TEAMS YET</div>
+        <div class="locked-sub">Form a team with friends to travel the same road — each on your own quest, together.</div>
+        <button class="starter-btn" id="teams-invite-btn" style="margin-top:12px">👥 FORM A TEAM ▶</button>
+      </div>`;
+    document.getElementById('teams-invite-btn')?.addEventListener('click', openPartnersPanel);
+    return;
+  }
+
+  // Switcher if multiple teams
+  const switcherHTML = teamGroups.length > 1 ? `
+    <div class="group-switcher-row">
+      <span class="group-switcher-label">TEAM:</span>
+      <select class="group-switcher" id="team-switcher">
+        ${teamGroups.map(g => `<option value="${g.id}" ${g.id === currentTeamId ? 'selected' : ''}>${g.name}</option>`).join('')}
+      </select>
+    </div>` : `<div class="group-switcher-row"><span class="group-switcher-label">👥 ${teamGroups[0].name}</span></div>`;
+
+  const activeTeam = teamGroups.find(g => g.id === currentTeamId) || teamGroups[0];
+  if (!currentTeamId || !teamGroups.find(g => g.id === currentTeamId)) currentTeamId = activeTeam.id;
+
+  // Member cards
+  const membersHTML = (activeTeam._members || []).map(m => {
+    const done  = m.goals?.filter(g => g.done).length || 0;
+    const total = m.goals?.length || 0;
+    const pct   = total ? Math.round((done / total) * 100) : 0;
+    const badges = (m.unlockedBadges || []).length;
+    return `
+      <div class="team-member-card">
+        <div class="team-member-name">👤 ${(m.name || 'PLAYER').toUpperCase()}</div>
+        <div class="team-member-prog-track">
+          <div class="team-member-prog-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="team-member-stats">
+          <span>${done}/${total} quests</span>
+          <span>${badges} badges</span>
+          <span>${pct}%</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Team badges
+  const members     = activeTeam._members || [];
+  const earnedIds   = earnedTeamGroupBadges(members).map(b => b.id);
+  const teamBadgesHTML = TEAM_BADGE_DEFS.map(b => {
+    const unlocked = earnedIds.includes(b.id);
+    return badgeSlotHTML(b, unlocked);
+  }).join('');
+
+  wb.innerHTML = `
+    ${switcherHTML}
+    <div class="inset-panel" style="margin-bottom:8px">
+      <div class="panel-title">🗺️ YOUR CREW</div>
+      ${membersHTML || '<div class="partners-empty" style="padding:12px">Member data loading…</div>'}
+    </div>
+    <div class="inset-panel">
+      <div class="panel-title">🏅 TEAM BADGES — earn these together</div>
+      <div class="badge-case">${teamBadgesHTML}</div>
+    </div>`;
+
+  // Wire team switcher
+  document.getElementById('team-switcher')?.addEventListener('change', e => {
+    currentTeamId = e.target.value;
+    render();
+  });
 }
 
-// ── GOAL INTERACTIONS ─────────────────────────────────────────
-function toggleBinary(tab, id) {
-  const goal = data[tab].goals.find(g => g.id === id);
-  if (!goal) return;
-
-  if (goal.done) {
-    // Un-complete: silently recalc badges so they drop if threshold no longer met
-    sfxClick();
-    goal.done = false; goal.doneDate = null;
-    recalcBadges(tab);
-    recalcTeamBadges();
-    saveData(); render(); return;
-  }
-
-  goal.done     = true;
-  goal.doneDate = new Date().toISOString();
-  pendingCelebrations.push({ type: 'goal', title: goal.title, goalRef: goal, tab });
-  if (!celebrating) processCelebrations();
-}
-
-function adjustCount(tab, id, delta) {
-  const goal = data[tab].goals.find(g => g.id === id);
-  if (!goal) return;
-  const wasDone = goal.done;
-  goal.current  = Math.max(0, Math.min(goal.target, goal.current + delta));
-  sfxCount(delta > 0);
-
-  const justCompleted = !wasDone && goal.current >= goal.target;
-  if (justCompleted) { goal.done = true; goal.doneDate = new Date().toISOString(); }
-
-  if (wasDone && goal.current < goal.target) {
-    // Un-completing: recalc badges silently
-    goal.done = false; goal.doneDate = null;
-    recalcBadges(tab);
-    recalcTeamBadges();
-  }
-
-  saveData(); render();
-
-  if (justCompleted) {
-    pendingCelebrations.push({ type: 'goal', title: goal.title, goalRef: goal, tab });
-    if (!celebrating) processCelebrations();
-  }
-}
-
-function adjustMonthly(tab, id, delta) {
-  const goal = data[tab].goals.find(g => g.id === id);
-  if (!goal || goal.type !== 'monthly') return;
-  const wasDone = goal.done;
-  if (delta > 0) {
-    const idx = goal.months.findIndex(m => !m);
-    if (idx === -1) return;
-    goal.months[idx] = true;
-  } else {
-    let lastIdx = -1;
-    for (let i = 11; i >= 0; i--) { if (goal.months[i]) { lastIdx = i; break; } }
-    if (lastIdx === -1) return;
-    goal.months[lastIdx] = false;
-  }
-  sfxMonthTick();
-  const checked = goal.months.filter(Boolean).length;
-  const justCompleted = !wasDone && checked >= 12;
-  if (justCompleted) { goal.done = true; goal.doneDate = new Date().toISOString(); }
-  if (wasDone && checked < 12) {
-    goal.done = false; goal.doneDate = null;
-    recalcBadges(tab); recalcTeamBadges();
-  }
-  saveData(); render();
-  if (justCompleted) {
-    pendingCelebrations.push({ type: 'goal', title: goal.title, goalRef: goal, tab });
-    if (!celebrating) processCelebrations();
-  }
-}
-
-function toggleMonth(tab, id, monthIndex) {
-  const goal = data[tab].goals.find(g => g.id === id);
-  if (!goal || goal.type !== 'monthly') return;
-
-  const wasDone = goal.done;
-  goal.months[monthIndex] = !goal.months[monthIndex];
-  sfxMonthTick();
-  const checked = goal.months.filter(Boolean).length;
-
-  const justCompleted = !wasDone && checked >= 12;
-  if (justCompleted) { goal.done = true; goal.doneDate = new Date().toISOString(); }
-
-  if (wasDone && checked < 12) {
-    goal.done = false; goal.doneDate = null;
-    recalcBadges(tab);
-    recalcTeamBadges();
-  }
-
-  saveData(); render();
-
-  if (justCompleted) {
-    pendingCelebrations.push({ type: 'goal', title: goal.title, goalRef: goal, tab });
-    if (!celebrating) processCelebrations();
-  }
-}
 
 // ── CELEBRATIONS ─────────────────────────────────────────────
 function processCelebrations() {
@@ -1647,8 +1397,8 @@ function showGoalComplete({ title, goalRef, tab }) {
     const previewImg = photoPreview.querySelector('img');
     goalRef.photo = previewImg ? previewImg.src : null;
 
-    const indivBadges = tab !== 'team' ? checkAndAwardBadges(tab) : [];
-    const teamBadges  = checkAndAwardTeamBadges();
+    const indivBadges = tab !== 'team' ? checkAndAwardBadges(data, tab) : [];
+    const teamBadges  = checkAndAwardTeamBadges(data);
     saveData();
     render();
 
@@ -1678,279 +1428,6 @@ function showBadgeUnlock(badge) {
   };
 }
 
-function launchConfetti(containerId) {
-  const container = document.getElementById(containerId);
-  container.innerHTML = '';
-  const colors = ['#CC0000','#FFD700','#228B22','#42A5F5','#FF69B4','#FF8C00','#ffffff','#CC00CC','#00CCCC'];
-  for (let i = 0; i < 65; i++) {
-    const el    = document.createElement('div');
-    el.className = 'cpce';
-    const color  = colors[Math.floor(Math.random() * colors.length)];
-    const size   = 6 + Math.random() * 10;
-    el.style.cssText = `left:${Math.random()*100}%;width:${size}px;height:${size}px;background:${color};animation-delay:${Math.random()*0.7}s;animation-duration:${1.4+Math.random()*1.6}s;transform:rotate(${Math.random()*360}deg);border-radius:${Math.random()>0.5?'50%':'0'};`;
-    container.appendChild(el);
-  }
-  setTimeout(() => { container.innerHTML = ''; }, 4000);
-}
-
-// ── PARTNERS PANEL ────────────────────────────────────────────
-function openPartnersPanel() {
-  document.getElementById('partners-overlay').style.display = 'flex';
-  renderPartnersPanel();
-}
-
-function closePartnersPanel() {
-  document.getElementById('partners-overlay').style.display = 'none';
-}
-
-async function renderPartnersPanel() {
-  const uid   = currentUser?.uid;
-  const email = currentProfile?.email;
-  if (!uid) return;
-
-  // Groups
-  const groupsEl = document.getElementById('partners-groups-list');
-  if (allGroups.length === 0) {
-    groupsEl.innerHTML = '<div class="partners-empty">No groups yet. Invite someone below!</div>';
-  } else {
-    groupsEl.innerHTML = allGroups.map(g => {
-      const memberStr = (g.memberEmails || g.members || []).join(', ');
-      return `
-        <div class="partners-group-row" data-group-row="${g.id}">
-          <div style="flex:1;min-width:0">
-            <div class="partners-group-name" id="group-name-display-${g.id}">${g.name || 'PARTY'}</div>
-            <div class="partners-group-members">${memberStr}</div>
-            <div class="partners-rename-row" id="group-rename-row-${g.id}" style="display:none">
-              <input class="partners-input partners-rename-input" id="group-rename-input-${g.id}"
-                     value="${g.name || 'PARTY'}" maxlength="30">
-              <button class="partners-accept-btn" data-rename-save="${g.id}">✓ SAVE</button>
-              <button class="partners-decline-btn" data-rename-cancel="${g.id}">✕</button>
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
-            <button class="partners-rename-btn" data-rename-group="${g.id}">✏️ RENAME</button>
-            <button class="partners-leave-btn"  data-group-id="${g.id}">🚪 LEAVE</button>
-          </div>
-        </div>`;
-    }).join('');
-  }
-
-  // Sent invites
-  let sentInvites = [];
-  try { sentInvites = await getSentInvites(uid); } catch (_) {}
-  const sentSection = document.getElementById('partners-sent-section');
-  const sentList    = document.getElementById('partners-sent-list');
-  if (sentInvites.length === 0) {
-    sentSection.style.display = 'none';
-  } else {
-    sentSection.style.display = '';
-    sentList.innerHTML = sentInvites.map(inv => {
-      const statusCls = inv.status === 'accepted' ? 'accepted' : inv.status === 'declined' ? 'declined' : 'pending';
-      const statusLbl = inv.status === 'accepted' ? '✓ ACCEPTED' : inv.status === 'declined' ? '✕ DECLINED' : '⏳ PENDING';
-      return `
-        <div class="partners-sent-row">
-          <div>
-            <span class="partners-sent-to">${inv.toEmail}</span>
-            <span style="font-family:VT323,monospace;font-size:14px;color:#888"> — ${inv.groupName || ''}</span>
-          </div>
-          <span class="partners-sent-status ${statusCls}">${statusLbl}</span>
-        </div>`;
-    }).join('');
-  }
-
-  // Incoming invites (also rendered in panel for convenience)
-  const incomingSection = document.getElementById('partners-incoming-section');
-  const incomingList    = document.getElementById('partners-incoming-list');
-  if (_pendingInvites.length === 0) {
-    incomingSection.style.display = 'none';
-  } else {
-    incomingSection.style.display = '';
-    incomingList.innerHTML = _pendingInvites.map(inv => `
-      <div class="partners-invite-row">
-        <div class="partners-invite-from">${inv.fromUsername || inv.fromEmail} invited you to:</div>
-        <div class="partners-invite-name">"${inv.groupName}"</div>
-        <div class="partners-invite-actions">
-          <button class="partners-accept-btn" data-invite-id="${inv.id}">✓ ACCEPT</button>
-          <button class="partners-decline-btn" data-invite-id="${inv.id}">✕ DECLINE</button>
-        </div>
-      </div>`).join('');
-  }
-}
-
-async function handlePartnersClick(e) {
-  // Rename group — show input
-  const renameBtn = e.target.closest('[data-rename-group]');
-  if (renameBtn) {
-    const gid = renameBtn.dataset.renameGroup;
-    document.getElementById(`group-rename-row-${gid}`).style.display = 'flex';
-    document.getElementById(`group-rename-input-${gid}`).focus();
-    return;
-  }
-
-  // Rename group — save
-  const renameSave = e.target.closest('[data-rename-save]');
-  if (renameSave) {
-    const gid   = renameSave.dataset.renameSave;
-    const input = document.getElementById(`group-rename-input-${gid}`);
-    const name  = input?.value.trim();
-    if (!name) return;
-    renameSave.disabled = true;
-    try {
-      const { db } = await import('./firebase.js');
-      const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-      await updateDoc(doc(db, 'groups', gid), { name });
-      const g = allGroups.find(g => g.id === gid);
-      if (g) g.name = name;
-      if (currentGroupId === gid) data.together.name = name;
-      updateTabLabels();
-      render();
-      renderPartnersPanel();
-    } catch (err) {
-      console.error('Rename error:', err);
-    }
-    renameSave.disabled = false;
-    return;
-  }
-
-  // Rename group — cancel
-  const renameCancel = e.target.closest('[data-rename-cancel]');
-  if (renameCancel) {
-    const gid = renameCancel.dataset.renameCancel;
-    document.getElementById(`group-rename-row-${gid}`).style.display = 'none';
-    return;
-  }
-
-  // Leave group
-  const leaveBtn = e.target.closest('.partners-leave-btn');
-  if (leaveBtn) {
-    const groupId = leaveBtn.dataset.groupId;
-    if (!confirm('Leave this group? Your shared quests will remain but you won\'t be linked.')) return;
-    leaveBtn.textContent = '…';
-    leaveBtn.disabled = true;
-    try {
-      await leaveGroup(groupId, currentUser.uid);
-      allGroups    = allGroups.filter(g => g.id !== groupId);
-      if (currentGroupId === groupId) {
-        currentGroupId  = allGroups[0]?.id || null;
-        data.together   = allGroups[0] || { name: 'COUPLE', goals: [], unlockedCombinedBadges: [], unlockedBalanceBadges: [], badgeDates: {} };
-        data.partner    = null;
-      }
-      updateTabLabels();
-      render();
-      renderPartnersPanel();
-    } catch (err) {
-      alert('Could not leave group. Try again.');
-      leaveBtn.disabled = false;
-      leaveBtn.textContent = '🚪 LEAVE';
-    }
-    return;
-  }
-
-  // Accept invite (in panel)
-  const acceptBtn = e.target.closest('.partners-accept-btn');
-  if (acceptBtn) {
-    await handleAcceptInvite(acceptBtn.dataset.inviteId);
-    return;
-  }
-
-  // Decline invite (in panel)
-  const declineBtn = e.target.closest('.partners-decline-btn');
-  if (declineBtn) {
-    await handleDeclineInvite(declineBtn.dataset.inviteId);
-    return;
-  }
-}
-
-async function handleAcceptInvite(inviteId) {
-  const invite = _pendingInvites.find(i => i.id === inviteId);
-  if (!invite) return;
-  setStatus('JOINING GROUP…');
-  try {
-    const groupId = await acceptGroupInvite(inviteId, invite, currentUser.uid, currentProfile.email);
-    _pendingInvites = _pendingInvites.filter(i => i.id !== inviteId);
-    // Load the new group
-    const groupData = await loadGroupData(groupId);
-    groupData.id    = groupId;
-    allGroups.push(groupData);
-    currentGroupId  = groupId;
-    data.together   = groupData;
-    const partnerUid = groupData.members.find(uid => uid !== currentUser.uid);
-    if (partnerUid) data.partner = await loadPartnerData(partnerUid);
-    updateTabLabels();
-    renderInviteBanner();
-    render();
-    renderPartnersPanel();
-    setStatus('GROUP JOINED ✓', 3000);
-  } catch (err) {
-    console.error('Accept invite error:', err);
-    setStatus('ERROR JOINING GROUP', 3000);
-  }
-}
-
-async function handleDeclineInvite(inviteId) {
-  try {
-    await declineGroupInvite(inviteId);
-    _pendingInvites = _pendingInvites.filter(i => i.id !== inviteId);
-    renderInviteBanner();
-    renderPartnersPanel();
-  } catch (_) {}
-}
-
-async function handleSendInvite() {
-  const nameInput   = document.getElementById('invite-name-input');
-  const emailInput  = document.getElementById('invite-email-input');
-  const statusEl    = document.getElementById('invite-status');
-  const groupName   = nameInput.value.trim();
-  const toEmail     = emailInput.value.trim();
-  statusEl.className = 'partners-status';
-  statusEl.textContent = '';
-
-  if (!groupName) { statusEl.className = 'partners-status err'; statusEl.textContent = 'Enter a group name.'; return; }
-  if (!toEmail || !toEmail.includes('@')) { statusEl.className = 'partners-status err'; statusEl.textContent = 'Enter a valid email.'; return; }
-  if (toEmail.toLowerCase() === currentProfile?.email?.toLowerCase()) { statusEl.className = 'partners-status err'; statusEl.textContent = 'That\'s your own email!'; return; }
-
-  const sendBtn = document.getElementById('invite-send-btn');
-  sendBtn.disabled = true;
-  sendBtn.textContent = '⏳ SENDING…';
-
-  try {
-    await sendGroupInvite(currentUser.uid, currentProfile.email, currentProfile.username, toEmail, groupName);
-    statusEl.className   = 'partners-status ok';
-    statusEl.textContent = '✓ Invite sent! They\'ll see it when they log in.';
-    nameInput.value  = '';
-    emailInput.value = '';
-    renderPartnersPanel();
-  } catch (err) {
-    console.error('Send invite error:', err);
-    statusEl.className   = 'partners-status err';
-    statusEl.textContent = 'Could not send. Try again.';
-  }
-  sendBtn.disabled = false;
-  sendBtn.textContent = 'SEND INVITE ▶';
-}
-
-function renderInviteBanner() {
-  // Remove any existing banner
-  const existing = document.getElementById('invite-banner');
-  if (existing) existing.remove();
-  if (!_pendingInvites.length) return;
-
-  // Inject banner at top of win-body
-  const wb = document.getElementById('win-body');
-  if (!wb) return;
-  const tpl     = document.getElementById('invite-banner-tpl');
-  const banner  = tpl.content.cloneNode(true);
-  const content = banner.querySelector('#invite-banner-content');
-  content.innerHTML = _pendingInvites.map(inv => `
-    <div class="invite-banner-item">
-      <span class="invite-banner-text">🎯 <b>${inv.fromUsername || inv.fromEmail}</b> invited you to <b>"${inv.groupName}"</b>!</span>
-      <div class="invite-banner-actions">
-        <button class="invite-banner-accept"  data-banner-accept="${inv.id}">ACCEPT</button>
-        <button class="invite-banner-decline" data-banner-decline="${inv.id}">IGNORE</button>
-      </div>
-    </div>`).join('');
-  wb.insertBefore(banner, wb.firstChild);
-}
 
 // ── TABS ──────────────────────────────────────────────────────
 function switchTab(name) {
@@ -1967,34 +1444,6 @@ function switchTab(name) {
   render();
 }
 
-// ── CLOCK ─────────────────────────────────────────────────────
-function updateClock() {
-  const now = new Date();
-  document.getElementById('clock').textContent =
-    `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  document.getElementById('sb-date').textContent =
-    now.toLocaleDateString('da-DK', { weekday: 'short', day: '2-digit', month: 'short' });
-}
-
-// ── DRAGGABLE (main window + year widget) ─────────────────────
-function makeDraggable(handle, target) {
-  let dragging = false, sx, sy, sl, st;
-  handle.addEventListener('mousedown', e => {
-    if (e.target.classList.contains('tbtn')) return;
-    dragging = true;
-    sx = e.clientX; sy = e.clientY;
-    const r = target.getBoundingClientRect();
-    sl = r.left; st = r.top;
-    document.body.style.userSelect = 'none';
-  });
-  document.addEventListener('mousemove', e => {
-    if (!dragging) return;
-    target.style.left = (sl + e.clientX - sx) + 'px';
-    target.style.top  = (st + e.clientY - sy) + 'px';
-    target.style.right = 'auto'; target.style.bottom = 'auto';
-  });
-  document.addEventListener('mouseup', () => { dragging = false; document.body.style.userSelect = ''; });
-}
 
 // ── EVENT DELEGATION ──────────────────────────────────────────
 // Attached once to win-body in init(). Handles all dynamic goal/badge interactions
@@ -2118,31 +1567,28 @@ function handleWinBodyClick(e) {
   // Binary goal toggle
   const checkBtn = e.target.closest('.goal-check[data-type="binary"]');
   if (checkBtn) {
-    toggleBinary(checkBtn.dataset.tab || activeTab, parseInt(checkBtn.dataset.id));
+    applyGoalInteraction(checkBtn.dataset.tab || activeTab, parseInt(checkBtn.dataset.id), { type: 'toggle' });
     return;
   }
 
-  // Count +/− buttons (count goals and monthly goals)
+  // Count +/− buttons (count and monthly goals)
   const cntBtn = e.target.closest('.cnt-btn');
   if (cntBtn) {
-    const tab   = cntBtn.dataset.tab || activeTab;
-    const id    = parseInt(cntBtn.dataset.id);
-    const delta = cntBtn.dataset.action === 'inc' ? 1 : -1;
-    if (cntBtn.dataset.type === 'monthly') {
-      adjustMonthly(tab, id, delta);
-    } else {
-      adjustCount(tab, id, delta);
-    }
+    applyGoalInteraction(
+      cntBtn.dataset.tab || activeTab,
+      parseInt(cntBtn.dataset.id),
+      { type: 'adjust', delta: cntBtn.dataset.action === 'inc' ? 1 : -1 }
+    );
     return;
   }
 
   // Month grid cells
   const monthCell = e.target.closest('.month-cell');
   if (monthCell) {
-    toggleMonth(
+    applyGoalInteraction(
       monthCell.dataset.tab || activeTab,
       parseInt(monthCell.dataset.id),
-      parseInt(monthCell.dataset.month)
+      { type: 'month', index: parseInt(monthCell.dataset.month) }
     );
     return;
   }
@@ -2232,6 +1678,21 @@ function init() {
   document.querySelectorAll('.tab').forEach(t =>
     t.addEventListener('click', () => switchTab(t.dataset.tab))
   );
+
+  // Partners module init
+  initPartners({
+    render,
+    setStatus,
+    updateTabLabels,
+    getAppState: () => ({ data, currentGroupId, currentTeamId, allGroups, _pendingInvites }),
+    setAppState: (patch) => {
+      if ('data'           in patch) data             = patch.data;
+      if ('currentGroupId' in patch) currentGroupId   = patch.currentGroupId;
+      if ('currentTeamId'  in patch) currentTeamId    = patch.currentTeamId;
+      if ('allGroups'      in patch) allGroups        = patch.allGroups;
+      if ('_pendingInvites' in patch) _pendingInvites = patch._pendingInvites;
+    },
+  });
 
   // Partners panel
   document.getElementById('partners-btn').addEventListener('click', openPartnersPanel);
@@ -2364,7 +1825,7 @@ function init() {
 
   // Notification bell button
   const notifBtn = document.getElementById('notif-btn');
-  notifBtn.addEventListener('click', enableNotifications);
+  notifBtn.addEventListener('click', () => enableNotifications(setStatus));
   updateNotifBtn();
 
   // Check inactivity on load (only if permission already granted)
@@ -2380,52 +1841,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// ── NOTIFICATIONS ─────────────────────────────────────────────
-function updateNotifBtn() {
-  const btn = document.getElementById('notif-btn');
-  if (!('Notification' in window)) { btn.style.display = 'none'; return; }
-  if (Notification.permission === 'granted') {
-    btn.title = 'Quest reminders ON';
-    btn.style.opacity = '1';
-  } else {
-    btn.title = 'Enable quest reminders';
-    btn.style.opacity = '0.5';
-  }
-}
-
-async function enableNotifications() {
-  if (!('Notification' in window)) {
-    setStatus('NOTIFICATIONS NOT SUPPORTED', 3000); return;
-  }
-  if (Notification.permission === 'granted') {
-    setStatus('REMINDERS ALREADY ON ✓', 2000); return;
-  }
-  const perm = await Notification.requestPermission();
-  updateNotifBtn();
-  if (perm === 'granted') {
-    setStatus('QUEST REMINDERS ENABLED ✓', 2000);
-    new Notification('Badge Quest 2026 🎯', {
-      body: 'Reminders are on! We\'ll nudge you if quests go quiet.',
-      icon: './icons/icon.svg'
-    });
-  } else {
-    setStatus('NOTIFICATIONS BLOCKED', 2500);
-  }
-}
-
-function checkInactivity() {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  const lastSave = localStorage.getItem('badgequest_lastSave');
-  if (!lastSave) return;
-  const daysSince = (Date.now() - parseInt(lastSave)) / (1000 * 60 * 60 * 24);
-  if (daysSince >= 3) {
-    const days = Math.floor(daysSince);
-    new Notification('Badge Quest 2026 🎯', {
-      body: `${days} days without a quest update — your 2026 goals are waiting!`,
-      icon: './icons/icon.svg'
-    });
-  }
-}
 
 // ── Tab label helper ─────────────────────────────────────────
 function updateTabLabels() {
@@ -2441,6 +1856,11 @@ function updateTabLabels() {
     } else {
       partnerTab.style.display  = 'none';
     }
+  }
+  const teamsTab = document.getElementById('tab-teams');
+  if (teamsTab) {
+    const hasTeams = allGroups.some(g => g.type === 'team');
+    teamsTab.style.display = hasTeams ? '' : 'none';
   }
 }
 
@@ -2462,12 +1882,27 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (_) {}
       }
 
-      // Active group = first one (or previously set currentGroupId if already chosen)
-      if (allGroups.length > 0) {
-        currentGroupId = allGroups[0].id;
-        data.together  = allGroups[0];
-        const partnerUid = allGroups[0].members?.find(uid => uid !== user.uid);
+      // Set active party group
+      const partyGroups = allGroups.filter(g => g.type !== 'team');
+      const teamGroups  = allGroups.filter(g => g.type === 'team');
+
+      if (partyGroups.length > 0) {
+        currentGroupId = partyGroups[0].id;
+        data.together  = partyGroups[0];
+        const partnerUid = partyGroups[0].members?.find(uid => uid !== user.uid);
         if (partnerUid) data.partner = await loadPartnerData(partnerUid);
+      }
+
+      // Load member data for team groups
+      if (teamGroups.length > 0) {
+        currentTeamId = teamGroups[0].id;
+        for (const tg of teamGroups) {
+          const memberUids = (tg.members || []).filter(uid => uid !== user.uid);
+          tg._members = [
+            { name: data.me.name, goals: data.me.goals, unlockedBadges: data.me.unlockedBadges },
+            ...await Promise.all(memberUids.map(uid => loadPartnerData(uid)))
+          ];
+        }
       }
     }
 

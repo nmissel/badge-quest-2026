@@ -3,12 +3,15 @@
 //  Caches app shell for offline use
 // ============================================================
 
-const CACHE = 'badge-quest-v4';
+const CACHE = 'badge-quest-v5';
 
 const SHELL = [
   './index.html',
   './style.css',
   './app.js',
+  './badges.js',
+  './ui.js',
+  './partners.js',
   './manifest.json',
   './icons/icon.svg'
 ];
