@@ -34,6 +34,12 @@ const MONTHS = ['JAN','FEB','MAR','APR','MAJ','JUN','JUL','AUG','SEP','OKT','NOV
 // Escape user-controlled strings before inserting into innerHTML
 const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
+// Block-style progress bar for quest rows (RPG log aesthetic)
+const blockBar = (current, target, width = 8) => {
+  const filled = target > 0 ? Math.round((current / target) * width) : 0;
+  return '█'.repeat(Math.min(filled, width)) + '░'.repeat(Math.max(width - filled, 0));
+};
+
 // ── GOAL TYPE REGISTRY ─────────────────────────────────────────
 // To add a new goal type: add one entry here. Nothing else to touch.
 // Each type defines:
@@ -54,18 +60,12 @@ const GOAL_TYPES = {
     updateFields() {},
     clearFields(goal) { delete goal.target; delete goal.current; delete goal.unit; delete goal.months; },
 
-    listItemHTML(g, { num, ta, noteHTML, photoHTML, wrap }) {
+    listItemHTML(g, { num, ta, wrap, tab }) {
       return wrap(`
-        <div class="goal-item goal-binary ${g.done ? 'done' : ''}" data-id="${g.id}">
+        <div class="goal-item goal-binary ${g.done ? 'done' : ''}" data-id="${g.id}" data-tab="${tab}" style="--pct:${g.done ? 100 : 0}%">
           <span class="goal-num">${num}</span>
-          <div class="goal-title-wrap">
-            <span class="goal-title">${esc(g.title)}</span>
-            ${noteHTML}
-          </div>
-          <div class="gi-actions">
-            ${photoHTML}
-            <button class="goal-check" data-id="${g.id}" ${ta} data-type="binary">${g.done ? '✓' : ''}</button>
-          </div>
+          <span class="goal-title">${esc(g.title)}</span>
+          <div class="goal-action"><span class="goal-progress${g.done ? ' maxed' : ''}">${g.done ? 1 : 0}/1</span></div>
         </div>`);
     },
 
@@ -83,7 +83,6 @@ const GOAL_TYPES = {
     applyChange(goal, action) {
       if (action.type === 'toggle') {
         if (goal.done) {
-          sfxClick();
           goal.done = false; goal.doneDate = null;
           return 'uncomplete';
         }
@@ -109,23 +108,14 @@ const GOAL_TYPES = {
     },
     clearFields(goal) { delete goal.months; },
 
-    listItemHTML(g, { num, ta, noteHTML, photoHTML, wrap }) {
+    listItemHTML(g, { num, wrap, tab }) {
       const maxed = g.current >= g.target;
+      const bar   = blockBar(g.current, g.target);
       return wrap(`
-        <div class="goal-item count-goal ${g.done ? 'done' : ''}" data-id="${g.id}">
+        <div class="goal-item count-goal ${g.done ? 'done' : ''}" data-id="${g.id}" data-tab="${tab}" style="--pct:${g.target > 0 ? Math.round((g.current / g.target) * 100) : 0}%">
           <span class="goal-num">${num}</span>
-          <div class="goal-title-wrap">
-            <span class="goal-title">${esc(g.title)}</span>
-            ${noteHTML}
-          </div>
-          <div class="gi-actions">
-            <div class="gi-count-inline">
-              <button class="cnt-btn gi-cnt-btn" data-id="${g.id}" ${ta} data-action="dec" ${g.current===0?'disabled':''}>−</button>
-              <span class="gi-count-num ${maxed?'maxed':''}">${g.current}/${g.target}</span>
-              <button class="cnt-btn gi-cnt-btn" data-id="${g.id}" ${ta} data-action="inc" ${maxed?'disabled':''}>+</button>
-            </div>
-            ${photoHTML}
-          </div>
+          <span class="goal-title">${esc(g.title)}</span>
+          <div class="goal-action"><span class="goal-progress${maxed ? ' maxed' : ''}">${g.current}/${g.target}</span></div>
         </div>`);
     },
 
@@ -169,24 +159,13 @@ const GOAL_TYPES = {
     updateFields() {},
     clearFields(goal) { delete goal.target; delete goal.current; delete goal.unit; },
 
-    listItemHTML(g, { num, ta, noteHTML, photoHTML, wrap }) {
-      const checked = g.months.filter(Boolean).length;
-      const maxed   = checked >= 12;
+    listItemHTML(g, { num, wrap, tab }) {
+      const checked = (g.months || []).filter(Boolean).length;
       return wrap(`
-        <div class="goal-item monthly-goal ${g.done ? 'done' : ''}" data-id="${g.id}">
+        <div class="goal-item monthly-goal ${g.done ? 'done' : ''}" data-id="${g.id}" data-tab="${tab}" style="--pct:${Math.round((checked / 12) * 100)}%">
           <span class="goal-num">${num}</span>
-          <div class="goal-title-wrap">
-            <span class="goal-title">${esc(g.title)}</span>
-            ${noteHTML}
-          </div>
-          <div class="gi-actions">
-            <div class="gi-count-inline">
-              <button class="cnt-btn gi-cnt-btn" data-id="${g.id}" ${ta} data-action="dec" data-type="monthly" ${checked===0?'disabled':''}>−</button>
-              <span class="gi-count-num ${maxed?'maxed':''}">${checked}/12</span>
-              <button class="cnt-btn gi-cnt-btn" data-id="${g.id}" ${ta} data-action="inc" data-type="monthly" ${maxed?'disabled':''}>+</button>
-            </div>
-            ${photoHTML}
-          </div>
+          <span class="goal-title">${esc(g.title)}</span>
+          <div class="goal-action"><span class="goal-progress${checked >= 12 ? ' maxed' : ''}">${checked}/12</span></div>
         </div>`);
     },
 
@@ -355,10 +334,13 @@ let cardIndex           = {};      // { [tab]: number } — current card per tab
 let _cardSlideDir       = 'none';  // 'right' | 'left' | 'none' — slide animation direction
 let badgeCaseOpen       = false;   // badge case collapsed by default
 let _editCtx            = null;    // { tab, goalId } for edit modal, null = new goal
-let _swipedItem         = null;    // currently swiped goal item DOM element
 let _cardFlipped        = false;   // card showing calendar instead of content
 let _calYear            = new Date().getFullYear();
 let _calMonth           = new Date().getMonth(); // 0-indexed
+let _qdGoal     = null;  // goal currently open in the quest dialog
+let _qdTab      = null;  // its data tab
+let _qdIdx      = null;  // display index (1-based)
+let _qdMetaOpen = false; // whether the DETAILS section is expanded
 
 // ── DEADLINE HELPERS ──────────────────────────────────────────
 // Single source of truth for the days calculation used by all deadline functions.
@@ -509,26 +491,17 @@ function setStatus(msg, resetAfter = 0) {
 // options.tagCls / options.tagText — owner chip styling
 function goalItemHTML(g, index, tab, options = {}) {
   const { showTag = false, tagCls = '', tagText = '' } = options;
-  const num      = String(index + 1).padStart(2, '0');
+  const num      = String(index + 1).padStart(3, '0');
   const noteHTML = g.done && g.note  ? `<span class="goal-note-text">✎ ${esc(g.note)}</span>` : '';
   const photoHTML= g.done && g.photo ? `<img class="goal-photo-thumb" src="${g.photo}" data-photo alt="Memory">` : '';
   const dlBadge  = !g.done ? deadlineBadgeHTML(g) : '';
   const dlBtn    = !g.done ? `<button class="deadline-btn" data-id="${g.id}" data-tab="${tab}" title="Set deadline">📅</button>` : '';
   const tag      = showTag ? `<span class="owner-tag ${tagCls}">${esc(tagText)}</span>` : '';
   const ta       = `data-tab="${tab}"`;
-  const editable = tab === 'me' || tab === 'together';
-  const swipeActions = editable ? `
-    <div class="swipe-actions">
-      <button class="swipe-edit-btn" data-id="${g.id}" data-tab="${tab}">✎<br><span>EDIT</span></button>
-      <button class="swipe-del-btn"  data-id="${g.id}" data-tab="${tab}">🗑<br><span>DEL</span></button>
-    </div>` : '';
-
-  const wrap = inner => editable
-    ? `<div class="swipe-wrapper">${swipeActions}<div class="swipe-content">${inner}</div></div>`
-    : inner;
+  const wrap = inner => inner;
 
   const typeDef = GOAL_TYPES[g.type];
-  return typeDef ? typeDef.listItemHTML(g, { num, ta, noteHTML, photoHTML, wrap }) : '';
+  return typeDef ? typeDef.listItemHTML(g, { num, ta, noteHTML, photoHTML, wrap, tab }) : '';
 }
 
 // ── CARD VIEW HELPERS ─────────────────────────────────────────
@@ -555,7 +528,6 @@ function navigateCard(tab, delta) {
   _cardFlipped   = false;
   _cardSlideDir  = delta > 0 ? 'right' : 'left';
   cardIndex[tab] = newIdx;
-  sfxClick();
   render();
   _cardSlideDir = 'none'; // reset after synchronous render
 }
@@ -821,7 +793,6 @@ function saveGoalModal() {
   saveData();
   render();
   closeGoalModal();
-  sfxClick();
 }
 
 function openDeleteConfirm() {
@@ -844,7 +815,6 @@ async function executeDelete() {
   document.getElementById('delete-overlay').style.display = 'none';
   closeGoalModal();
   render();
-  sfxClick();
 }
 
 function shuffleGoals(tab) {
@@ -859,20 +829,18 @@ function shuffleGoals(tab) {
   const list = document.getElementById('goal-list');
   if (list) { list.style.animation = 'none'; list.offsetHeight; list.style.animation = 'shuffle-flash 0.35s ease'; }
   render();
-  sfxClick();
 }
 
 // ── RENDER ────────────────────────────────────────────────────
 function render() {
   if (activeTab === 'all') {
     renderAllTab();
-  } else if (activeTab === 'team') {
-    renderTeamTab();
+  } else if (activeTab === 'badges') {
+    renderBadgesTab();
   } else if (activeTab === 'teams') {
     renderTeamsTab();
   } else {
     ensureWinBodyStructure();
-    renderBadgeCase();
     renderProgress();
     renderGoalList();
   }
@@ -882,7 +850,7 @@ function render() {
 
 function ensureWinBodyStructure() {
   const wb = document.getElementById('win-body');
-  if (!wb.querySelector('#badge-case')) {
+  if (!wb.querySelector('#goal-list')) {
     const groupSwitcherHTML = (activeTab === 'together' && allGroups.length > 1) ? `
       <div class="group-switcher-row">
         <span class="group-switcher-label">GROUP:</span>
@@ -893,17 +861,6 @@ function ensureWinBodyStructure() {
 
     wb.innerHTML = `
       ${groupSwitcherHTML}
-      <div class="inset-panel badge-case-panel">
-        <div class="panel-title badge-case-toggle">
-          <span>✦ BADGE CASE ✦</span>
-          <span class="badge-case-summary" id="badge-case-summary"></span>
-          <span class="badge-case-arrow" id="badge-case-arrow">▼</span>
-        </div>
-        <div id="badge-case-body" style="display:none">
-          <div class="badge-case" id="badge-case"></div>
-          <div id="badge-detail"></div>
-        </div>
-      </div>
       <div class="progress-section">
         <span class="prog-label" id="prog-label">QUESTS: 0 / 0</span>
         <div class="prog-track"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
@@ -917,10 +874,6 @@ function ensureWinBodyStructure() {
               <button class="shuffle-btn" id="shuffle-btn" title="Shuffle quest order">🔀</button>
               <button class="add-quest-btn" id="add-quest-btn" title="Add new quest">+ NEW</button>
             ` : ''}
-            <div class="view-toggle">
-              <button class="view-btn ${viewMode === 'list' ? 'active' : ''}" data-view="list" title="List view">☰</button>
-              <button class="view-btn ${viewMode === 'card' ? 'active' : ''}" data-view="card" title="Card view">▣</button>
-            </div>
           </div>
         </div>
         <div class="goal-list" id="goal-list"></div>
@@ -958,6 +911,8 @@ function updateTitleBarColor() {
     all:      colorToGradient('#1848BE'),
     together: colorToGradient('#7818BE'),
     team:     colorToGradient('#C88000'),
+    teams:    colorToGradient('#C88000'),
+    badges:   colorToGradient('#1848BE'),
     me:       colorToGradient(data.me?.color      || '#cc0000'),
     partner:  colorToGradient(data.partner?.color || '#2E7D32'),
   };
@@ -1059,14 +1014,15 @@ function renderGoalList() {
   if (!list) return;
 
   if (!goals.length) {
-    // Together tab with no group yet — prompt to invite someone
+    // Together tab with no group yet — full-body render like TEAM tab
     if (tab === 'together' && !currentGroupId) {
-      list.innerHTML = `
+      const wb = document.getElementById('win-body');
+      wb.innerHTML = `
         <div class="locked-panel">
-          <div class="locked-icon">👥</div>
+          <div class="locked-icon">💎</div>
           <div class="locked-title">NO PARTY YET</div>
           <div class="locked-sub">Invite someone to start your party and unlock shared quests!</div>
-          <button class="starter-btn" id="empty-invite-btn" style="margin-top:12px">👥 INVITE SOMEONE ▶</button>
+          <button class="starter-btn" id="empty-invite-btn" style="margin-top:12px">💎 INVITE SOMEONE ▶</button>
         </div>`;
       document.getElementById('empty-invite-btn')?.addEventListener('click', openPartnersPanel);
       return;
@@ -1097,74 +1053,41 @@ function renderGoalList() {
     return;
   }
 
-  const wb = document.getElementById('win-body');
-  if (viewMode === 'card') {
-    wb?.classList.add('card-mode');
-    list.innerHTML = renderCardView(goals.map(g => ({ ...g, _tab: tab })), tab);
-  } else {
-    wb?.classList.remove('card-mode');
-    // All interaction handled by handleWinBodyClick() delegation.
-    list.innerHTML = urgentWarningsHTML([tab])
-      + goals.map((g, i) => goalItemHTML(g, i, tab)).join('');
-  }
-
-  // Keep toggle button active state in sync (structure may have been rebuilt)
-  document.querySelectorAll('.view-btn[data-view]').forEach(btn =>
-    btn.classList.toggle('active', btn.dataset.view === viewMode)
-  );
+  document.getElementById('win-body')?.classList.remove('card-mode');
+  list.innerHTML = urgentWarningsHTML([tab])
+    + goals.map((g, i) => goalItemHTML(g, i, tab)).join('');
 }
 
 // ── ALL TAB RENDER ────────────────────────────────────────────
 function renderAllTab() {
   const wb = document.getElementById('win-body');
-  wb.className = viewMode === 'card' ? 'win-body card-mode' : 'win-body';
+  wb.className = 'win-body';
 
   const allDone  = totalDoneAll(data);
   const allTotal = totalGoalsAll(data);
   const allPct   = allTotal ? Math.round((allDone / allTotal) * 100) : 0;
 
-  const toggleBtnsHTML = `
-    <div class="view-toggle">
-      <button class="view-btn ${viewMode === 'list' ? 'active' : ''}" data-view="list" title="List view">☰</button>
-      <button class="view-btn ${viewMode === 'card' ? 'active' : ''}" data-view="card" title="Card view">▣</button>
+  const meName      = (data.me?.name      || 'ME').toUpperCase();
+  const partnerName = (data.partner?.name || '').toUpperCase();
+  const sections = [
+    { tab: 'together', label: '💎 ' + (data.together?.name || 'PARTY').toUpperCase(), cls: 'couple-header', tagCls: 'owner-couple', tagText: (data.together?.name || 'PARTY').toUpperCase() },
+    ...(data.partner ? [{ tab: 'partner', label: '👤 ' + partnerName, cls: 'partner-header', tagCls: 'owner-partner', tagText: partnerName }] : []),
+    { tab: 'me', label: '👤 ' + meName, cls: 'me-header', tagCls: 'owner-me', tagText: meName },
+  ];
+
+  const goalsHTML = sections.map(sec => {
+    const goals = data[sec.tab].goals;
+    const done  = countDone(data, sec.tab);
+    const total = goals.length;
+    const header = `<div class="all-section-header ${sec.cls}">
+      <span class="all-section-label">${sec.label}</span>
+      <span class="all-section-count">${total === 0 ? 'No quests yet' : `${done} / ${total} done`}</span>
     </div>`;
-
-  let goalListContent;
-  if (viewMode === 'card') {
-    goalListContent = renderCardView(getCardGoals('all'), 'all');
-  } else {
-    const meName      = (data.me?.name      || 'ME').toUpperCase();
-    const partnerName = (data.partner?.name || '').toUpperCase();
-    const sections = [
-      { tab: 'together', label: '💎 ' + (data.together?.name || 'PARTY').toUpperCase(), cls: 'couple-header', tagCls: 'owner-couple', tagText: (data.together?.name || 'PARTY').toUpperCase() },
-      ...(data.partner ? [{ tab: 'partner', label: '👤 ' + partnerName, cls: 'partner-header', tagCls: 'owner-partner', tagText: partnerName }] : []),
-      { tab: 'me',       label: '👤 ' + meName,   cls: 'me-header',      tagCls: 'owner-me',      tagText: meName        },
-    ];
-
-    const goalsHTML = sections.map(sec => {
-      const goals = data[sec.tab].goals;
-      const done  = countDone(data, sec.tab);
-      const total = goals.length;
-
-      const header = total === 0
-        ? `<div class="all-section-header ${sec.cls}">
-             <span class="all-section-label">${sec.label}</span>
-             <span class="all-section-count">No goals yet</span>
-           </div>`
-        : `<div class="all-section-header ${sec.cls}">
-             <span class="all-section-label">${sec.label}</span>
-             <span class="all-section-count">${done} / ${total} done</span>
-           </div>`;
-
-      const items = goals.map((g, i) => goalItemHTML(g, i, sec.tab, {
-        showTag: true, tagCls: sec.tagCls, tagText: sec.tagText
-      })).join('');
-
-      return header + items;
-    }).join('');
-
-    goalListContent = urgentWarningsHTML(['me', 'together', ...(data.partner ? ['partner'] : [])]) + goalsHTML;
-  }
+    const items = goals.map((g, i) => goalItemHTML(g, i, sec.tab, {
+      showTag: true, tagCls: sec.tagCls, tagText: sec.tagText
+    })).join('');
+    return header + items;
+  }).join('');
 
   wb.innerHTML = `
     <div class="progress-section">
@@ -1175,9 +1098,8 @@ function renderAllTab() {
     <div class="inset-panel quest-panel">
       <div class="panel-title-row">
         <span class="panel-title">📋 ALL QUESTS</span>
-        ${toggleBtnsHTML}
       </div>
-      <div class="goal-list" id="goal-list">${goalListContent}</div>
+      <div class="goal-list" id="goal-list">${urgentWarningsHTML(['me', 'together', ...(data.partner ? ['partner'] : [])]) + goalsHTML}</div>
     </div>`;
 }
 
@@ -1264,6 +1186,74 @@ function renderTeamTab() {
 }
 
 
+// ── BADGES TAB RENDER ─────────────────────────────────────────
+function renderBadgesTab() {
+  const wb = document.getElementById('win-body');
+  wb.className = 'win-body badges-body';
+
+  // Personal
+  const meUnlocked = data.me?.unlockedBadges || [];
+  const personalHTML = BADGE_DEFS.map(b => badgeSlotHTML(b, meUnlocked.includes(b.id))).join('');
+
+  // Party (combined + balance)
+  const combinedUnlocked = data.team?.unlockedCombinedBadges || [];
+  const balanceUnlocked  = data.team?.unlockedBalanceBadges  || [];
+  const partyBadgesHTML = currentGroupId
+    ? [...COMBINED_BADGE_DEFS.map(b => badgeSlotHTML(b, combinedUnlocked.includes(b.id))),
+       ...BALANCE_BADGE_DEFS.map(b  => badgeSlotHTML(b, balanceUnlocked.includes(b.id)))].join('')
+    : `<div class="badges-empty">Start a party to unlock these badges.</div>`;
+
+  // Team
+  const activeTeamGroup = allGroups.filter(g => g.type === 'team').find(g => g.id === currentTeamId);
+  const teamMembers     = activeTeamGroup?._members || [];
+  const teamEarned      = earnedTeamGroupBadges(teamMembers).map(b => b.id);
+  const teamBadgesHTML  = allGroups.some(g => g.type === 'team')
+    ? TEAM_BADGE_DEFS.map(b => badgeSlotHTML(b, teamEarned.includes(b.id))).join('')
+    : `<div class="badges-empty">Form a team to unlock these badges.</div>`;
+
+  wb.innerHTML = `
+    <div class="badges-section">
+      <div class="badges-section-header">✦ PERSONAL</div>
+      <div class="badge-case badges-grid" id="badges-personal">${personalHTML}</div>
+      <div class="badge-detail-wrap" id="bd-personal"></div>
+    </div>
+    <div class="badges-section">
+      <div class="badges-section-header">💎 PARTY</div>
+      <div class="badge-case badges-grid" id="badges-party">${partyBadgesHTML}</div>
+      <div class="badge-detail-wrap" id="bd-party"></div>
+    </div>
+    <div class="badges-section">
+      <div class="badges-section-header">👥 TEAM</div>
+      <div class="badge-case badges-grid" id="badges-team">${teamBadgesHTML}</div>
+      <div class="badge-detail-wrap" id="bd-team"></div>
+    </div>`;
+
+  // Wire badge slot clicks — show detail card
+  const allBadgeDefs = [...BADGE_DEFS, ...COMBINED_BADGE_DEFS, ...BALANCE_BADGE_DEFS, ...TEAM_BADGE_DEFS];
+  wb.querySelectorAll('.badge-slot').forEach(slot => {
+    slot.addEventListener('click', () => {
+      const badgeId  = slot.dataset.badgeId;
+      const b        = allBadgeDefs.find(bd => String(bd.id) === String(badgeId));
+      if (!b) return;
+      const isUnlocked = !slot.classList.contains('locked');
+      let detailId = 'bd-personal';
+      if (COMBINED_BADGE_DEFS.some(bd => bd.id === b.id) || BALANCE_BADGE_DEFS.some(bd => bd.id === b.id)) detailId = 'bd-party';
+      if (TEAM_BADGE_DEFS.some(bd => bd.id === b.id)) detailId = 'bd-team';
+      const detailEl = document.getElementById(detailId);
+      if (!detailEl) return;
+      const rarityLabel = b.rarity ? `<span class="badge-rarity-label rarity-${b.rarity}">${b.rarity.toUpperCase()}</span>` : '';
+      detailEl.innerHTML = `
+        <div class="badge-detail-card ${isUnlocked ? '' : 'locked-detail'}">
+          <div class="badge-detail-svg ${isUnlocked ? '' : 'locked'}">${makeBadgeSVG(b, 36)}</div>
+          <div class="badge-detail-info">
+            <div class="badge-detail-name">${b.name} ${rarityLabel}</div>
+            <div class="badge-detail-desc">${b.desc}</div>
+          </div>
+        </div>`;
+    });
+  });
+}
+
 // ── TEAMS TAB RENDER ──────────────────────────────────────────
 function renderTeamsTab() {
   const wb = document.getElementById('win-body');
@@ -1340,6 +1330,86 @@ function renderTeamsTab() {
   });
 }
 
+
+// ── QUEST DIALOG ──────────────────────────────────────────────
+function openQuestDialog(tab, goalId) {
+  const goals = data[tab]?.goals;
+  if (!goals) return;
+  const goal = goals.find(g => g.id === goalId);
+  if (!goal) return;
+  _qdGoal     = goal;
+  _qdTab      = tab;
+  _qdIdx      = goals.indexOf(goal) + 1;
+  _qdMetaOpen = false;
+  renderQuestDialog();
+  document.getElementById('quest-dialog').style.display = 'flex';
+}
+
+function closeQuestDialog() {
+  document.getElementById('quest-dialog').style.display = 'none';
+  _qdGoal = null;
+  _qdTab  = null;
+}
+
+function renderQuestDialog() {
+  if (!_qdGoal) return;
+  const g   = _qdGoal;
+  const tab = _qdTab;
+
+  document.getElementById('qd-num').textContent  = String(_qdIdx).padStart(3, '0');
+  document.getElementById('qd-type').textContent = GOAL_TYPES[g.type]?.label || 'QUEST';
+  document.getElementById('qd-title').textContent = g.title;
+
+  const controls = document.getElementById('qd-controls');
+  if (g.type === 'binary') {
+    controls.innerHTML = g.done
+      ? `<button class="goal-check card-check-btn card-done-btn" data-id="${g.id}" data-tab="${tab}" data-type="binary">✓ QUEST COMPLETE!<span class="card-btn-sub">tap to undo</span></button>`
+      : `<button class="goal-check card-check-btn" data-id="${g.id}" data-tab="${tab}" data-type="binary">◻ MARK AS DONE</button>`;
+  } else if (g.type === 'count') {
+    const maxed = g.current >= g.target;
+    const pct   = g.target > 0 ? (g.current / g.target) * 100 : 0;
+    controls.innerHTML = `
+      <div class="card-count-row">
+        <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${tab}" data-action="dec" ${g.current === 0 ? 'disabled' : ''}>−</button>
+        <div class="card-count-bar-wrap">
+          <div class="card-count-track">
+            <div class="card-count-fill ${maxed ? 'maxed' : ''}" style="width:${pct}%"></div>
+          </div>
+          <div class="card-count-label">
+            <span class="card-count-num ${maxed ? 'maxed' : ''}">${g.current} / ${g.target}</span>
+            <span class="card-count-unit">${esc(g.unit)}</span>
+          </div>
+        </div>
+        <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${tab}" data-action="inc" ${maxed ? 'disabled' : ''}>+</button>
+      </div>`;
+  } else if (g.type === 'monthly') {
+    const checked = (g.months || []).filter(Boolean).length;
+    const maxed   = checked >= 12;
+    controls.innerHTML = `
+      <div class="qd-monthly-ctrl">
+        <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${tab}" data-action="dec" data-type="monthly" ${checked === 0 ? 'disabled' : ''}>−</button>
+        <span class="qd-month-count${maxed ? ' maxed' : ''}">${checked} / 12 months</span>
+        <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${tab}" data-action="inc" data-type="monthly" ${maxed ? 'disabled' : ''}>+</button>
+      </div>`;
+  }
+
+  // Meta section (note, photo, deadline) — collapsible
+  const meta    = document.getElementById('qd-meta');
+  const moreBtn = document.getElementById('qd-more-btn');
+  const hasMeta = g.note || g.photo || g.deadline;
+  if (hasMeta) {
+    moreBtn.style.display  = '';
+    moreBtn.textContent    = _qdMetaOpen ? '▲ HIDE' : '▼ DETAILS';
+    meta.innerHTML = _qdMetaOpen ? `
+      ${g.note     ? `<div class="card-note">✎ ${esc(g.note)}</div>` : ''}
+      ${g.deadline ? `<div class="qd-deadline">📅 ${g.deadline}</div>` : ''}
+      ${g.photo    ? `<img class="qd-photo" src="${g.photo}" alt="Memory">` : ''}
+    ` : '';
+  } else {
+    moreBtn.style.display = 'none';
+    meta.innerHTML        = '';
+  }
+}
 
 // ── CELEBRATIONS ─────────────────────────────────────────────
 function processCelebrations() {
@@ -1470,21 +1540,6 @@ function handleWinBodyClick(e) {
   const groupSwitcher = e.target.closest('.group-switcher');
   if (groupSwitcher) return; // handled by 'change' event
 
-  // Swipe edit button
-  const swipeEdit = e.target.closest('.swipe-edit-btn');
-  if (swipeEdit) {
-    openGoalModal(swipeEdit.dataset.tab, parseInt(swipeEdit.dataset.id));
-    return;
-  }
-
-  // Swipe delete button
-  const swipeDel = e.target.closest('.swipe-del-btn');
-  if (swipeDel) {
-    _editCtx = { tab: swipeDel.dataset.tab, goalId: parseInt(swipeDel.dataset.id) };
-    openDeleteConfirm();
-    return;
-  }
-
   // Starter preset seed button
   const seedBtn = e.target.closest('.starter-btn[data-seed]');
   if (seedBtn) {
@@ -1504,73 +1559,17 @@ function handleWinBodyClick(e) {
     return;
   }
 
-  // Badge case collapse toggle
-  const badgeCaseToggle = e.target.closest('.badge-case-toggle');
-  if (badgeCaseToggle) {
-    badgeCaseOpen = !badgeCaseOpen;
-    renderBadgeCase();
-    return;
-  }
-
-  // Peek card tap — navigate to adjacent card
-  const peekCard = e.target.closest('.card-side-peek[data-nav]');
-  if (peekCard) {
-    navigateCard(peekCard.dataset.cardTab, peekCard.dataset.nav === 'next' ? 1 : -1);
-    return;
-  }
-
-  // Card titlebar close (✕) → switch back to list
-  if (e.target.closest('.card-tb-x')) {
-    viewMode = 'list';
-    render();
-    return;
-  }
-
-  // View mode toggle (☰ list / ▣ card)
-  const viewBtn = e.target.closest('.view-btn[data-view]');
-  if (viewBtn) {
-    viewMode = viewBtn.dataset.view;
-    render();
-    return;
-  }
-
-  // Card navigation (PREV / NEXT buttons)
-  const cardNavBtn = e.target.closest('.card-nav-btn');
-  if (cardNavBtn) {
-    const tab   = cardNavBtn.dataset.cardTab;
-    const delta = cardNavBtn.dataset.nav === 'next' ? 1 : -1;
-    navigateCard(tab, delta);
-    return;
-  }
-
-  // Card dot — jump to specific card
-  const cardDot = e.target.closest('.card-dot[data-card-dot]');
-  if (cardDot) {
-    const tab = cardDot.dataset.cardTab;
-    cardIndex[tab] = parseInt(cardDot.dataset.cardDot);
-    sfxClick();
-    render();
-    return;
-  }
-
-  // Badge slot (Pokédex) — only inside the individual-tab #badge-case
+  // Badge slot — handled in renderBadgesTab directly
   const badgeSlot = e.target.closest('.badge-slot');
   if (badgeSlot) {
-    if (badgeSlot.closest('#badge-case')) {
-      sfxClick();
-      const id  = parseInt(badgeSlot.dataset.badgeId);
-      const tab = activeTab;
-      selectedBadge = (selectedBadge?.badgeId === id && selectedBadge?.tab === tab)
-        ? null : { badgeId: id, tab };
-      renderBadgeCase();
-    }
-    return; // swallow click whether handled or not (e.g. team tab badges)
+    return;
   }
 
   // Binary goal toggle
   const checkBtn = e.target.closest('.goal-check[data-type="binary"]');
   if (checkBtn) {
     applyGoalInteraction(checkBtn.dataset.tab || activeTab, parseInt(checkBtn.dataset.id), { type: 'toggle' });
+    if (_qdGoal) renderQuestDialog();
     return;
   }
 
@@ -1582,6 +1581,7 @@ function handleWinBodyClick(e) {
       parseInt(cntBtn.dataset.id),
       { type: 'adjust', delta: cntBtn.dataset.action === 'inc' ? 1 : -1 }
     );
+    if (_qdGoal) renderQuestDialog();
     return;
   }
 
@@ -1628,46 +1628,11 @@ function handleWinBodyClick(e) {
     return;
   }
 
-  // Card deadline button → flip card to calendar
-  if (e.target.closest('.card-dl-btn')) {
-    const today = new Date();
-    _calYear    = today.getFullYear();
-    _calMonth   = today.getMonth();
-    _cardFlipped = true;
-    render();
-    return;
-  }
-
-  // Calendar back button (✕)
-  if (e.target.closest('.cal-flip-back')) {
-    _cardFlipped = false;
-    render();
-    return;
-  }
-
-  // Calendar month nav (‹ ›)
-  const calNav = e.target.closest('.cal-nav');
-  if (calNav) {
-    _calMonth += parseInt(calNav.dataset.calDir);
-    if (_calMonth > 11) { _calMonth = 0; _calYear++; }
-    if (_calMonth < 0)  { _calMonth = 11; _calYear--; }
-    render();
-    return;
-  }
-
-  // Calendar day select
-  const calDay = e.target.closest('[data-cal-date]');
-  if (calDay && !calDay.classList.contains('cal-past')) {
-    setDeadline(calDay.dataset.tab || activeTab, parseInt(calDay.dataset.id), calDay.dataset.calDate);
-    _cardFlipped = false;
-    return; // setDeadline already calls render()
-  }
-
-  // Calendar clear date
-  const calClear = e.target.closest('.cal-clear-btn');
-  if (calClear) {
-    setDeadline(calClear.dataset.tab || activeTab, parseInt(calClear.dataset.id), null);
-    _cardFlipped = false;
+  // Quest row tap → open dialog (anywhere on row except the check button)
+  const goalRow = e.target.closest('.goal-item[data-id]');
+  if (goalRow && !e.target.closest('.goal-check')) {
+    const tab = goalRow.dataset.tab || activeTab;
+    openQuestDialog(tab, parseInt(goalRow.dataset.id));
     return;
   }
 }
@@ -1695,6 +1660,24 @@ function init() {
       if ('allGroups'      in patch) allGroups        = patch.allGroups;
       if ('_pendingInvites' in patch) _pendingInvites = patch._pendingInvites;
     },
+  });
+
+  // Quest dialog
+  document.getElementById('qd-close').addEventListener('click', closeQuestDialog);
+  document.getElementById('quest-dialog').addEventListener('click', e => {
+    if (e.target.id === 'quest-dialog') { closeQuestDialog(); return; }
+    handleWinBodyClick(e);
+  });
+  document.getElementById('qd-edit').addEventListener('click', () => {
+    if (_qdGoal && _qdTab) {
+      const tab = _qdTab, id = _qdGoal.id;
+      closeQuestDialog();
+      openGoalModal(tab, id);
+    }
+  });
+  document.getElementById('qd-more-btn').addEventListener('click', () => {
+    _qdMetaOpen = !_qdMetaOpen;
+    renderQuestDialog();
   });
 
   // Partners panel
@@ -1780,48 +1763,6 @@ function init() {
   });
   document.getElementById('delete-ok').addEventListener('click', executeDelete);
 
-  // ── Swipe gestures (win-body) ────────────────────────────────
-  let _swipeStartX = 0, _swipeStartY = 0, _swipeEl = null;
-
-  wb.addEventListener('touchstart', e => {
-    const wrapper = e.target.closest('.swipe-wrapper');
-    if (!wrapper) return;
-    _swipeStartX = e.touches[0].clientX;
-    _swipeStartY = e.touches[0].clientY;
-    _swipeEl     = wrapper;
-  }, { passive: true });
-
-  wb.addEventListener('touchmove', e => {
-    if (!_swipeEl) return;
-    const dx = e.touches[0].clientX - _swipeStartX;
-    const dy = e.touches[0].clientY - _swipeStartY;
-    if (Math.abs(dy) > Math.abs(dx)) { _swipeEl = null; return; }
-    if (dx < -8) e.preventDefault();
-  }, { passive: false });
-
-  wb.addEventListener('touchend', e => {
-    if (!_swipeEl) return;
-    const dx = e.changedTouches[0].clientX - _swipeStartX;
-    const el = _swipeEl;
-    _swipeEl = null;
-    if (dx < -55) {
-      if (_swipedItem && _swipedItem !== el) _swipedItem.classList.remove('revealed');
-      el.classList.add('revealed');
-      _swipedItem = el;
-    } else if (dx > 20) {
-      el.classList.remove('revealed');
-      if (_swipedItem === el) _swipedItem = null;
-    }
-  }, { passive: true });
-
-  // Close swipe on tap outside actions
-  document.addEventListener('click', e => {
-    if (_swipedItem && !e.target.closest('.swipe-actions')) {
-      _swipedItem.classList.remove('revealed');
-      _swipedItem = null;
-    }
-  });
-
   updateClock();
   setInterval(updateClock, 30000);
   render();
@@ -1847,24 +1788,17 @@ if ('serviceWorker' in navigator) {
 
 // ── Tab label helper ─────────────────────────────────────────
 function updateTabLabels() {
-  const meTab      = document.getElementById('tab-me');
-  const partnerTab = document.getElementById('tab-partner');
-  const togetherTab = document.getElementById('tab-together');
-  if (meTab)      meTab.textContent = '👤 ' + (data.me?.name || 'ME').toUpperCase();
-  if (togetherTab) togetherTab.textContent = '💎 ' + (data.together?.name || 'PARTY').toUpperCase();
-  if (partnerTab) {
-    if (data.partner) {
-      partnerTab.textContent    = '👤 ' + data.partner.name.toUpperCase();
-      partnerTab.style.display  = '';
-    } else {
-      partnerTab.style.display  = 'none';
-    }
-  }
-  const teamsTab = document.getElementById('tab-teams');
-  if (teamsTab) {
-    const hasTeams = allGroups.some(g => g.type === 'team');
-    teamsTab.style.display = hasTeams ? '' : 'none';
-  }
+  // PARTY tab — always visible
+  const partyTab = document.getElementById('tab-together');
+  if (partyTab) partyTab.textContent = '💎 PARTY';
+
+  // ME tab label — show username
+  const meTab = document.getElementById('tab-me');
+  if (meTab && data.me?.name) meTab.textContent = `👤 ${data.me.name.toUpperCase()}`;
+
+  // TEAM tab — always visible (shows empty state if not in a team)
+  const teamTab = document.getElementById('tab-teams');
+  if (teamTab) teamTab.style.display = '';
 }
 
 document.addEventListener('DOMContentLoaded', () => {

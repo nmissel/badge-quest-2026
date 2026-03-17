@@ -4,29 +4,29 @@
 
 // ── Individual badge definitions ─────────────────────────────
 export const BADGE_DEFS = [
-  { id: 0, name: 'BOULDER BADGE', desc: 'Complete your very first quest!',             emoji: '🪨', color: '#9E9E9E', color2: '#424242', shape: 'octagon', threshold: ()  => 1                  },
-  { id: 1, name: 'CASCADE BADGE', desc: 'Complete 4 quests — the momentum builds!',    emoji: '💧', color: '#42A5F5', color2: '#0D47A1', shape: 'drop',    threshold: ()  => 4                  },
-  { id: 2, name: 'THUNDER BADGE', desc: 'Complete 8 quests — crackling energy!',       emoji: '⚡', color: '#FFEE58', color2: '#E65100', shape: 'star',    threshold: ()  => 8                  },
-  { id: 3, name: 'RAINBOW BADGE', desc: 'Halfway there! Keep shining!',                emoji: '🌈', color: '#FF80AB', color2: '#880E4F', shape: 'diamond', threshold: (n) => Math.ceil(n * 0.5) },
-  { id: 4, name: 'SOUL BADGE',    desc: 'Complete 16 quests — your spirit is strong!', emoji: '✨', color: '#CE93D8', color2: '#6A1B9A', shape: 'circle',  threshold: ()  => 16                 },
-  { id: 5, name: 'MARSH BADGE',   desc: 'Complete 19 quests — deep in the quest!',     emoji: '🌿', color: '#81C784', color2: '#1B5E20', shape: 'hexagon', threshold: ()  => 19                 },
-  { id: 6, name: 'VOLCANO BADGE', desc: 'Complete 22 quests — unstoppable!',           emoji: '🌋', color: '#EF5350', color2: '#B71C1C', shape: 'shield',  threshold: ()  => 22                 },
-  { id: 7, name: 'EARTH BADGE',   desc: '🏆 ALL quests complete! TRUE CHAMPION!',      emoji: '🏆', color: '#FFD700', color2: '#E65100', shape: 'star6',   threshold: (n) => n                  },
+  { id: 0, name: 'BOULDER BADGE', desc: 'Complete your very first quest!',             emoji: '🪨', color: '#9E9E9E', color2: '#424242', shape: 'octagon', rarity: 'common',    threshold: ()  => 1                  },
+  { id: 1, name: 'CASCADE BADGE', desc: 'Complete 4 quests — the momentum builds!',    emoji: '💧', color: '#42A5F5', color2: '#0D47A1', shape: 'drop',    rarity: 'common',    threshold: ()  => 4                  },
+  { id: 2, name: 'THUNDER BADGE', desc: 'Complete 8 quests — crackling energy!',       emoji: '⚡', color: '#FFEE58', color2: '#E65100', shape: 'star',    rarity: 'rare',      threshold: ()  => 8                  },
+  { id: 3, name: 'RAINBOW BADGE', desc: 'Halfway there! Keep shining!',                emoji: '🌈', color: '#FF80AB', color2: '#880E4F', shape: 'diamond', rarity: 'rare',      threshold: (n) => Math.ceil(n * 0.5) },
+  { id: 4, name: 'SOUL BADGE',    desc: 'Complete 16 quests — your spirit is strong!', emoji: '✨', color: '#CE93D8', color2: '#6A1B9A', shape: 'circle',  rarity: 'epic',      threshold: ()  => 16                 },
+  { id: 5, name: 'MARSH BADGE',   desc: 'Complete 19 quests — deep in the quest!',     emoji: '🌿', color: '#81C784', color2: '#1B5E20', shape: 'hexagon', rarity: 'epic',      threshold: ()  => 19                 },
+  { id: 6, name: 'VOLCANO BADGE', desc: 'Complete 22 quests — unstoppable!',           emoji: '🌋', color: '#EF5350', color2: '#B71C1C', shape: 'shield',  rarity: 'epic',      threshold: ()  => 22                 },
+  { id: 7, name: 'EARTH BADGE',   desc: '🏆 ALL quests complete! TRUE CHAMPION!',      emoji: '🏆', color: '#FFD700', color2: '#E65100', shape: 'star6',   rarity: 'legendary', threshold: (n) => n                  },
 ];
 
 // ── Team badge definitions ────────────────────────────────────
 // Combined: unlock when total done across all tabs hits X
 export const COMBINED_BADGE_DEFS = [
-  { id: 'c0', name: 'STARTER TEAM', desc: "Together you've completed 10 quests!",              color: '#B0C4DE', color2: '#4A6FA5', shape: 'ring',  threshold: ()      => 10   },
-  { id: 'c1', name: 'POWER PARTY',  desc: "Together you've completed 30 quests — unstoppable!", color: '#FFD060', color2: '#A86000', shape: 'cross', threshold: ()      => 30   },
-  { id: 'c2', name: 'DREAM TEAM',   desc: 'LEGENDARY! Every single quest complete! 🎊',         color: '#FFD700', color2: '#CC4400', shape: 'star4', threshold: (total) => total },
+  { id: 'c0', name: 'STARTER TEAM', desc: "Together you've completed 10 quests!",              color: '#B0C4DE', color2: '#4A6FA5', shape: 'ring',  rarity: 'common', threshold: ()      => 10   },
+  { id: 'c1', name: 'POWER PARTY',  desc: "Together you've completed 30 quests — unstoppable!", color: '#FFD060', color2: '#A86000', shape: 'cross', rarity: 'rare',   threshold: ()      => 30   },
+  { id: 'c2', name: 'DREAM TEAM',   desc: 'LEGENDARY! Every single quest complete! 🎊',         color: '#FFD700', color2: '#CC4400', shape: 'star4', rarity: 'legendary', threshold: (total) => total },
 ];
 
 // Balance: unlock when BOTH players are each at ≥ X% done
 export const BALANCE_BADGE_DEFS = [
-  { id: 'b0', name: 'IN SYNC',  desc: 'Both of you hit 25%! Matching energy! ⚡',     color: '#64D8FF', color2: '#005A8A', shape: 'heart',  threshold: 25 },
-  { id: 'b1', name: 'PARTNERS', desc: 'Both of you hit 50%! Perfect partnership! 💞', color: '#FF8FAB', color2: '#9A0030', shape: 'arrow',  threshold: 50 },
-  { id: 'b2', name: 'LEGENDS',  desc: 'Both of you hit 75%! Absolute legends! 👑',    color: '#D070FF', color2: '#5A0090', shape: 'crown',  threshold: 75 },
+  { id: 'b0', name: 'IN SYNC',  desc: 'Both of you hit 25%! Matching energy! ⚡',     color: '#64D8FF', color2: '#005A8A', shape: 'heart',  rarity: 'common', threshold: 25 },
+  { id: 'b1', name: 'PARTNERS', desc: 'Both of you hit 50%! Perfect partnership! 💞', color: '#FF8FAB', color2: '#9A0030', shape: 'arrow',  rarity: 'rare',   threshold: 50 },
+  { id: 'b2', name: 'LEGENDS',  desc: 'Both of you hit 75%! Absolute legends! 👑',    color: '#D070FF', color2: '#5A0090', shape: 'crown',  rarity: 'epic',   threshold: 75 },
 ];
 
 // ── Team group badge definitions ─────────────────────────────
@@ -40,31 +40,31 @@ export const TEAM_BADGE_DEFS = [
   {
     id: 't0', name: 'FIRST STEPS',
     desc: 'Every crew member has finished their first quest. The journey begins!',
-    color: '#FF9933', color2: '#CC5500', shape: 'shield',
+    color: '#FF9933', color2: '#CC5500', shape: 'shield', rarity: 'common',
     check: ms => ms.length > 0 && ms.every(m => _done(m) >= 1),
   },
   {
     id: 't1', name: 'PACKED & READY',
     desc: 'Everyone has loaded up 5+ quests. Adventure officially awaits!',
-    color: '#66BB6A', color2: '#1B5E20', shape: 'hexagon',
+    color: '#66BB6A', color2: '#1B5E20', shape: 'hexagon', rarity: 'common',
     check: ms => ms.length > 0 && ms.every(m => _total(m) >= 5),
   },
   {
     id: 't2', name: 'RISING HEROES',
     desc: "Every crew member has unlocked their first badge. Heroes, one and all!",
-    color: '#26C6DA', color2: '#00607A', shape: 'star',
+    color: '#26C6DA', color2: '#00607A', shape: 'star', rarity: 'rare',
     check: ms => ms.length > 0 && ms.every(m => (m.unlockedBadges?.length || 0) >= 1),
   },
   {
     id: 't3', name: 'ROAD WARRIORS',
     desc: 'Together your crew has smashed 10 quests per person. Unstoppable!',
-    color: '#AB47BC', color2: '#4A148C', shape: 'ring',
+    color: '#AB47BC', color2: '#4A148C', shape: 'ring', rarity: 'epic',
     check: ms => ms.length > 0 && ms.reduce((s, m) => s + _done(m), 0) >= ms.length * 10,
   },
   {
     id: 't4', name: 'HALL OF LEGENDS',
     desc: 'Every hero is 75%+ done. This crew is going down in history. 👑',
-    color: '#FFD700', color2: '#B8600A', shape: 'crown',
+    color: '#FFD700', color2: '#B8600A', shape: 'crown', rarity: 'legendary',
     check: ms => ms.length > 0 && ms.every(m => _pct(m) >= 75),
   },
 ];
@@ -265,8 +265,9 @@ export function makeBadgeSVG(badge, size = 52) {
 
 export function badgeSlotHTML(b, isUnlocked, labelOverride = null, isSelected = false) {
   const label = labelOverride ?? (isUnlocked ? b.name.split(' ')[0] : '?');
+  const rarityClass = isUnlocked && b.rarity ? `rarity-${b.rarity}` : '';
   return `
-    <div class="badge-slot ${isUnlocked ? '' : 'locked'} ${isSelected ? 'selected' : ''}"
+    <div class="badge-slot ${isUnlocked ? '' : 'locked'} ${rarityClass} ${isSelected ? 'selected' : ''}"
          data-badge-id="${b.id}" title="${b.name}: ${b.desc}">
       <div class="badge-gem ${isUnlocked ? 'unlocked' : 'locked'}">${makeBadgeSVG(b, 52)}</div>
       <div class="badge-label">${label}</div>
