@@ -62,10 +62,10 @@ const GOAL_TYPES = {
 
     listItemHTML(g, { num, ta, wrap, tab }) {
       return wrap(`
-        <div class="goal-item goal-binary ${g.done ? 'done' : ''}" data-id="${g.id}" data-tab="${tab}">
+        <div class="goal-item goal-binary ${g.done ? 'done' : ''}" data-id="${g.id}" data-tab="${tab}" style="--pct:${g.done ? 100 : 0}%">
           <span class="goal-num">${num}</span>
           <span class="goal-title">${esc(g.title)}</span>
-          <button class="goal-check" data-id="${g.id}" data-tab="${tab}" data-type="binary">${g.done ? '✓' : ''}</button>
+          <div class="goal-action"><span class="goal-progress${g.done ? ' maxed' : ''}">${g.done ? 1 : 0}/1</span></div>
         </div>`);
     },
 
@@ -112,10 +112,10 @@ const GOAL_TYPES = {
       const maxed = g.current >= g.target;
       const bar   = blockBar(g.current, g.target);
       return wrap(`
-        <div class="goal-item count-goal ${g.done ? 'done' : ''}" data-id="${g.id}" data-tab="${tab}">
+        <div class="goal-item count-goal ${g.done ? 'done' : ''}" data-id="${g.id}" data-tab="${tab}" style="--pct:${g.target > 0 ? Math.round((g.current / g.target) * 100) : 0}%">
           <span class="goal-num">${num}</span>
           <span class="goal-title">${esc(g.title)}</span>
-          <span class="goal-progress${maxed ? ' maxed' : ''}">${bar} ${g.current}/${g.target}</span>
+          <div class="goal-action"><span class="goal-progress${maxed ? ' maxed' : ''}">${g.current}/${g.target}</span></div>
         </div>`);
     },
 
@@ -162,10 +162,10 @@ const GOAL_TYPES = {
     listItemHTML(g, { num, wrap, tab }) {
       const checked = (g.months || []).filter(Boolean).length;
       return wrap(`
-        <div class="goal-item monthly-goal ${g.done ? 'done' : ''}" data-id="${g.id}" data-tab="${tab}">
+        <div class="goal-item monthly-goal ${g.done ? 'done' : ''}" data-id="${g.id}" data-tab="${tab}" style="--pct:${Math.round((checked / 12) * 100)}%">
           <span class="goal-num">${num}</span>
           <span class="goal-title">${esc(g.title)}</span>
-          <span class="goal-progress${checked >= 12 ? ' maxed' : ''}">${checked}/12 mos</span>
+          <div class="goal-action"><span class="goal-progress${checked >= 12 ? ' maxed' : ''}">${checked}/12</span></div>
         </div>`);
     },
 
@@ -334,7 +334,6 @@ let cardIndex           = {};      // { [tab]: number } — current card per tab
 let _cardSlideDir       = 'none';  // 'right' | 'left' | 'none' — slide animation direction
 let badgeCaseOpen       = false;   // badge case collapsed by default
 let _editCtx            = null;    // { tab, goalId } for edit modal, null = new goal
-let _swipedItem         = null;    // currently swiped goal item DOM element
 let _cardFlipped        = false;   // card showing calendar instead of content
 let _calYear            = new Date().getFullYear();
 let _calMonth           = new Date().getMonth(); // 0-indexed
@@ -492,23 +491,14 @@ function setStatus(msg, resetAfter = 0) {
 // options.tagCls / options.tagText — owner chip styling
 function goalItemHTML(g, index, tab, options = {}) {
   const { showTag = false, tagCls = '', tagText = '' } = options;
-  const num      = String(index + 1).padStart(2, '0');
+  const num      = String(index + 1).padStart(3, '0');
   const noteHTML = g.done && g.note  ? `<span class="goal-note-text">✎ ${esc(g.note)}</span>` : '';
   const photoHTML= g.done && g.photo ? `<img class="goal-photo-thumb" src="${g.photo}" data-photo alt="Memory">` : '';
   const dlBadge  = !g.done ? deadlineBadgeHTML(g) : '';
   const dlBtn    = !g.done ? `<button class="deadline-btn" data-id="${g.id}" data-tab="${tab}" title="Set deadline">📅</button>` : '';
   const tag      = showTag ? `<span class="owner-tag ${tagCls}">${esc(tagText)}</span>` : '';
   const ta       = `data-tab="${tab}"`;
-  const editable = tab === 'me' || tab === 'together';
-  const swipeActions = editable ? `
-    <div class="swipe-actions">
-      <button class="swipe-edit-btn" data-id="${g.id}" data-tab="${tab}">✎<br><span>EDIT</span></button>
-      <button class="swipe-del-btn"  data-id="${g.id}" data-tab="${tab}">🗑<br><span>DEL</span></button>
-    </div>` : '';
-
-  const wrap = inner => editable
-    ? `<div class="swipe-wrapper">${swipeActions}<div class="swipe-content">${inner}</div></div>`
-    : inner;
+  const wrap = inner => inner;
 
   const typeDef = GOAL_TYPES[g.type];
   return typeDef ? typeDef.listItemHTML(g, { num, ta, noteHTML, photoHTML, wrap, tab }) : '';
@@ -1024,14 +1014,15 @@ function renderGoalList() {
   if (!list) return;
 
   if (!goals.length) {
-    // Together tab with no group yet — prompt to invite someone
+    // Together tab with no group yet — full-body render like TEAM tab
     if (tab === 'together' && !currentGroupId) {
-      list.innerHTML = `
+      const wb = document.getElementById('win-body');
+      wb.innerHTML = `
         <div class="locked-panel">
-          <div class="locked-icon">👥</div>
+          <div class="locked-icon">💎</div>
           <div class="locked-title">NO PARTY YET</div>
           <div class="locked-sub">Invite someone to start your party and unlock shared quests!</div>
-          <button class="starter-btn" id="empty-invite-btn" style="margin-top:12px">👥 INVITE SOMEONE ▶</button>
+          <button class="starter-btn" id="empty-invite-btn" style="margin-top:12px">💎 INVITE SOMEONE ▶</button>
         </div>`;
       document.getElementById('empty-invite-btn')?.addEventListener('click', openPartnersPanel);
       return;
@@ -1549,21 +1540,6 @@ function handleWinBodyClick(e) {
   const groupSwitcher = e.target.closest('.group-switcher');
   if (groupSwitcher) return; // handled by 'change' event
 
-  // Swipe edit button
-  const swipeEdit = e.target.closest('.swipe-edit-btn');
-  if (swipeEdit) {
-    openGoalModal(swipeEdit.dataset.tab, parseInt(swipeEdit.dataset.id));
-    return;
-  }
-
-  // Swipe delete button
-  const swipeDel = e.target.closest('.swipe-del-btn');
-  if (swipeDel) {
-    _editCtx = { tab: swipeDel.dataset.tab, goalId: parseInt(swipeDel.dataset.id) };
-    openDeleteConfirm();
-    return;
-  }
-
   // Starter preset seed button
   const seedBtn = e.target.closest('.starter-btn[data-seed]');
   if (seedBtn) {
@@ -1689,7 +1665,8 @@ function init() {
   // Quest dialog
   document.getElementById('qd-close').addEventListener('click', closeQuestDialog);
   document.getElementById('quest-dialog').addEventListener('click', e => {
-    if (e.target.id === 'quest-dialog') closeQuestDialog();
+    if (e.target.id === 'quest-dialog') { closeQuestDialog(); return; }
+    handleWinBodyClick(e);
   });
   document.getElementById('qd-edit').addEventListener('click', () => {
     if (_qdGoal && _qdTab) {
@@ -1785,48 +1762,6 @@ function init() {
     document.getElementById('delete-overlay').style.display = 'none';
   });
   document.getElementById('delete-ok').addEventListener('click', executeDelete);
-
-  // ── Swipe gestures (win-body) ────────────────────────────────
-  let _swipeStartX = 0, _swipeStartY = 0, _swipeEl = null;
-
-  wb.addEventListener('touchstart', e => {
-    const wrapper = e.target.closest('.swipe-wrapper');
-    if (!wrapper) return;
-    _swipeStartX = e.touches[0].clientX;
-    _swipeStartY = e.touches[0].clientY;
-    _swipeEl     = wrapper;
-  }, { passive: true });
-
-  wb.addEventListener('touchmove', e => {
-    if (!_swipeEl) return;
-    const dx = e.touches[0].clientX - _swipeStartX;
-    const dy = e.touches[0].clientY - _swipeStartY;
-    if (Math.abs(dy) > Math.abs(dx)) { _swipeEl = null; return; }
-    if (dx < -8) e.preventDefault();
-  }, { passive: false });
-
-  wb.addEventListener('touchend', e => {
-    if (!_swipeEl) return;
-    const dx = e.changedTouches[0].clientX - _swipeStartX;
-    const el = _swipeEl;
-    _swipeEl = null;
-    if (dx < -55) {
-      if (_swipedItem && _swipedItem !== el) _swipedItem.classList.remove('revealed');
-      el.classList.add('revealed');
-      _swipedItem = el;
-    } else if (dx > 20) {
-      el.classList.remove('revealed');
-      if (_swipedItem === el) _swipedItem = null;
-    }
-  }, { passive: true });
-
-  // Close swipe on tap outside actions
-  document.addEventListener('click', e => {
-    if (_swipedItem && !e.target.closest('.swipe-actions')) {
-      _swipedItem.classList.remove('revealed');
-      _swipedItem = null;
-    }
-  });
 
   updateClock();
   setInterval(updateClock, 30000);
