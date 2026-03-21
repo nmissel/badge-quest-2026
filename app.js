@@ -1014,11 +1014,10 @@ function renderBadgeDetail() {
 
 function renderProgress() {
   const tab   = activeTab;
-  const goals = data[tab].goals;
-  if (!goals.length) return;
-  const done  = countDone(data, tab);
+  const goals = data[tab]?.goals || [];
+  const done  = goals.length ? countDone(data, tab) : 0;
   const total = goals.length;
-  const pct   = Math.round((done / total) * 100);
+  const pct   = total ? Math.round((done / total) * 100) : 0;
   document.getElementById('prog-label').textContent = `QUESTS: ${done} / ${total}`;
   document.getElementById('prog-fill').style.width  = `${pct}%`;
   document.getElementById('prog-pct').textContent   = `${pct}%`;
