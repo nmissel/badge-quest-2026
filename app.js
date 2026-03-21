@@ -1207,19 +1207,57 @@ function renderBadgesTab() {
   const wb = document.getElementById('win-body');
   wb.className = 'win-body badges-body';
 
-  // Personal
-  const meUnlocked = data.me?.unlockedBadges || [];
-  const personalHTML = BADGE_DEFS.map(b => badgeSlotHTML(b, meUnlocked.includes(b.id))).join('');
-
-  // Party (combined + balance)
+  const meUnlocked       = data.me?.unlockedBadges        || [];
   const combinedUnlocked = data.team?.unlockedCombinedBadges || [];
   const balanceUnlocked  = data.team?.unlockedBalanceBadges  || [];
+  const meDates          = data.me?.badgeDates    || {};
+  const teamDates        = data.team?.badgeDates  || {};
+
+  // ── Recent unlocks strip ────────────────────────────────────
+  const allBadgeDefs = [...BADGE_DEFS, ...COMBINED_BADGE_DEFS, ...BALANCE_BADGE_DEFS, ...TEAM_BADGE_DEFS];
+  const recentEntries = [
+    ...Object.entries(meDates).map(([id, date]) => ({ id: isNaN(id) ? id : Number(id), date })),
+    ...Object.entries(teamDates).map(([id, date]) => ({ id, date })),
+  ]
+    .filter(e => allBadgeDefs.some(b => String(b.id) === String(e.id)))
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 3);
+
+  const recentHTML = recentEntries.length ? `
+    <div class="badges-recent-strip">
+      <div class="badges-recent-label">✦ RECENTLY EARNED</div>
+      <div class="badges-recent-row">
+        ${recentEntries.map(e => {
+          const b = allBadgeDefs.find(bd => String(bd.id) === String(e.id));
+          const d = new Date(e.date).toLocaleDateString('da-DK', { day: 'numeric', month: 'short' });
+          return `<div class="badges-recent-item" data-badge-id="${b.id}">
+            <div class="badges-recent-gem">${makeBadgeSVG(b, 36)}</div>
+            <div class="badges-recent-name">${b.name.split(' ')[0]}</div>
+            <div class="badges-recent-date">${d}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  // ── Personal badges (with progress hints on locked) ─────────
+  const meDone  = countDone(data, 'me');
+  const meTotal = data.me?.goals?.length || 0;
+  const personalHTML = BADGE_DEFS.map(b => {
+    const unlocked = meUnlocked.includes(b.id);
+    const slot     = badgeSlotHTML(b, unlocked);
+    if (unlocked) return slot;
+    const needed = b.threshold(meTotal) - meDone;
+    const hint   = needed > 0 ? `<div class="badge-progress-hint">${needed} more quest${needed !== 1 ? 's' : ''}</div>` : '';
+    return `<div class="badge-hint-wrap">${slot}${hint}</div>`;
+  }).join('');
+
+  // ── Party badges ────────────────────────────────────────────
   const partyBadgesHTML = currentGroupId
     ? [...COMBINED_BADGE_DEFS.map(b => badgeSlotHTML(b, combinedUnlocked.includes(b.id))),
        ...BALANCE_BADGE_DEFS.map(b  => badgeSlotHTML(b, balanceUnlocked.includes(b.id)))].join('')
     : `<div class="badges-empty">Start a party to unlock these badges.</div>`;
 
-  // Team
+  // ── Team badges ─────────────────────────────────────────────
   const activeTeamGroup = allGroups.filter(g => g.type === 'team').find(g => g.id === currentTeamId);
   const teamMembers     = activeTeamGroup?._members || [];
   const teamEarned      = earnedTeamGroupBadges(teamMembers).map(b => b.id);
@@ -1228,46 +1266,96 @@ function renderBadgesTab() {
     : `<div class="badges-empty">Form a team to unlock these badges.</div>`;
 
   wb.innerHTML = `
+    ${recentHTML}
     <div class="badges-section">
       <div class="badges-section-header">✦ PERSONAL</div>
       <div class="badge-case badges-grid" id="badges-personal">${personalHTML}</div>
-      <div class="badge-detail-wrap" id="bd-personal"></div>
     </div>
     <div class="badges-section">
       <div class="badges-section-header">💎 PARTY</div>
       <div class="badge-case badges-grid" id="badges-party">${partyBadgesHTML}</div>
-      <div class="badge-detail-wrap" id="bd-party"></div>
     </div>
     <div class="badges-section">
       <div class="badges-section-header">👥 TEAM</div>
       <div class="badge-case badges-grid" id="badges-team">${teamBadgesHTML}</div>
-      <div class="badge-detail-wrap" id="bd-team"></div>
     </div>`;
 
-  // Wire badge slot clicks — show detail card
-  const allBadgeDefs = [...BADGE_DEFS, ...COMBINED_BADGE_DEFS, ...BALANCE_BADGE_DEFS, ...TEAM_BADGE_DEFS];
+  // ── Badge slot clicks → open detail modal ───────────────────
   wb.querySelectorAll('.badge-slot').forEach(slot => {
     slot.addEventListener('click', () => {
       const badgeId  = slot.dataset.badgeId;
       const b        = allBadgeDefs.find(bd => String(bd.id) === String(badgeId));
       if (!b) return;
       const isUnlocked = !slot.classList.contains('locked');
-      let detailId = 'bd-personal';
-      if (COMBINED_BADGE_DEFS.some(bd => bd.id === b.id) || BALANCE_BADGE_DEFS.some(bd => bd.id === b.id)) detailId = 'bd-party';
-      if (TEAM_BADGE_DEFS.some(bd => bd.id === b.id)) detailId = 'bd-team';
-      const detailEl = document.getElementById(detailId);
-      if (!detailEl) return;
-      const rarityLabel = b.rarity ? `<span class="badge-rarity-label rarity-${b.rarity}">${b.rarity.toUpperCase()}</span>` : '';
-      detailEl.innerHTML = `
-        <div class="badge-detail-card ${isUnlocked ? '' : 'locked-detail'}">
-          <div class="badge-detail-svg ${isUnlocked ? '' : 'locked'}">${makeBadgeSVG(b, 36)}</div>
-          <div class="badge-detail-info">
-            <div class="badge-detail-name">${b.name} ${rarityLabel}</div>
-            <div class="badge-detail-desc">${b.desc}</div>
-          </div>
-        </div>`;
+      const allDates   = { ...meDates, ...teamDates };
+      const earnedDate = allDates[String(b.id)] || allDates[b.id];
+      // Hint for locked personal badges
+      let hint = null;
+      if (!isUnlocked && BADGE_DEFS.some(bd => bd.id === b.id)) {
+        const needed = b.threshold(meTotal) - meDone;
+        if (needed > 0) hint = `${needed} more quest${needed !== 1 ? 's' : ''} to unlock`;
+      }
+      openBadgeDetailModal(b, isUnlocked, earnedDate, hint);
     });
   });
+
+  // ── Recent strip clicks → open modal ───────────────────────
+  wb.querySelectorAll('.badges-recent-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const badgeId = item.dataset.badgeId;
+      const b       = allBadgeDefs.find(bd => String(bd.id) === String(badgeId));
+      if (!b) return;
+      const allDates   = { ...meDates, ...teamDates };
+      const earnedDate = allDates[String(b.id)] || allDates[b.id];
+      openBadgeDetailModal(b, true, earnedDate, null);
+    });
+  });
+
+  // ── Scroll-reveal via IntersectionObserver ──────────────────
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('badge-revealed');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  wb.querySelectorAll('.badge-slot').forEach(slot => observer.observe(slot));
+}
+
+function openBadgeDetailModal(b, isUnlocked, earnedDate, hint) {
+  document.getElementById('bdm-name').textContent  = b.name;
+  const rarityEl = document.getElementById('bdm-rarity-label');
+  rarityEl.textContent = b.rarity ? b.rarity.toUpperCase() : '';
+  rarityEl.className   = `bdm-rarity-label rarity-${b.rarity}`;
+
+  const svgWrap = document.getElementById('bdm-svg');
+  svgWrap.innerHTML  = makeBadgeSVG(b, 80);
+  svgWrap.className  = `bdm-svg-wrap ${isUnlocked ? 'unlocked' : 'locked'}`;
+
+  document.getElementById('bdm-desc').textContent = b.desc;
+
+  const loreEl = document.getElementById('bdm-lore');
+  loreEl.textContent   = b.lore || '';
+  loreEl.style.display = b.lore ? '' : 'none';
+
+  const dateEl = document.getElementById('bdm-date');
+  if (isUnlocked && earnedDate) {
+    dateEl.textContent   = `Earned ${new Date(earnedDate).toLocaleDateString('da-DK', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+    dateEl.style.display = '';
+  } else {
+    dateEl.style.display = 'none';
+  }
+
+  const hintEl = document.getElementById('bdm-hint');
+  if (hint) {
+    hintEl.textContent   = hint;
+    hintEl.style.display = '';
+  } else {
+    hintEl.style.display = 'none';
+  }
+
+  document.getElementById('badge-detail-overlay').style.display = 'flex';
 }
 
 // ── TEAMS TAB RENDER ──────────────────────────────────────────
@@ -1699,6 +1787,13 @@ function init() {
   // Partners panel
   document.getElementById('partners-btn').addEventListener('click', openPartnersPanel);
   document.getElementById('partners-close').addEventListener('click', closePartnersPanel);
+
+  // Badge detail modal
+  const bdmClose = () => { document.getElementById('badge-detail-overlay').style.display = 'none'; };
+  document.getElementById('bdm-close').addEventListener('click', bdmClose);
+  document.getElementById('badge-detail-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('badge-detail-overlay')) bdmClose();
+  });
   document.getElementById('partners-overlay').addEventListener('click', e => {
     if (e.target === document.getElementById('partners-overlay')) closePartnersPanel();
   });

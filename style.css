@@ -2481,6 +2481,14 @@ body {
 }
 .shuffle-btn:hover  { transform: rotate(180deg); }
 .shuffle-btn:active { transform: rotate(360deg); }
+@keyframes quest-complete-flash {
+  0%   { box-shadow: inset 0 0 0 2000px rgba(46, 160, 46, 0.55); }
+  100% { box-shadow: inset 0 0 0 2000px rgba(46, 160, 46, 0); }
+}
+.goal-item.flash-complete {
+  animation: quest-complete-flash 0.8s ease-out forwards;
+}
+
 @keyframes shuffle-flash {
   0%   { opacity: 1; }
   30%  { opacity: 0.3; }
@@ -3107,6 +3115,166 @@ body {
 .badge-rarity-label.rarity-rare      { background: #B3E5FC; color: #01579B; }
 .badge-rarity-label.rarity-epic      { background: #E1BEE7; color: #6A1B9A; }
 .badge-rarity-label.rarity-legendary { background: #FFF9C4; color: #E65100; }
+
+/* ── Scroll-reveal animation ─────────────────────────────────── */
+.badges-grid .badge-slot {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+.badges-grid .badge-slot.badge-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Progress hint on locked badges ─────────────────────────── */
+.badge-hint-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.badge-progress-hint {
+  font-family: 'VT323', monospace;
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ── Recent unlocks strip ───────────────────────────────────── */
+.badges-recent-strip {
+  background: linear-gradient(135deg, #FFF8E1, #FFF3CC);
+  border: 1px solid #E6C84A;
+  border-radius: 3px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+.badges-recent-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 5.5px;
+  color: #A07800;
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+.badges-recent-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.badges-recent-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+}
+.badges-recent-item:hover .badges-recent-gem { transform: translateY(-2px); }
+.badges-recent-gem { transition: transform 0.12s ease; }
+.badges-recent-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 4.5px;
+  color: #5A3E00;
+  text-align: center;
+}
+.badges-recent-date {
+  font-family: 'VT323', monospace;
+  font-size: 12px;
+  color: #A07800;
+}
+
+/* ── Badge detail modal ─────────────────────────────────────── */
+.badge-detail-modal {
+  width: min(420px, 92vw);
+}
+.badge-detail-titlebar {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 50%),
+    linear-gradient(90deg, #1A237E 0%, #283593 50%, #1A237E 100%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+}
+.bdm-name-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  color: #fff;
+  flex: 1;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+.bdm-rarity-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 4px;
+  padding: 2px 5px;
+  border-radius: 2px;
+  border: 1px solid rgba(0,0,0,0.15);
+}
+.bdm-rarity-label.rarity-common    { background: #E0E0E0; color: #555; }
+.bdm-rarity-label.rarity-rare      { background: #B3E5FC; color: #01579B; }
+.bdm-rarity-label.rarity-epic      { background: #E1BEE7; color: #6A1B9A; }
+.bdm-rarity-label.rarity-legendary { background: #FFF9C4; color: #E65100; }
+.bdm-close-btn {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #fff;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 2px;
+  margin-left: auto;
+}
+.bdm-close-btn:hover { background: rgba(255,255,255,0.3); }
+.bdm-body {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 14px;
+}
+.bdm-svg-wrap {
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 8px rgba(255,215,0,0.5));
+}
+.bdm-svg-wrap.locked {
+  filter: grayscale(1) brightness(0.45);
+}
+.bdm-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bdm-desc {
+  font-family: 'VT323', monospace;
+  font-size: 17px;
+  color: #333;
+  line-height: 1.3;
+}
+.bdm-lore {
+  font-family: 'VT323', monospace;
+  font-size: 15px;
+  color: #666;
+  font-style: italic;
+  line-height: 1.4;
+  border-left: 2px solid #D4AF37;
+  padding-left: 8px;
+}
+.bdm-date {
+  font-family: 'VT323', monospace;
+  font-size: 13px;
+  color: #888;
+}
+.bdm-hint {
+  font-family: 'VT323', monospace;
+  font-size: 14px;
+  color: #c0392b;
+  background: #FFF5F5;
+  border: 1px solid #FFCDD2;
+  border-radius: 2px;
+  padding: 3px 7px;
+  display: inline-block;
+}
 
 /* ============ LEAN QUEST ROWS ============ */
 
