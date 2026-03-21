@@ -216,6 +216,7 @@ const GOAL_TYPES = {
 // Single entry point for all goal state changes. Calls the type's
 // applyChange(), then handles save/render/badges/celebrations.
 function applyGoalInteraction(tab, id, action) {
+  if (tab === 'partner') return; // partner goals are read-only
   const goal = data[tab]?.goals.find(g => g.id === id);
   if (!goal) return;
   const typeDef = GOAL_TYPES[goal.type];
@@ -233,6 +234,12 @@ function applyGoalInteraction(tab, id, action) {
     const idx = goals.indexOf(goal);
     if (idx !== -1) { goals.splice(idx, 1); goals.push(goal); }
     goals.forEach((g, i) => { g.order = i; });
+    // Check badges first so badge unlock fires BEFORE quest complete overlay
+    // Only run personal badge check for 'me' — together/team have their own badge logic
+    const newIndivBadges = tab === 'me' ? checkAndAwardBadges(data, tab) : [];
+    const newTeamBadges  = checkAndAwardTeamBadges(data);
+    newIndivBadges.forEach(b => pendingCelebrations.push({ type: 'badge', badge: b }));
+    newTeamBadges.forEach(b  => pendingCelebrations.push({ type: 'badge', badge: b }));
     pendingCelebrations.push({ type: 'goal', title: goal.title, goalRef: goal, tab });
     saveData(); render();
     flashGoalRow(goal.id);
@@ -514,7 +521,9 @@ function goalItemHTML(g, index, tab, options = {}) {
   const wrap = inner => inner;
 
   const typeDef = GOAL_TYPES[g.type];
-  return typeDef ? typeDef.listItemHTML(g, { num, ta, noteHTML, photoHTML, wrap, tab }) : '';
+  let html = typeDef ? typeDef.listItemHTML(g, { num, ta, noteHTML, photoHTML, wrap, tab }) : '';
+  if (tab === 'partner') html = html.replace('class="goal-item ', 'class="goal-item partner-readonly ');
+  return html;
 }
 
 // ── CARD VIEW HELPERS ─────────────────────────────────────────
@@ -1231,7 +1240,7 @@ function renderBadgesTab() {
           const b = allBadgeDefs.find(bd => String(bd.id) === String(e.id));
           const d = new Date(e.date).toLocaleDateString('da-DK', { day: 'numeric', month: 'short' });
           return `<div class="badges-recent-item" data-badge-id="${b.id}">
-            <div class="badges-recent-gem">${makeBadgeSVG(b, 36)}</div>
+            <div class="badges-recent-gem">${makeBadgeSVG(b, 56)}</div>
             <div class="badges-recent-name">${b.name.split(' ')[0]}</div>
             <div class="badges-recent-date">${d}</div>
           </div>`;
@@ -1320,7 +1329,10 @@ function renderBadgesTab() {
       }
     });
   }, { threshold: 0.1 });
-  wb.querySelectorAll('.badge-slot').forEach(slot => observer.observe(slot));
+  wb.querySelectorAll('.badge-slot').forEach((slot, i) => {
+    slot.style.transitionDelay = `${Math.min(i * 0.045, 0.4)}s`;
+    observer.observe(slot);
+  });
 }
 
 function openBadgeDetailModal(b, isUnlocked, earnedDate, hint) {
@@ -1519,6 +1531,9 @@ function renderQuestDialog() {
 function processCelebrations() {
   if (!pendingCelebrations.length) { celebrating = false; return; }
   celebrating = true;
+  // Close any open modals so celebrations aren't blocked
+  document.getElementById('badge-detail-overlay').style.display = 'none';
+  closeQuestDialog();
   const next = pendingCelebrations.shift();
   next.type === 'goal' ? showGoalComplete(next) : showBadgeUnlock(next.badge);
 }
@@ -1574,16 +1589,12 @@ function showGoalComplete({ title, goalRef, tab }) {
     const previewImg = photoPreview.querySelector('img');
     goalRef.photo = previewImg ? previewImg.src : null;
 
-    const indivBadges = tab !== 'team' ? checkAndAwardBadges(data, tab) : [];
-    const teamBadges  = checkAndAwardTeamBadges(data);
-    saveData();
+    saveData(); // saves note + photo; badges already checked and queued
     render();
 
     overlay.style.display = 'none';
     photoBtn.textContent = '📷 Add Photo';
 
-    indivBadges.forEach(b => pendingCelebrations.push({ type: 'badge', badge: b }));
-    teamBadges.forEach(b  => pendingCelebrations.push({ type: 'badge', badge: b }));
     processCelebrations();
   };
 }

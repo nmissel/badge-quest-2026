@@ -156,25 +156,33 @@ export function checkAndAwardTeamBadges(data) {
 export function makeBadgeSVG(badge, size = 52) {
   const { color: c, color2: c2, shape, id } = badge;
   const h = size / 2, r = h - 2;
-  const gId = `g${String(id).replace(/[^a-z0-9]/gi,'')}_${size}`;
+  const gId  = `g${String(id).replace(/[^a-z0-9]/gi,'')}_${size}`;
+  const cpId = `cp${String(id).replace(/[^a-z0-9]/gi,'')}_${size}`;
   let inner = '';
+  let clipEl = ''; // same geometry, no fill/stroke — used for clipPath
 
   switch (shape) {
     case 'octagon': {
       const o = size * 0.28;
-      inner = `<polygon points="${o},0 ${size-o},0 ${size},${o} ${size},${size-o} ${size-o},${size} ${o},${size} 0,${size-o} 0,${o}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      const pts = `${o},0 ${size-o},0 ${size},${o} ${size},${size-o} ${size-o},${size} ${o},${size} 0,${size-o} 0,${o}`;
+      inner  = `<polygon points="${pts}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      clipEl = `<polygon points="${pts}"/>`;
       break;
     }
-    case 'drop':
-      inner = `<path d="M${h} ${size} C${size*0.08} ${size*0.7},${size*0.08} ${size*0.25},${h} 0 C${size*0.92} ${size*0.25},${size*0.92} ${size*0.7},${h} ${size}Z" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+    case 'drop': {
+      const d = `M${h} ${size} C${size*0.08} ${size*0.7},${size*0.08} ${size*0.25},${h} 0 C${size*0.92} ${size*0.25},${size*0.92} ${size*0.7},${h} ${size}Z`;
+      inner  = `<path d="${d}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      clipEl = `<path d="${d}"/>`;
       break;
+    }
     case 'star': {
       const pts = Array.from({length:10}, (_,i) => {
         const rad = i%2===0 ? r : r*0.42;
         const a   = (i*36 - 90) * Math.PI/180;
         return `${h+rad*Math.cos(a)},${h+rad*Math.sin(a)}`;
       }).join(' ');
-      inner = `<polygon points="${pts}" fill="url(#${gId})" stroke="${c2}" stroke-width="1.5"/>`;
+      inner  = `<polygon points="${pts}" fill="url(#${gId})" stroke="${c2}" stroke-width="1.5"/>`;
+      clipEl = `<polygon points="${pts}"/>`;
       break;
     }
     case 'star6': {
@@ -183,7 +191,8 @@ export function makeBadgeSVG(badge, size = 52) {
         const a   = (i*30 - 90) * Math.PI/180;
         return `${h+rad*Math.cos(a)},${h+rad*Math.sin(a)}`;
       }).join(' ');
-      inner = `<polygon points="${pts6}" fill="url(#${gId})" stroke="${c2}" stroke-width="1.5"/>`;
+      inner  = `<polygon points="${pts6}" fill="url(#${gId})" stroke="${c2}" stroke-width="1.5"/>`;
+      clipEl = `<polygon points="${pts6}"/>`;
       break;
     }
     case 'star4': {
@@ -192,40 +201,52 @@ export function makeBadgeSVG(badge, size = 52) {
         const a   = (i*45 - 45) * Math.PI/180;
         return `${h+rad*Math.cos(a)},${h+rad*Math.sin(a)}`;
       }).join(' ');
-      inner = `<polygon points="${pts4}" fill="url(#${gId})" stroke="${c2}" stroke-width="1.5"/>`;
+      inner  = `<polygon points="${pts4}" fill="url(#${gId})" stroke="${c2}" stroke-width="1.5"/>`;
+      clipEl = `<polygon points="${pts4}"/>`;
       break;
     }
     case 'diamond': {
-      inner = `<polygon points="${h},2 ${size-2},${h} ${h},${size-2} 2,${h}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      const pts = `${h},2 ${size-2},${h} ${h},${size-2} 2,${h}`;
+      inner  = `<polygon points="${pts}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      clipEl = `<polygon points="${pts}"/>`;
       break;
     }
     case 'circle':
-      inner = `<circle cx="${h}" cy="${h}" r="${r}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      inner  = `<circle cx="${h}" cy="${h}" r="${r}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      clipEl = `<circle cx="${h}" cy="${h}" r="${r}"/>`;
       break;
     case 'hexagon': {
       const pts2 = Array.from({length:6}, (_,i) => {
         const a = (i*60 - 90) * Math.PI/180;
         return `${h+r*Math.cos(a)},${h+r*Math.sin(a)}`;
       }).join(' ');
-      inner = `<polygon points="${pts2}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      inner  = `<polygon points="${pts2}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      clipEl = `<polygon points="${pts2}"/>`;
       break;
     }
     case 'shield': {
-      inner = `<path d="M${h} 2 L${size-2} ${size*0.28} L${size-2} ${size*0.6} Q${h} ${size-2} ${h} ${size-2} Q2 ${size*0.6} 2 ${size*0.6} L2 ${size*0.28} Z" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      const d = `M${h} 2 L${size-2} ${size*0.28} L${size-2} ${size*0.6} Q${h} ${size-2} ${h} ${size-2} Q2 ${size*0.6} 2 ${size*0.6} L2 ${size*0.28} Z`;
+      inner  = `<path d="${d}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      clipEl = `<path d="${d}"/>`;
       break;
     }
     case 'ring': {
-      inner = `<circle cx="${h}" cy="${h}" r="${r}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>
+      inner  = `<circle cx="${h}" cy="${h}" r="${r}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>
                <circle cx="${h}" cy="${h}" r="${r*0.48}" fill="#ECE9D8" stroke="${c2}" stroke-width="1.5"/>`;
+      clipEl = `<circle cx="${h}" cy="${h}" r="${r}"/>`;
       break;
     }
     case 'cross': {
       const t3 = size/3;
-      inner = `<polygon points="${t3},0 ${t3*2},0 ${t3*2},${t3} ${size},${t3} ${size},${t3*2} ${t3*2},${t3*2} ${t3*2},${size} ${t3},${size} ${t3},${t3*2} 0,${t3*2} 0,${t3} ${t3},${t3}" fill="url(#${gId})" stroke="${c2}" stroke-width="1.5"/>`;
+      const pts = `${t3},0 ${t3*2},0 ${t3*2},${t3} ${size},${t3} ${size},${t3*2} ${t3*2},${t3*2} ${t3*2},${size} ${t3},${size} ${t3},${t3*2} 0,${t3*2} 0,${t3} ${t3},${t3}`;
+      inner  = `<polygon points="${pts}" fill="url(#${gId})" stroke="${c2}" stroke-width="1.5"/>`;
+      clipEl = `<polygon points="${pts}"/>`;
       break;
     }
     case 'heart': {
-      inner = `<path d="M${h} ${size-4} C${h} ${size-4},4 ${size*0.55},4 ${size*0.32} C4 ${size*0.12},${h*0.5} ${size*0.08},${h} ${size*0.28} C${h*1.5} ${size*0.08},${size-4} ${size*0.12},${size-4} ${size*0.32} C${size-4} ${size*0.55},${h} ${size-4},${h} ${size-4}Z" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      const d = `M${h} ${size-4} C${h} ${size-4},4 ${size*0.55},4 ${size*0.32} C4 ${size*0.12},${h*0.5} ${size*0.08},${h} ${size*0.28} C${h*1.5} ${size*0.08},${size-4} ${size*0.12},${size-4} ${size*0.32} C${size-4} ${size*0.55},${h} ${size-4},${h} ${size-4}Z`;
+      inner  = `<path d="${d}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      clipEl = `<path d="${d}"/>`;
       break;
     }
     case 'arrow': {
@@ -235,7 +256,8 @@ export function makeBadgeSVG(badge, size = 52) {
         `${size*0.56},${h*1.72}`, `${size*0.56},${h*1.38}`,
         `2,${h*1.38}`
       ].join(' ');
-      inner = `<polygon points="${pts5}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      inner  = `<polygon points="${pts5}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      clipEl = `<polygon points="${pts5}"/>`;
       break;
     }
     case 'crown': {
@@ -247,15 +269,18 @@ export function makeBadgeSVG(badge, size = 52) {
         `${h*1.72},${baseY}`, `${h*1.6},${h*0.52}`,
         `${size-2},${baseY}`, `${size-2},${size-3}`
       ].join(' ');
-      inner = `<polygon points="${ptsCr}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>
+      inner  = `<polygon points="${ptsCr}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>
                <rect x="2" y="${rimY}" width="${size-4}" height="${size-3-rimY}" rx="2" fill="${c2}" opacity="0.45"/>`;
+      clipEl = `<polygon points="${ptsCr}"/>`;
       break;
     }
     default:
-      inner = `<circle cx="${h}" cy="${h}" r="${r}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      inner  = `<circle cx="${h}" cy="${h}" r="${r}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      clipEl = `<circle cx="${h}" cy="${h}" r="${r}"/>`;
   }
 
-  const shine = `<ellipse cx="${h*0.72}" cy="${h*0.38}" rx="${h*0.18}" ry="${h*0.13}" fill="white" opacity="0.38"/>`;
+  // Shine clipped to badge shape so it never bleeds into transparent areas
+  const shine = `<ellipse cx="${h*0.72}" cy="${h*0.38}" rx="${h*0.18}" ry="${h*0.13}" fill="white" opacity="0.38" clip-path="url(#${cpId})"/>`;
 
   return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -263,6 +288,7 @@ export function makeBadgeSVG(badge, size = 52) {
       <stop offset="0%" stop-color="${c}"/>
       <stop offset="100%" stop-color="${c2}"/>
     </linearGradient>
+    <clipPath id="${cpId}">${clipEl}</clipPath>
   </defs>
   ${inner}${shine}
 </svg>`;

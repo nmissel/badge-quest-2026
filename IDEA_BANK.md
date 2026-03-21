@@ -2,6 +2,32 @@
 
 Ideas to explore in future sessions. Not committed to — just captured.
 
+## Badges Tab — Make It More Engaging
+The current PERSONAL / PARTY / TEAM structure feels correct but the tab itself is too static.
+Ideas to explore when we get to it:
+- Animated badge reveals on scroll-into-view
+- Progress toward next locked badge (e.g. "3 more quests to unlock")
+- Badge detail modal with lore/flavour text
+- Rarity showcase — legendary badges get a special treatment
+- A "recent unlocks" highlight at the top
+
+## Onboarding
+New visitors hit the sign-in screen with zero context — no explanation of what Badge Quest is or why they'd want it.
+
+Ideas:
+- A **hero screen** before sign-in: a hobbit-style adventure scene — a lone hero setting out, friends pulling them into a quest, badges glinting in the distance. The tone should feel like the opening of a fantasy novel, not a SaaS landing page.
+- Tagline idea: *"A quest is better shared."* or *"Your friends are waiting. The adventure has already begun."*
+- Animated badge or confetti teaser so the game feel is obvious before signing up
+- After first sign-in: a brief welcome flow — "Set your name → Add your first quest → Invite a friend"
+- Empty state improvements: when a new user lands on ME tab with no quests, guide them rather than just showing a blank board
+- Consider a "try before you sign in" mode (view-only demo data) — lowers the barrier significantly
+
+## Icons & Visual Polish
+- Review all emoji/icon usage across the app — many feel generic rather than XP-native
+- Candidates: shuffle button (🔀), new quest button (+), tab icons, header icon
+- Goal: replace with pixel-art style SVG icons or XP-era equivalents that match the retro game feel
+- Specifically flagged: shuffle and new quest buttons in the quest panel titlebar
+
 ## Profile & Account
 - User profile panel: change username, color, and avatar
 - Avatar builder: pixel-art style character creator (builds on the existing LAS/SOF SVG heads)
