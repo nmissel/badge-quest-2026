@@ -5,7 +5,7 @@ import { initAuth, signOutUser, currentUser, currentProfile } from './auth.js';
 import {
   loadUserData, loadGroupData, loadPartnerData,
   syncAllToFirestore, saveUserGoal, saveGroupGoal,
-  getPendingInvitesForEmail
+  getPendingInvitesForEmail, getSentInvites, addGroupToUser
 } from './db.js';
 import {
   BADGE_DEFS, COMBINED_BADGE_DEFS, BALANCE_BADGE_DEFS, TEAM_BADGE_DEFS,
@@ -228,12 +228,25 @@ function applyGoalInteraction(tab, id, action) {
     recalcTeamBadges(data);
     saveData(); render();
   } else if (result === 'complete') {
+    // Sink completed goal to bottom of list
+    const goals = data[tab].goals;
+    const idx = goals.indexOf(goal);
+    if (idx !== -1) { goals.splice(idx, 1); goals.push(goal); }
+    goals.forEach((g, i) => { g.order = i; });
     pendingCelebrations.push({ type: 'goal', title: goal.title, goalRef: goal, tab });
     saveData(); render();
+    flashGoalRow(goal.id);
     if (!celebrating) processCelebrations();
   } else {
     saveData(); render();
   }
+}
+
+function flashGoalRow(goalId) {
+  const el = document.querySelector(`.goal-item[data-id="${goalId}"]`);
+  if (!el) return;
+  el.classList.add('flash-complete');
+  el.addEventListener('animationend', () => el.classList.remove('flash-complete'), { once: true });
 }
 
 // ── STARTER QUEST PRESETS ─────────────────────────────────────
@@ -820,11 +833,15 @@ async function executeDelete() {
 function shuffleGoals(tab) {
   const goals = data[tab]?.goals;
   if (!goals || goals.length < 2) return;
-  for (let i = goals.length - 1; i > 0; i--) {
+  // Only shuffle undone — done quests stay pinned at the bottom
+  const undone = goals.filter(g => !g.done);
+  const done   = goals.filter(g => g.done);
+  for (let i = undone.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [goals[i], goals[j]] = [goals[j], goals[i]];
+    [undone[i], undone[j]] = [undone[j], undone[i]];
   }
-  goals.forEach((g, i) => { g.order = i; });
+  data[tab].goals = [...undone, ...done];
+  data[tab].goals.forEach((g, i) => { g.order = i; });
   saveData();
   const list = document.getElementById('goal-list');
   if (list) { list.style.animation = 'none'; list.offsetHeight; list.style.animation = 'shuffle-flash 0.35s ease'; }
@@ -850,7 +867,7 @@ function render() {
 
 function ensureWinBodyStructure() {
   const wb = document.getElementById('win-body');
-  if (!wb.querySelector('#goal-list')) {
+  if (!wb.querySelector('#goal-list') || !wb.querySelector('#prog-label')) {
     const groupSwitcherHTML = (activeTab === 'together' && allGroups.length > 1) ? `
       <div class="group-switcher-row">
         <span class="group-switcher-label">GROUP:</span>
@@ -1842,6 +1859,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     }
+
+    // Self-heal: load groups from accepted sent invites
+    // Covers the case where the inviter's groups array wasn't updated due to security rules
+    try {
+      const acceptedSent = await getSentInvites(user.uid);
+      for (const inv of acceptedSent.filter(i => i.status === 'accepted' && i.groupId)) {
+        if (!allGroups.find(g => g.id === inv.groupId)) {
+          try {
+            const gd = await loadGroupData(inv.groupId);
+            gd.id    = inv.groupId;
+            allGroups.push(gd);
+            addGroupToUser(user.uid, inv.groupId).catch(() => {});
+            if (!currentGroupId && gd.type !== 'team') {
+              currentGroupId = inv.groupId;
+              data.together  = gd;
+              const partnerUid = gd.members?.find(uid => uid !== user.uid);
+              if (partnerUid) data.partner = await loadPartnerData(partnerUid);
+            }
+            if (!currentTeamId && gd.type === 'team') {
+              currentTeamId = inv.groupId;
+              const memberUids = (gd.members || []).filter(uid => uid !== user.uid);
+              gd._members = [
+                { name: data.me.name, goals: data.me.goals, unlockedBadges: data.me.unlockedBadges },
+                ...await Promise.all(memberUids.map(uid => loadPartnerData(uid)))
+              ];
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
 
     // Check for pending invites
     if (profile.email) {

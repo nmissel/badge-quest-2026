@@ -209,10 +209,18 @@ export async function acceptGroupInvite(inviteId, invite, acceptingUid, acceptin
   batch.update(doc(db, 'invites', inviteId), { status: 'accepted', groupId });
   await batch.commit();
 
-  await updateDoc(doc(db, 'users', invite.fromUid), { groups: arrayUnion(groupId) });
-  await updateDoc(doc(db, 'users', acceptingUid),   { groups: arrayUnion(groupId) });
+  // Update acceptor's own doc first (always allowed — own document)
+  await updateDoc(doc(db, 'users', acceptingUid), { groups: arrayUnion(groupId) });
+  // Try to update inviter's doc — may fail if security rules block cross-user writes
+  try {
+    await updateDoc(doc(db, 'users', invite.fromUid), { groups: arrayUnion(groupId) });
+  } catch (_) {}
 
   return groupId;
+}
+
+export async function addGroupToUser(uid, groupId) {
+  await updateDoc(doc(db, 'users', uid), { groups: arrayUnion(groupId) });
 }
 
 export async function declineGroupInvite(inviteId) {

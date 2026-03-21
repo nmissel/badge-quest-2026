@@ -4,6 +4,8 @@
 import { auth, db, googleProvider } from './firebase.js';
 import {
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   onAuthStateChanged,
   signOut
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
@@ -95,8 +97,18 @@ async function signInWithGoogle() {
   try {
     await signInWithPopup(auth, googleProvider);
   } catch (e) {
-    console.error('❌ Popup sign-in error:', e);
-    document.getElementById('auth-error').textContent = 'Sign-in failed: ' + e.message;
+    if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-cancelled-by-user') {
+      // In-app browsers (Messenger, Instagram etc) block popups — fall back to redirect
+      try {
+        await signInWithRedirect(auth, googleProvider);
+      } catch (redirectErr) {
+        console.error('❌ Redirect sign-in error:', redirectErr);
+        document.getElementById('auth-error').textContent = 'Sign-in failed: ' + redirectErr.message;
+      }
+    } else {
+      console.error('❌ Popup sign-in error:', e);
+      document.getElementById('auth-error').textContent = 'Sign-in failed: ' + e.message;
+    }
   }
 }
 
@@ -107,6 +119,13 @@ export function signOutUser() {
 
 // ── Main init — call once on page load ────────────────────
 export function initAuth(onReady) {
+  // Handle return from signInWithRedirect (in-app browser fallback)
+  getRedirectResult(auth).catch(e => {
+    if (e.code && e.code !== 'auth/no-current-user') {
+      document.getElementById('auth-error').textContent = 'Sign-in failed: ' + e.message;
+    }
+  });
+
   // Wire Google button
   document.getElementById('google-signin-btn').addEventListener('click', signInWithGoogle);
 
