@@ -1025,7 +1025,7 @@ function renderProgress() {
 
 function renderGoalList() {
   const tab   = activeTab;
-  const goals = data[tab].goals;
+  const goals = data[tab]?.goals || [];
   const list  = document.getElementById('goal-list');
   if (!list) return;
 
