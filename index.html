@@ -25,10 +25,17 @@
 
     <!-- App Header (XP Luna gradient, no window chrome) -->
     <header class="app-header" id="title-bar">
-      <span class="title-icon">🎯</span>
-      <span class="title-text">BADGE QUEST 2026</span>
-      <button class="notif-btn" id="notif-btn" title="Enable quest reminders">🔔</button>
-      <button class="signout-btn" id="signout-btn" title="Sign out">Sign out</button>
+      <button class="profile-chip" id="profile-chip-btn" title="Edit profile">
+        <span class="profile-chip-icon" id="header-profile-icon">?</span>
+        <span class="profile-chip-name" id="header-profile-name">ME</span>
+      </button>
+      <div class="header-title">
+        <span class="title-text">BADGE QUEST</span>
+      </div>
+      <div class="header-right">
+        <button class="notif-btn" id="notif-btn" title="Enable quest reminders">🔔</button>
+        <button class="signout-btn" id="signout-btn" title="Sign out">Sign out</button>
+      </div>
     </header>
 
     <!-- Year Countdown Strip -->
@@ -127,6 +134,46 @@
       </div>
     </div>
     <div class="confetti-wrap" id="confetti-2"></div>
+  </div>
+
+  <!-- Profile Panel -->
+  <div class="overlay" id="profile-overlay" style="display:none">
+    <div class="popup profile-popup">
+      <div class="popup-titlebar">
+        <span class="popup-title">YOUR PROFILE</span>
+        <button class="popup-close" id="profile-close">✕</button>
+      </div>
+      <div class="popup-body profile-body">
+        <div class="profile-preview-row">
+          <div class="profile-preview-icon" id="profile-preview-icon">?</div>
+          <div class="profile-preview-name" id="profile-preview-name">ADVENTURER</div>
+        </div>
+        <label class="auth-field-label" for="profile-username-input">USERNAME:</label>
+        <input id="profile-username-input" class="auth-input" type="text" maxlength="20" autocomplete="off" placeholder="Your quest name...">
+        <div class="color-picker-row">
+          <span class="color-picker-label">COLOR SIGNATURE:</span>
+          <div class="color-swatches color-swatches--wide" id="profile-color-swatches">
+            <button class="profile-swatch" data-color="#cc0000" style="background:#cc0000" title="Red"></button>
+            <button class="profile-swatch" data-color="#E91E63" style="background:#E91E63" title="Pink"></button>
+            <button class="profile-swatch" data-color="#FF9800" style="background:#FF9800" title="Orange"></button>
+            <button class="profile-swatch" data-color="#FFEB3B" style="background:#FFEB3B" title="Yellow"></button>
+            <button class="profile-swatch" data-color="#4CAF50" style="background:#4CAF50" title="Green"></button>
+            <button class="profile-swatch" data-color="#2E7D32" style="background:#2E7D32" title="Dark Green"></button>
+            <button class="profile-swatch" data-color="#00BCD4" style="background:#00BCD4" title="Cyan"></button>
+            <button class="profile-swatch" data-color="#1848BE" style="background:#1848BE" title="Blue"></button>
+            <button class="profile-swatch" data-color="#3F51B5" style="background:#3F51B5" title="Indigo"></button>
+            <button class="profile-swatch" data-color="#7B2D8B" style="background:#7B2D8B" title="Purple"></button>
+            <button class="profile-swatch" data-color="#880E4F" style="background:#880E4F" title="Dark Pink"></button>
+            <button class="profile-swatch" data-color="#795548" style="background:#795548" title="Brown"></button>
+            <button class="profile-swatch" data-color="#607D8B" style="background:#607D8B" title="Blue Grey"></button>
+            <button class="profile-swatch" data-color="#333333" style="background:#333333" title="Dark"></button>
+            <button class="profile-swatch" data-color="#E65100" style="background:#E65100" title="Deep Orange"></button>
+          </div>
+        </div>
+        <p id="profile-error" class="auth-error"></p>
+        <button class="auth-nav-btn auth-nav-btn--primary" id="profile-save-btn">SAVE CHANGES ▶</button>
+      </div>
+    </div>
   </div>
 
   <!-- Quest Dialog -->

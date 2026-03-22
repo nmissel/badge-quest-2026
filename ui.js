@@ -78,6 +78,21 @@ export function launchConfetti(containerId) {
   setTimeout(() => { container.innerHTML = ''; }, 4000);
 }
 
+export function launchShimmer(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  const colors = ['#FFD700','#E0B0FF','#B0E0FF','#FFB6C1','#FFFFFF','#C8FF80','#FFE680'];
+  for (let i = 0; i < 40; i++) {
+    const el = document.createElement('div');
+    el.className = 'shimmer-particle';
+    const size = 4 + Math.random() * 8;
+    el.style.cssText = `left:${Math.random()*100}%;width:${size}px;height:${size}px;background:${colors[Math.floor(Math.random()*colors.length)]};animation-delay:${Math.random()*0.8}s;animation-duration:${1.2+Math.random()*1.2}s;`;
+    container.appendChild(el);
+  }
+  setTimeout(() => { container.innerHTML = ''; }, 3000);
+}
+
 // ── Photo viewer ──────────────────────────────────────────────
 export function openPhotoViewer(src) {
   const overlay = document.getElementById('photo-overlay');

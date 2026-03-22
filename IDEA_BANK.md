@@ -42,10 +42,25 @@ Ideas:
 ## Goal Management
 - Drag-to-reorder goals (fun / playful interaction)
 - New goal types: habit streak, tier/level (5 stars), range slider, etc.
+- **Max quest limit: 25** — enforced per board (personal and party). Keeps the year focused. *(Implemented — currently shows a plain error message)*
+- **Fun "quest log full" copy** — the current error is dry. Find a better way to say it in the game's voice. Ideas: *"Too many quests for this adventure. Delete one to make room."* or *"Your quest log is full, adventurer. Every legend must choose their battles."* or a fake XP dialog box: "QUEST SLOTS FULL — Your map can only hold 25 quests. Remove one to continue."
+- **Completion message** — when marking a quest done, write a short personal note to yourself or your party. A reflection, a celebration, a tip. Shows in the quest detail or as a "memory" when revisiting completed quests.
 
 ## Social
 - Add more sign-in providers: Facebook and Apple (already available in Firebase console)
 - Party vs Team distinction (IN PROGRESS — see below)
+
+## Team Challenges
+When you're in a team, you can issue a challenge to one or more team members — a specific quest for them to add to their board.
+
+Ideas:
+- A "CHALLENGE" button inside the team view — opens a dialog to write a quest title and pick who it's for
+- The recipient sees a challenge notification/banner when they log in: "Niklas challenged you: Run a 5K before March"
+- They can ACCEPT (quest is added to their ME board) or DECLINE
+- If they complete the challenged quest, both the challenger and the recipient get a secret badge or a shared celebration
+- Challenges could have an optional deadline set by the challenger
+- Could be 1-to-1 or broadcast to the whole team ("I dare everyone to...")
+- Badge idea: "GAUNTLET THROWN" — issue your first challenge. "GAUNTLET CAUGHT" — accept and complete a challenge from a teammate
 
 ## Team Badges (for when Team groups are built)
 Ideas for fun collective badges that scale with team size:
@@ -105,6 +120,22 @@ The thrill is that you have NO idea they exist until one just appears.
 - A persistent counter store in localStorage (e.g. `bq_secret_counters`) tracking: titleTaps, midnightOpens, etc.
 - On specific user interactions, run `checkSecretBadges(event)` — keeps main logic clean
 - Earned secret badges stored in Firestore alongside normal unlockedBadges
+
+### Journey badges — celebrating the process, not the destination
+Badge Quest is about the adventure, not the finish line. These badges fire for showing up, for trying, for being in motion — not for completing.
+
+- "WANDERER" — logged into the app every week for 8 weeks (consistency, not completion)
+- "CARTOGRAPHER" — added 10+ quests to your board (mapping your world, not finishing it)
+- "IN THE ARENA" — had at least one active quest running for 6 consecutive months
+- "THE LONG ROAD" — a quest has been on your board for 6+ months without being done (still going)
+- "SIDE QUEST" — added a new quest mid-year, after June 1st
+- "PILGRIM" — visited the app on New Year's Day (the intention counts)
+- "JUST SHOWING UP" — opened the app 7 days in a row without completing anything
+- "DRAFT MODE" — created and then deleted a quest (you considered it — that matters too)
+- "COMPANION" — invited a party member (the act of including someone is the reward)
+- "REST DAY" — no app activity for 14 days, then came back (rest is part of the journey)
+
+The philosophy: the scoreboard is not the point. The map you drew while walking it is.
 
 ### Shape & visual ideas
 - More interesting shapes: scroll, lightning bolt, flame, compass, sword

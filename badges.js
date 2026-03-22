@@ -81,14 +81,87 @@ export const SECRET_BADGE_DEFS = [
     id: 's0',
     name: 'ADVENTURE BEGINS',
     desc: 'You wrote your first quest. Every legend starts somewhere.',
-    emoji: '⚔️',
-    color: '#FFD700',
-    color2: '#8B4513',
-    shape: 'shield',
-    rarity: 'secret',
+    color: '#FFD700', color2: '#8B4513', shape: 'burst', rarity: 'secret',
     lore: 'Before the first step, there was a blank page. You picked up the pen. That changes everything.',
   },
+  {
+    id: 's1',
+    name: 'NIGHT OWL',
+    desc: 'Completed a quest in the dead of night (midnight–5 AM). The dark hours have their own power.',
+    color: '#9575CD', color2: '#1A0033', shape: 'moon', rarity: 'secret',
+    lore: 'While the world slept, you kept your word. Some vows are made in starlight.',
+  },
+  {
+    id: 's2',
+    name: 'SPEEDRUNNER',
+    desc: 'Completed 3 quests within 60 seconds. The universe barely had time to react.',
+    color: '#29B6F6', color2: '#003344', shape: 'lightning', rarity: 'secret',
+    lore: 'Three in the blink of an eye. The chronicles will omit the timestamp — out of disbelief.',
+  },
+  {
+    id: 's3',
+    name: 'PROFESSOR OAK',
+    desc: 'Inspected every single badge in the hall. Knowledge is its own trophy.',
+    color: '#FFA726', color2: '#3E1F00', shape: 'scroll', rarity: 'secret',
+    lore: 'There are those who collect badges, and those who study them. You are the second kind.',
+  },
+  {
+    id: 's4',
+    name: 'PHOTO JOURNALIST',
+    desc: 'Attached photos to 5 quests. You turned proof into poetry.',
+    color: '#F4511E', color2: '#6A1000', shape: 'gem', rarity: 'secret',
+    lore: 'Five moments preserved. The quest is the caption; the photo is the truth behind it.',
+  },
+  {
+    id: 's5',
+    name: 'WRONG TURN',
+    desc: 'You hit the 25-quest limit. Even ambition has a horizon.',
+    color: '#78909C', color2: '#1C313A', shape: 'hourglass', rarity: 'secret',
+    lore: 'The road is full. Not all who wander are lost — but some do need a bigger map.',
+  },
+  {
+    id: 's6',
+    name: 'NOVELIST',
+    desc: 'Added notes to 10 quests. Every quest has a story behind it.',
+    color: '#26A69A', color2: '#00251A', shape: 'pentagon', rarity: 'secret',
+    lore: 'Ten quests with their secrets committed to ink. The journey, annotated for posterity.',
+  },
+  {
+    id: 's7',
+    name: 'COMPANION',
+    desc: 'Sent your first party invite. The adventure is better together.',
+    color: '#FF7043', color2: '#6A1E00', shape: 'flame', rarity: 'secret',
+    lore: 'You opened the door and said: come with me. That is the bravest sentence in the language.',
+  },
+  {
+    id: 's8',
+    name: 'HAUNTED',
+    desc: 'Opened the app at the stroke of midnight. You and the ghosts.',
+    color: '#90CAF9', color2: '#1A3A5C', shape: 'ghost', rarity: 'secret',
+    lore: 'The witching hour. The app glowed. You were there. We will not speak of it further.',
+  },
+  {
+    id: 's9',
+    name: 'DRAFT MODE',
+    desc: 'Deleted a quest. All great plans require revision.',
+    color: '#AB47BC', color2: '#3A0052', shape: 'prism', rarity: 'secret',
+    lore: 'Even the greatest heroes have crossed a name from the list. The unwritten quest haunts them still.',
+  },
 ];
+
+// ── Secret counter helpers (localStorage) ────────────────────
+const _COUNTER_KEY = 'bq_secret_counters';
+function _getCounters() {
+  try { return JSON.parse(localStorage.getItem(_COUNTER_KEY) || '{}'); } catch { return {}; }
+}
+function _saveCounters(c) {
+  try { localStorage.setItem(_COUNTER_KEY, JSON.stringify(c)); } catch {}
+}
+export function bumpSecretCounter(key, by = 1) {
+  const c = _getCounters(); c[key] = (c[key] || 0) + by; _saveCounters(c); return c[key];
+}
+export function getSecretCounter(key) { return _getCounters()[key] || 0; }
+export function setSecretCounter(key, val) { const c = _getCounters(); c[key] = val; _saveCounters(c); }
 
 export function checkAndAwardSecretBadge(data, badgeId) {
   if (!data.me.unlockedBadges) data.me.unlockedBadges = [];
@@ -299,6 +372,105 @@ export function makeBadgeSVG(badge, size = 52) {
       inner  = `<polygon points="${ptsCr}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>
                <rect x="2" y="${rimY}" width="${size-4}" height="${size-3-rimY}" rx="2" fill="${c2}" opacity="0.45"/>`;
       clipEl = `<polygon points="${ptsCr}"/>`;
+      break;
+    }
+    case 'moon': {
+      // Crescent: outer circle minus offset inner circle (evenodd fill rule)
+      const r2 = r * 0.72, offX = r * 0.32, offY = r * 0.22;
+      const moonPath =
+        `M ${h+r} ${h} A ${r} ${r} 0 1 0 ${h-r} ${h} A ${r} ${r} 0 1 0 ${h+r} ${h} Z ` +
+        `M ${h+offX+r2} ${h-offY} A ${r2} ${r2} 0 1 0 ${h+offX-r2} ${h-offY} A ${r2} ${r2} 0 1 0 ${h+offX+r2} ${h-offY} Z`;
+      inner  = `<path fill-rule="evenodd" d="${moonPath}" fill="url(#${gId})" stroke="${c2}" stroke-width="1.5"/>`;
+      clipEl = `<path fill-rule="evenodd" d="${moonPath}"/>`;
+      break;
+    }
+    case 'lightning': {
+      // Classic zigzag bolt — 6 vertices forming an S-band
+      const pts = [
+        `${h+4},2`, `${size-4},${h-2}`, `${h+2},${h-2}`,
+        `${h-4},${size-2}`, `4,${h+2}`, `${h-2},${h+2}`
+      ].join(' ');
+      inner  = `<polygon points="${pts}" fill="url(#${gId})" stroke="${c2}" stroke-width="1.5"/>`;
+      clipEl = `<polygon points="${pts}"/>`;
+      break;
+    }
+    case 'gem': {
+      // Classic 5-point cut gem: flat top, wide middle, pointed bottom
+      const pts = [
+        `${h-7},3`, `${h+7},3`,
+        `${size-3},${h*0.6}`,
+        `${h},${size-2}`,
+        `3,${h*0.6}`
+      ].join(' ');
+      inner  = `<polygon points="${pts}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>
+               <line x1="${h-7}" y1="3" x2="${h}" y2="${size-2}" stroke="${c2}" stroke-width="0.8" opacity="0.4"/>
+               <line x1="${h+7}" y1="3" x2="${h}" y2="${size-2}" stroke="${c2}" stroke-width="0.8" opacity="0.4"/>
+               <line x1="${3}" y1="${h*0.6}" x2="${size-3}" y2="${h*0.6}" stroke="${c2}" stroke-width="0.8" opacity="0.4"/>`;
+      clipEl = `<polygon points="${pts}"/>`;
+      break;
+    }
+    case 'scroll': {
+      // Parchment scroll with rolled ends
+      const mx = size * 0.1, capR = size * 0.11;
+      inner  = `<rect x="${mx}" y="${mx+capR}" width="${size-2*mx}" height="${size-2*mx-2*capR}" fill="url(#${gId})" stroke="${c2}" stroke-width="1.5"/>
+               <ellipse cx="${h}" cy="${mx+capR}" rx="${h-mx}" ry="${capR}" fill="${c}" stroke="${c2}" stroke-width="1.5"/>
+               <ellipse cx="${h}" cy="${size-mx-capR}" rx="${h-mx}" ry="${capR}" fill="${c2}" stroke="${c2}" stroke-width="1.5"/>
+               <line x1="${mx+5}" y1="${h-4}" x2="${size-mx-5}" y2="${h-4}" stroke="${c2}" stroke-width="1" opacity="0.45"/>
+               <line x1="${mx+5}" y1="${h}" x2="${size-mx-5}" y2="${h}" stroke="${c2}" stroke-width="1" opacity="0.45"/>
+               <line x1="${mx+5}" y1="${h+4}" x2="${size-mx-5}" y2="${h+4}" stroke="${c2}" stroke-width="1" opacity="0.45"/>`;
+      clipEl = `<rect x="${mx}" y="${mx}" width="${size-2*mx}" height="${size-2*mx}" rx="3"/>`;
+      break;
+    }
+    case 'ghost': {
+      // Friendly ghost: ellipse dome + straight sides + 2-bump wavy bottom + dot eyes
+      const bTop = h * 0.42, bBot = h * 1.38, wBot = size - 5;
+      const d = `M 4,${bTop} A ${h-4},${h*0.52} 0 0 1 ${size-4},${bTop} L ${size-4},${bBot} Q ${h*1.5},${wBot} ${h},${bBot} Q ${h*0.5},${wBot} 4,${bBot} Z`;
+      inner  = `<path d="${d}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>
+               <circle cx="${h-r*0.28}" cy="${h*0.82}" r="${r*0.12}" fill="${c2}" opacity="0.9"/>
+               <circle cx="${h+r*0.28}" cy="${h*0.82}" r="${r*0.12}" fill="${c2}" opacity="0.9"/>`;
+      clipEl = `<path d="${d}"/>`;
+      break;
+    }
+    case 'burst': {
+      // 16-point starburst — radiant, energetic
+      const pts = Array.from({length: 32}, (_, i) => {
+        const rad = i % 2 === 0 ? r : r * 0.52;
+        const a   = (i * 11.25 - 90) * Math.PI / 180;
+        return `${h + rad * Math.cos(a)},${h + rad * Math.sin(a)}`;
+      }).join(' ');
+      inner  = `<polygon points="${pts}" fill="url(#${gId})" stroke="${c2}" stroke-width="1"/>`;
+      clipEl = `<polygon points="${pts}"/>`;
+      break;
+    }
+    case 'hourglass': {
+      // Two triangles sharing a centre point — time / capacity
+      const d = `M 3,3 L ${size-3},3 L ${h},${h} Z M 3,${size-3} L ${size-3},${size-3} L ${h},${h} Z`;
+      inner  = `<path d="${d}" fill="url(#${gId})" stroke="${c2}" stroke-width="1.5"/>`;
+      clipEl = `<path d="${d}"/>`;
+      break;
+    }
+    case 'pentagon': {
+      // Regular 5-sided polygon
+      const pts = Array.from({length: 5}, (_, i) => {
+        const a = (i * 72 - 90) * Math.PI / 180;
+        return `${h + r * Math.cos(a)},${h + r * Math.sin(a)}`;
+      }).join(' ');
+      inner  = `<polygon points="${pts}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      clipEl = `<polygon points="${pts}"/>`;
+      break;
+    }
+    case 'flame': {
+      // Teardrop flame: pointed top, curved sides, wider base
+      const d = `M ${h},3 C ${size},${h*0.45} ${size-3},${h} ${h+r*0.55},${h*1.1} Q ${size-3},${h*1.65} ${h},${size-2} Q ${3},${h*1.65} ${h-r*0.55},${h*1.1} C ${3},${h} ${0},${h*0.45} ${h},3 Z`;
+      inner  = `<path d="${d}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      clipEl = `<path d="${d}"/>`;
+      break;
+    }
+    case 'prism': {
+      // Equilateral triangle — geometric, "cut"
+      const pts = `${h},3 ${size-3},${size-3} 3,${size-3}`;
+      inner  = `<polygon points="${pts}" fill="url(#${gId})" stroke="${c2}" stroke-width="2"/>`;
+      clipEl = `<polygon points="${pts}"/>`;
       break;
     }
     default:

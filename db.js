@@ -157,6 +157,10 @@ export async function saveUserEmail(uid, email) {
   await updateDoc(doc(db, 'users', uid), { email }).catch(() => {});
 }
 
+export async function saveUserProfile(uid, username, color) {
+  await updateDoc(doc(db, 'users', uid), { username, color });
+}
+
 // ── Invite management ─────────────────────────────────────────
 
 export async function sendGroupInvite(fromUid, fromEmail, fromUsername, toEmail, groupName, groupType = 'party') {

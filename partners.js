@@ -285,6 +285,8 @@ export async function handleSendInvite() {
     statusEl.textContent = "✓ Invite sent! They'll see it when they log in.";
     nameInput.value  = '';
     emailInput.value = '';
+    // COMPANION secret badge: fire on first ever invite sent
+    document.dispatchEvent(new CustomEvent('bq-invite-sent'));
     renderPartnersPanel();
   } catch (err) {
     console.error('Send invite error:', err);

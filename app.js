@@ -5,11 +5,13 @@ import { initAuth, signOutUser, currentUser, currentProfile } from './auth.js';
 import {
   loadUserData, loadGroupData, loadPartnerData,
   syncAllToFirestore, saveUserGoal, saveGroupGoal,
-  getPendingInvitesForEmail, getSentInvites, addGroupToUser
+  getPendingInvitesForEmail, getSentInvites, addGroupToUser,
+  saveUserProfile
 } from './db.js';
 import {
   BADGE_DEFS, COMBINED_BADGE_DEFS, BALANCE_BADGE_DEFS, TEAM_BADGE_DEFS,
   SECRET_BADGE_DEFS, checkAndAwardSecretBadge,
+  bumpSecretCounter, getSecretCounter, setSecretCounter,
   makeBadgeSVG, badgeSlotHTML,
   countDone, getPct, totalDoneAll, totalGoalsAll,
   earnedBadges, recalcBadges, checkAndAwardBadges,
@@ -18,7 +20,7 @@ import {
 } from './badges.js';
 import {
   sfxClick, sfxCount, sfxMonthTick, sfxGoalComplete, sfxBadgeUnlock,
-  resizeImage, launchConfetti,
+  resizeImage, launchConfetti, launchShimmer,
   openPhotoViewer, closePhotoViewer,
   updateClock, updateYearWidget,
   enableNotifications, updateNotifBtn, checkInactivity
@@ -241,6 +243,37 @@ function applyGoalInteraction(tab, id, action) {
     const newTeamBadges  = checkAndAwardTeamBadges(data);
     newIndivBadges.forEach(b => pendingCelebrations.push({ type: 'badge', badge: b }));
     newTeamBadges.forEach(b  => pendingCelebrations.push({ type: 'badge', badge: b }));
+
+    // ── Secret badge triggers on completion ───────────────────
+    // NIGHT OWL: complete any personal quest between midnight and 5 AM
+    if (tab === 'me') {
+      const hour = new Date().getHours();
+      if (hour >= 0 && hour < 5) {
+        const s = checkAndAwardSecretBadge(data, 's1');
+        if (s) pendingCelebrations.push({ type: 'secret', badge: s });
+      }
+    }
+    // SPEEDRUNNER: complete 3 quests within 60 seconds
+    {
+      const now = Date.now();
+      recentCompletions = recentCompletions.filter(t => now - t < 60000);
+      recentCompletions.push(now);
+      if (recentCompletions.length >= 3) {
+        const s = checkAndAwardSecretBadge(data, 's2');
+        if (s) pendingCelebrations.push({ type: 'secret', badge: s });
+      }
+    }
+    // PHOTO JOURNALIST: 5 personal quests with a photo attached
+    if (data.me.goals.filter(g => g.photo).length >= 5) {
+      const s = checkAndAwardSecretBadge(data, 's4');
+      if (s) pendingCelebrations.push({ type: 'secret', badge: s });
+    }
+    // NOVELIST: 10 personal quests with notes
+    if (data.me.goals.filter(g => g.note && g.note.trim()).length >= 10) {
+      const s = checkAndAwardSecretBadge(data, 's6');
+      if (s) pendingCelebrations.push({ type: 'secret', badge: s });
+    }
+
     pendingCelebrations.push({ type: 'goal', title: goal.title, goalRef: goal, tab });
     saveData(); render();
     flashGoalRow(goal.id);
@@ -286,6 +319,7 @@ let data = {
 let activeTab           = 'all';
 let pendingCelebrations = [];
 let celebrating         = false;
+let recentCompletions   = []; // timestamps for SPEEDRUNNER secret badge
 let expandedMonthGoal   = null; // id of currently expanded monthly goal
 let selectedBadge       = null; // { badgeId, tab } — Pokédex detail panel
 let _deadlineCtx        = null; // { tab, id } for floating deadline popup
@@ -746,6 +780,9 @@ function saveGoalModal() {
     const goals  = data[newTab].goals;
     if (goals.length >= 25) {
       errEl.textContent = 'Quest log full! Remove a quest to add another (max 25).';
+      // WRONG TURN: award for bumping into the limit
+      const s = checkAndAwardSecretBadge(data, 's5');
+      if (s) { saveData(); pendingCelebrations.push({ type: 'secret', badge: s }); if (!celebrating) processCelebrations(); }
       return;
     }
     const newId  = goals.length > 0 ? Math.max(...goals.map(g => g.id)) + 1 : 1;
@@ -755,9 +792,20 @@ function saveGoalModal() {
 
     // Secret badge: fire on very first personal quest ever
     if (newTab === 'me' && data.me.goals.length === 1) {
-      const secret = checkAndAwardSecretBadge(data, 's0');
-      if (secret) pendingCelebrations.push({ type: 'badge', badge: secret });
+      const s = checkAndAwardSecretBadge(data, 's0');
+      if (s) pendingCelebrations.push({ type: 'secret', badge: s });
     }
+  }
+
+  // PHOTO JOURNALIST: 5+ personal quests with photos (check after save)
+  if (data.me.goals.filter(g => g.photo).length >= 5) {
+    const s = checkAndAwardSecretBadge(data, 's4');
+    if (s) pendingCelebrations.push({ type: 'secret', badge: s });
+  }
+  // NOVELIST: 10+ personal quests with notes (check after save)
+  if (data.me.goals.filter(g => g.note && g.note.trim()).length >= 10) {
+    const s = checkAndAwardSecretBadge(data, 's6');
+    if (s) pendingCelebrations.push({ type: 'secret', badge: s });
   }
 
   saveData();
@@ -783,9 +831,13 @@ async function executeDelete() {
 
   data[tab].goals = data[tab].goals.filter(g => g.id !== goalId);
   recalcBadges(data, tab);
+  // DRAFT MODE: first deletion ever
+  const sd = checkAndAwardSecretBadge(data, 's9');
+  if (sd) { saveData(); pendingCelebrations.push({ type: 'secret', badge: sd }); }
   document.getElementById('delete-overlay').style.display = 'none';
   closeGoalModal();
   render();
+  if (sd && !celebrating) processCelebrations();
 }
 
 function shuffleGoals(tab) {
@@ -1205,7 +1257,7 @@ function renderBadgesTab() {
   const teamDates        = data.team?.badgeDates  || {};
 
   // ── Recent unlocks strip ────────────────────────────────────
-  const allBadgeDefs = [...BADGE_DEFS, ...COMBINED_BADGE_DEFS, ...BALANCE_BADGE_DEFS, ...TEAM_BADGE_DEFS];
+  const allBadgeDefs = [...BADGE_DEFS, ...COMBINED_BADGE_DEFS, ...BALANCE_BADGE_DEFS, ...TEAM_BADGE_DEFS, ...SECRET_BADGE_DEFS];
   const recentEntries = [
     ...Object.entries(meDates).map(([id, date]) => ({ id: isNaN(id) ? id : Number(id), date })),
     ...Object.entries(teamDates).map(([id, date]) => ({ id, date })),
@@ -1256,6 +1308,17 @@ function renderBadgesTab() {
     ? TEAM_BADGE_DEFS.map(b => badgeSlotHTML(b, teamEarned.includes(b.id))).join('')
     : `<div class="badges-empty">Form a team to unlock these badges.</div>`;
 
+  // ── Secret badges ────────────────────────────────────────────
+  // Check both unlockedBadges and badgeDates — if a secret has a date it was earned,
+  // even if the ID didn't make it into unlockedBadges due to a missed save.
+  const unlockedSecrets = SECRET_BADGE_DEFS.filter(b => meUnlocked.includes(b.id) || meDates[b.id]);
+  const secretHTML = unlockedSecrets.length
+    ? unlockedSecrets.map(b => {
+        const isSelected = selectedBadge?.badgeId === b.id && selectedBadge?.tab === 'me';
+        return badgeSlotHTML(b, true, '✦ SECRET', isSelected);
+      }).join('')
+    : `<div class="badges-secret-empty">Whispers of hidden honours... None revealed yet.<br><span class="badges-secret-hint">They find you. You do not find them.</span></div>`;
+
   wb.innerHTML = `
     ${recentHTML}
     <div class="badges-section">
@@ -1269,6 +1332,10 @@ function renderBadgesTab() {
     <div class="badges-section">
       <div class="badges-section-header">👥 TEAM</div>
       <div class="badge-case badges-grid" id="badges-team">${teamBadgesHTML}</div>
+    </div>
+    <div class="badges-section badges-section-secret">
+      <div class="badges-section-header secret-header">✦ SECRET BADGES</div>
+      <div class="badge-case badges-grid" id="badges-secret">${secretHTML}</div>
     </div>`;
 
   // ── Badge slot clicks → open detail modal ───────────────────
@@ -1350,6 +1417,19 @@ function openBadgeDetailModal(b, isUnlocked, earnedDate, hint) {
   }
 
   document.getElementById('badge-detail-overlay').style.display = 'flex';
+
+  // PROFESSOR OAK: track if all 8 personal badge details have been opened
+  if (BADGE_DEFS.some(bd => bd.id === b.id)) {
+    try {
+      const seen = new Set(JSON.parse(localStorage.getItem('bq_badge_seen') || '[]'));
+      seen.add(b.id);
+      localStorage.setItem('bq_badge_seen', JSON.stringify([...seen]));
+      if (seen.size >= BADGE_DEFS.length) {
+        const s = checkAndAwardSecretBadge(data, 's3');
+        if (s) { saveData(); pendingCelebrations.push({ type: 'secret', badge: s }); if (!celebrating) processCelebrations(); }
+      }
+    } catch {}
+  }
 }
 
 // ── TEAMS TAB RENDER ──────────────────────────────────────────
@@ -1515,9 +1595,13 @@ function processCelebrations() {
   celebrating = true;
   // Close any open modals so celebrations aren't blocked
   document.getElementById('badge-detail-overlay').style.display = 'none';
+  document.getElementById('goal-modal').style.display = 'none';
+  document.getElementById('delete-overlay').style.display = 'none';
   closeQuestDialog();
   const next = pendingCelebrations.shift();
-  next.type === 'goal' ? showGoalComplete(next) : showBadgeUnlock(next.badge);
+  if (next.type === 'goal') showGoalComplete(next);
+  else if (next.type === 'secret') showSecretBadgeUnlock(next.badge);
+  else showBadgeUnlock(next.badge);
 }
 
 function showGoalComplete({ title, goalRef, tab }) {
@@ -1591,6 +1675,23 @@ function showBadgeUnlock(badge) {
   overlay.classList.add('flash');
   launchConfetti('confetti-2');
   setTimeout(() => overlay.classList.remove('flash'), 500);
+
+  document.getElementById('badge-ok').onclick = () => {
+    overlay.style.display = 'none';
+    processCelebrations();
+  };
+}
+
+function showSecretBadgeUnlock(badge) {
+  sfxBadgeUnlock();
+  const overlay = document.getElementById('badge-overlay');
+  document.getElementById('badge-big').innerHTML          = makeBadgeSVG(badge, 100);
+  document.getElementById('badge-popup-name').textContent = '✦ ' + badge.name;
+  document.getElementById('badge-popup-desc').textContent = badge.desc;
+  overlay.style.display = 'flex';
+  overlay.classList.add('secret-reveal');
+  launchShimmer('confetti-2');
+  setTimeout(() => overlay.classList.remove('secret-reveal'), 1200);
 
   document.getElementById('badge-ok').onclick = () => {
     overlay.style.display = 'none';
@@ -1734,8 +1835,86 @@ function handleWinBodyClick(e) {
   }
 }
 
+// ── PROFILE PANEL ─────────────────────────────────────────────
+function updateProfileChip(username, color) {
+  const icon = document.getElementById('header-profile-icon');
+  const name = document.getElementById('header-profile-name');
+  if (!icon || !name) return;
+  icon.textContent      = (username || '?').charAt(0).toUpperCase();
+  icon.style.background = color || '#cc0000';
+  name.textContent      = (username || 'ME').toUpperCase();
+}
+
+let _profileSelectedColor = null;
+
+function openProfilePanel() {
+  if (!currentProfile) return;
+  const overlay = document.getElementById('profile-overlay');
+  document.getElementById('profile-username-input').value = currentProfile.username || '';
+  _profileSelectedColor = currentProfile.color || '#cc0000';
+  document.querySelectorAll('.profile-swatch').forEach(sw => {
+    sw.classList.toggle('selected', sw.dataset.color === _profileSelectedColor);
+  });
+  _updateProfilePreview();
+  document.getElementById('profile-error').textContent = '';
+  overlay.style.display = 'flex';
+}
+
+function closeProfilePanel() {
+  document.getElementById('profile-overlay').style.display = 'none';
+}
+
+function _updateProfilePreview() {
+  const name  = document.getElementById('profile-username-input').value.trim() || 'ADVENTURER';
+  const color = _profileSelectedColor || '#cc0000';
+  const icon  = document.getElementById('profile-preview-icon');
+  const nameEl = document.getElementById('profile-preview-name');
+  icon.textContent       = name.charAt(0).toUpperCase();
+  icon.style.background  = color;
+  nameEl.textContent     = name.toUpperCase();
+  nameEl.style.color     = color;
+}
+
+async function saveProfilePanel() {
+  const username = document.getElementById('profile-username-input').value.trim();
+  const errEl    = document.getElementById('profile-error');
+  if (!username) { errEl.textContent = 'Enter a username.'; return; }
+  if (username.length > 20) { errEl.textContent = 'Max 20 characters.'; return; }
+  const color = _profileSelectedColor || currentProfile.color || '#cc0000';
+  errEl.textContent = '';
+  const btn = document.getElementById('profile-save-btn');
+  btn.disabled = true;
+  btn.textContent = 'SAVING...';
+  try {
+    await saveUserProfile(currentUser.uid, username, color);
+    currentProfile.username = username;
+    currentProfile.color    = color;
+    if (data?.me) {
+      data.me.name  = username;
+      data.me.color = color;
+    }
+    updateProfileChip(username, color);
+    updateTitleBarColor();
+    closeProfilePanel();
+  } catch (e) {
+    errEl.textContent = 'Save failed. Try again.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'SAVE CHANGES ▶';
+  }
+}
+
 // ── INIT ──────────────────────────────────────────────────────
 function init() {
+  // HAUNTED: open app between 23:50 and 00:10
+  {
+    const now = new Date(), h = now.getHours(), m = now.getMinutes();
+    if (data?.me && ((h === 23 && m >= 50) || (h === 0 && m <= 10))) {
+      const s = checkAndAwardSecretBadge(data, 's8');
+      if (s) { saveData(); pendingCelebrations.push({ type: 'secret', badge: s }); if (!celebrating) processCelebrations(); }
+    }
+  }
+
   // Single delegated handler for all goal + badge interactions inside win-body
   document.getElementById('win-body').addEventListener('click', handleWinBodyClick);
 
@@ -1777,6 +1956,26 @@ function init() {
     renderQuestDialog();
   });
 
+  // Profile panel
+  document.getElementById('profile-chip-btn').addEventListener('click', openProfilePanel);
+  document.getElementById('profile-close').addEventListener('click', closeProfilePanel);
+  document.getElementById('profile-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('profile-overlay')) closeProfilePanel();
+  });
+  document.getElementById('profile-save-btn').addEventListener('click', saveProfilePanel);
+  document.getElementById('profile-username-input').addEventListener('input', _updateProfilePreview);
+  document.getElementById('profile-color-swatches').addEventListener('click', e => {
+    const sw = e.target.closest('.profile-swatch');
+    if (!sw) return;
+    _profileSelectedColor = sw.dataset.color;
+    document.querySelectorAll('.profile-swatch').forEach(s => s.classList.remove('selected'));
+    sw.classList.add('selected');
+    _updateProfilePreview();
+  });
+  document.getElementById('profile-username-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveProfilePanel();
+  });
+
   // Partners panel
   document.getElementById('partners-btn').addEventListener('click', openPartnersPanel);
   document.getElementById('partners-close').addEventListener('click', closePartnersPanel);
@@ -1792,6 +1991,12 @@ function init() {
   });
   document.getElementById('partners-overlay').addEventListener('click', handlePartnersClick);
   document.getElementById('invite-send-btn').addEventListener('click', handleSendInvite);
+  // COMPANION secret badge: first invite sent
+  document.addEventListener('bq-invite-sent', () => {
+    if (!data?.me) return;
+    const s = checkAndAwardSecretBadge(data, 's7');
+    if (s) { saveData(); pendingCelebrations.push({ type: 'secret', badge: s }); if (!celebrating) processCelebrations(); }
+  });
 
   // Allow Enter to submit note
   document.getElementById('goal-note-input').addEventListener('keydown', e => {
@@ -1985,8 +2190,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Update header + tabs
-    document.querySelector('.title-text').textContent =
-      `BADGE QUEST — ${profile.username.toUpperCase()}`;
+    updateProfileChip(profile.username, profile.color);
     updateTabLabels();
 
     init();
