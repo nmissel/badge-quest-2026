@@ -74,6 +74,33 @@ export const TEAM_BADGE_DEFS = [
   },
 ];
 
+// ── Secret badge definitions ──────────────────────────────────
+// Hidden from the badge case until unlocked — surprise rewards only.
+export const SECRET_BADGE_DEFS = [
+  {
+    id: 's0',
+    name: 'ADVENTURE BEGINS',
+    desc: 'You wrote your first quest. Every legend starts somewhere.',
+    emoji: '⚔️',
+    color: '#FFD700',
+    color2: '#8B4513',
+    shape: 'shield',
+    rarity: 'secret',
+    lore: 'Before the first step, there was a blank page. You picked up the pen. That changes everything.',
+  },
+];
+
+export function checkAndAwardSecretBadge(data, badgeId) {
+  if (!data.me.unlockedBadges) data.me.unlockedBadges = [];
+  if (data.me.unlockedBadges.includes(badgeId)) return null;
+  const badge = SECRET_BADGE_DEFS.find(b => b.id === badgeId);
+  if (!badge) return null;
+  data.me.unlockedBadges = [...data.me.unlockedBadges, badgeId];
+  if (!data.me.badgeDates) data.me.badgeDates = {};
+  data.me.badgeDates[badgeId] = new Date().toISOString();
+  return badge;
+}
+
 export function earnedTeamGroupBadges(members) {
   if (!members || !members.length) return [];
   return TEAM_BADGE_DEFS.filter(b => b.check(members));

@@ -169,55 +169,144 @@
     </div>
   </div>
 
-  <!-- ── Auth Overlay ─────────────────────────────────────── -->
+  <!-- ── Auth Overlay — Treasure Hunt Wizard ──────────────── -->
   <div id="auth-overlay">
 
-    <!-- Login screen -->
-    <div id="auth-login-screen" class="auth-window">
-      <div class="auth-titlebar">
-        <span class="auth-titlebar-icon">🎯</span>
-        <span class="auth-titlebar-text">BADGE QUEST 2026</span>
-      </div>
-      <div class="auth-body">
-        <div class="auth-pixel-title">WELCOME,<br>PLAYER</div>
-        <p class="auth-subtitle">Sign in to begin your quest</p>
-        <button id="google-signin-btn" class="google-btn">
-          <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
-            <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-            <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
-            <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-            <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-          </svg>
-          Sign in with Google
-        </button>
-        <p id="auth-error" class="auth-error"></p>
-      </div>
-    </div>
+    <div id="auth-wizard" class="auth-window auth-window--wizard">
 
-    <!-- Username setup screen (shown after first Google sign-in) -->
-    <div id="auth-username-screen" class="auth-window" style="display:none">
+      <!-- Title bar -->
       <div class="auth-titlebar">
-        <span class="auth-titlebar-icon">🎯</span>
+        <span class="auth-titlebar-icon">⚔️</span>
         <span class="auth-titlebar-text">BADGE QUEST 2026</span>
+        <div class="auth-win-btns">
+          <button class="auth-win-btn" tabindex="-1">─</button>
+          <button class="auth-win-btn auth-win-btn--x" tabindex="-1">✕</button>
+        </div>
       </div>
-      <div class="auth-body">
-        <div class="auth-pixel-title">CHOOSE YOUR<br>NAME</div>
-        <p class="auth-subtitle">This is how others will see you</p>
-        <input id="username-input" class="auth-input" type="text" maxlength="20" placeholder="e.g. Niklas" autocomplete="off">
-        <div class="color-picker-row">
-          <span class="color-picker-label">PICK YOUR COLOR:</span>
-          <div class="color-swatches">
-            <button class="color-swatch selected" data-color="#cc0000" style="background:#cc0000" title="Red"></button>
-            <button class="color-swatch" data-color="#1848BE" style="background:#1848BE" title="Blue"></button>
-            <button class="color-swatch" data-color="#2E7D32" style="background:#2E7D32" title="Green"></button>
-            <button class="color-swatch" data-color="#7B2D8B" style="background:#7B2D8B" title="Purple"></button>
-            <button class="color-swatch" data-color="#E65100" style="background:#E65100" title="Orange"></button>
-            <button class="color-swatch" data-color="#880E4F" style="background:#880E4F" title="Pink"></button>
+
+      <!-- Step progress bar -->
+      <div class="wizard-steps" id="wizard-steps">
+        <div class="wizard-step active" data-step="1">1</div>
+        <div class="wizard-connector" data-after="1"></div>
+        <div class="wizard-step locked" data-step="2">2</div>
+        <div class="wizard-connector" data-after="2"></div>
+        <div class="wizard-step locked" data-step="3">3</div>
+        <div class="wizard-connector" data-after="3"></div>
+        <div class="wizard-step locked" data-step="4">4</div>
+        <div class="wizard-connector" data-after="4"></div>
+        <div class="wizard-step locked wizard-step--x" data-step="5">X</div>
+      </div>
+
+      <!-- Step content -->
+      <div class="wizard-content">
+
+        <!-- Step 1: Story -->
+        <div class="step-content" id="step-1">
+          <div class="story-hero">
+            <span class="story-hero-icon">⚔️</span>
+          </div>
+          <div class="auth-pixel-title story-main-title">BADGE QUEST<br>2026</div>
+          <p class="story-lore">The year is 2026. A blank map stretches before you, full of dragons to slay, habits to forge, and memories to make.</p>
+          <p class="story-lore">No roads marked. No quests assigned. Just you, and twelve months to write your legend.</p>
+        </div>
+
+        <!-- Step 2: What is Badge Quest -->
+        <div class="step-content" id="step-2" style="display:none">
+          <div class="auth-pixel-title">WHAT IS<br>BADGE QUEST?</div>
+          <p class="auth-subtitle">Your personal quest log for 2026. Set goals for the year, track your progress, and earn legendary badges as you complete them.</p>
+          <div class="story-features">
+            <div class="story-feature"><span class="story-feature-icon">📜</span><span>Write quests: one-time feats or monthly habits</span></div>
+            <div class="story-feature"><span class="story-feature-icon">🏅</span><span>Complete quests to unlock legendary badges</span></div>
+            <div class="story-feature"><span class="story-feature-icon">💎</span><span>Invite a companion and quest together</span></div>
           </div>
         </div>
-        <p id="username-error" class="auth-error"></p>
-        <button id="username-submit" class="auth-submit-btn">PRESS START ▶</button>
+
+        <!-- Step 3: Sign In -->
+        <div class="step-content" id="step-3" style="display:none">
+          <div class="auth-shield-wrap">
+            <span class="auth-shield-icon">🛡️</span>
+          </div>
+          <div class="auth-pixel-title">SIGN IN<br>TO QUEST</div>
+          <p class="auth-subtitle">Secure your quest log with your Google account.</p>
+          <button id="google-signin-btn" class="google-btn">
+            <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+              <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+              <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+              <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+            </svg>
+            Sign in with Google
+          </button>
+          <div class="auth-level-sep">LEVEL 1 REQUIRED</div>
+          <div class="auth-status">
+            <div>SYSTEM_STATUS: READY</div>
+            <div>AWAITING_AUTH_KEY...</div>
+          </div>
+          <p id="auth-error" class="auth-error"></p>
+        </div>
+
+        <!-- Step 4: Setup -->
+        <div class="step-content" id="step-4" style="display:none">
+          <div class="auth-pixel-title">CHOOSE YOUR AVATAR</div>
+          <p class="auth-subtitle">Enter a name for the quest logs. Visible to your party and team.</p>
+          <label class="auth-field-label" for="username-input">USERNAME:</label>
+          <input id="username-input" class="auth-input" type="text" maxlength="20" placeholder="Enter quest name..." autocomplete="off">
+          <div class="color-picker-row">
+            <span class="color-picker-label">COLOR SIGNATURE:</span>
+            <div class="color-swatches color-swatches--wide">
+              <button class="color-swatch selected" data-color="#cc0000" style="background:#cc0000" title="Red"></button>
+              <button class="color-swatch" data-color="#E91E63" style="background:#E91E63" title="Pink"></button>
+              <button class="color-swatch" data-color="#FF9800" style="background:#FF9800" title="Orange"></button>
+              <button class="color-swatch" data-color="#FFEB3B" style="background:#FFEB3B" title="Yellow"></button>
+              <button class="color-swatch" data-color="#4CAF50" style="background:#4CAF50" title="Green"></button>
+              <button class="color-swatch" data-color="#2E7D32" style="background:#2E7D32" title="Dark Green"></button>
+              <button class="color-swatch" data-color="#00BCD4" style="background:#00BCD4" title="Cyan"></button>
+              <button class="color-swatch" data-color="#1848BE" style="background:#1848BE" title="Blue"></button>
+              <button class="color-swatch" data-color="#3F51B5" style="background:#3F51B5" title="Indigo"></button>
+              <button class="color-swatch" data-color="#7B2D8B" style="background:#7B2D8B" title="Purple"></button>
+              <button class="color-swatch" data-color="#880E4F" style="background:#880E4F" title="Dark Pink"></button>
+              <button class="color-swatch" data-color="#795548" style="background:#795548" title="Brown"></button>
+              <button class="color-swatch" data-color="#607D8B" style="background:#607D8B" title="Blue Grey"></button>
+              <button class="color-swatch" data-color="#333333" style="background:#333333" title="Dark"></button>
+              <button class="color-swatch" data-color="#E65100" style="background:#E65100" title="Deep Orange"></button>
+            </div>
+          </div>
+          <div class="auth-avatar-preview">
+            <div class="auth-avatar-icon" id="avatar-preview-icon" style="background:#cc0000">?</div>
+            <div>
+              <div class="auth-avatar-label">LVL 1 ADVENTURER</div>
+              <div class="auth-avatar-name" id="avatar-preview-name">NEW_PLAYER_01</div>
+            </div>
+          </div>
+          <p id="username-error" class="auth-error"></p>
+        </div>
+
+        <!-- Step 5: X — You found it! -->
+        <div class="step-content" id="step-5" style="display:none">
+          <div class="begin-x-mark">✕</div>
+          <div class="auth-pixel-title" id="begin-title">YOU FOUND IT,<br>ADVENTURER!</div>
+          <p class="story-lore">Every legend begins with a blank page. You just picked up the pen.</p>
+        </div>
+
+      </div><!-- /wizard-content -->
+
+      <!-- Wizard footer (buttons) -->
+      <div class="wizard-footer" id="wizard-footer">
+        <div class="auth-footer">
+          <span>🗺️ Your 2026 adventure awaits</span>
+          <span>Ver 2026.04.12</span>
+        </div>
+        <div class="wizard-footer-btns" id="wizard-footer-btns">
+          <button class="auth-nav-btn auth-nav-btn--primary" id="wizard-next-btn">NEXT ▶</button>
+        </div>
       </div>
+
+    </div><!-- /auth-wizard -->
+
+    <!-- XP Taskbar -->
+    <div class="auth-taskbar">
+      <button class="auth-taskbar-start">▶ START</button>
+      <div class="auth-taskbar-clock" id="auth-clock">12:00 PM</div>
     </div>
 
   </div>
@@ -261,9 +350,9 @@
           <label class="gm-label">ASSIGN TO</label>
           <div class="gm-seg-row" id="gm-owner-row">
             <button class="gm-seg active" data-owner="me">👤 MINE</button>
-            <button class="gm-seg" data-owner="together" id="gm-couple-btn">💎 COUPLE</button>
+            <button class="gm-seg" data-owner="together" id="gm-party-btn">💎 PARTY</button>
           </div>
-          <p class="gm-hint" id="gm-couple-hint" style="display:none">Link a partner first to use couple quests</p>
+          <p class="gm-hint" id="gm-party-hint" style="display:none">Link a partner first to use party quests</p>
         </div>
 
         <p id="gm-error" class="gm-error"></p>

@@ -9,6 +9,7 @@ import {
 } from './db.js';
 import {
   BADGE_DEFS, COMBINED_BADGE_DEFS, BALANCE_BADGE_DEFS, TEAM_BADGE_DEFS,
+  SECRET_BADGE_DEFS, checkAndAwardSecretBadge,
   makeBadgeSVG, badgeSlotHTML,
   countDone, getPct, totalDoneAll, totalGoalsAll,
   earnedBadges, recalcBadges, checkAndAwardBadges,
@@ -260,37 +261,6 @@ function flashGoalRow(goalId) {
 // Sample goals shown to new users on empty tabs.
 // Keys are generic (a / b / party) — not tied to any specific user.
 const STARTER_PRESETS = {
-  a: { goals: [
-      // ── BINARY GOALS ──
-      { id: 1,  title: 'Lancér noget (produkt/idé) sammen med en ven',                                type: 'binary',  done: false, doneDate: null, note: '' },
-      { id: 2,  title: 'Brug en hel weekend på at bygge i Cursor/Gemini/Claude',                      type: 'binary',  done: false, doneDate: null, note: '' },
-      { id: 3,  title: 'Offentliggør noget du selv har lavet, før det føles klart',                   type: 'binary',  done: false, doneDate: null, note: '' },
-      { id: 4,  title: 'Gå én uge uden amerikansk tech (Google, Meta, Apple osv.)',                   type: 'binary',  done: false, doneDate: null, note: '' },
-      { id: 5,  title: 'Sov i shelter én nat (alene eller med en ven) 🌲🔥',                          type: 'binary',  done: false, doneDate: null, note: '' },
-      { id: 6,  title: 'Få en nostalgisk tatovering',                                                 type: 'binary',  done: false, doneDate: null, note: '' },
-      { id: 7,  title: 'Gennemfør Pokémon Yellow på GameBoy Color (8 gym badges + Elite Four)',        type: 'count',   target: 12, current: 0, unit: 'badges', done: false, doneDate: null, note: '' },
-      { id: 8,  title: 'Løb CPH Half under 1.45',                                                     type: 'binary',  done: false, doneDate: null, note: '' },
-      { id: 9,  title: 'Brug mere tid med dine søskende',                                             type: 'binary',  done: false, doneDate: null, note: '' },
-      { id: 10, title: 'Se hele Ringenes Herre + Hobbitten (extended edition ellers tæller det ikke)', type: 'count',   target: 6, current: 0, unit: 'film', done: false, doneDate: null, note: '' },
-      { id: 11, title: "Lær det basale i at DJ'e og lav ét 20–30 min sæt 🎧",                        type: 'binary',  done: false, doneDate: null, note: '' },
-      { id: 12, title: 'Tag en hel uge fri kun til at skabe eller lege – ikke slappe af',             type: 'binary',  done: false, doneDate: null, note: '' },
-      { id: 13, title: 'Kør din første 100 km cykeltur',                                               type: 'binary',  done: false, doneDate: null, note: '' },
-      // ── COUNT GOALS ──
-      { id: 14, title: 'Spis vegetarisk i 30 dage (lav mindst 10 af måltiderne selv)', type: 'count',   target: 30, current: 0, unit: 'dage',      done: false, doneDate: null, note: '' },
-      { id: 15, title: 'Arrangér startup-weekender med kreativ kaos',                   type: 'count',   target:  3, current: 0, unit: 'weekender', done: false, doneDate: null, note: '' },
-      { id: 16, title: 'Løb 10 km med en øl pr. km (1 bar pr. km) 🍻',                type: 'binary',  done: false, doneDate: null, note: '' },
-      { id: 17, title: 'Solo-ture på din egen tandemcykel',                             type: 'count',   target:  5, current: 0, unit: 'ture',      done: false, doneDate: null, note: '' },
-      { id: 18, title: 'Sig "nej" til ting du normalt ville sige "ja" til',             type: 'count',   target: 10, current: 0, unit: "nej'er",    done: false, doneDate: null, note: '' },
-      { id: 19, title: 'Følg et træningsprogram i sammenhængende måneder',              type: 'count',   target:  3, current: 0, unit: 'måneder',   done: false, doneDate: null, note: '' },
-      { id: 20, title: 'Se fodboldkampe på stadion',                                    type: 'count',   target: 12, current: 0, unit: 'kampe',     done: false, doneDate: null, note: '' },
-      { id: 23, title: 'Gaming-date med venner (hver anden uge)',                        type: 'count',   target: 26, current: 0, unit: 'dates',     done: false, doneDate: null, note: '' },
-      { id: 24, title: 'Hold en "money date" med dig selv 💸',                          type: 'count',   target:  4, current: 0, unit: 'kvartaler', done: false, doneDate: null, note: '' },
-      // ── MONTHLY GOALS (track by individual month) ──
-      { id: 21, title: 'Læs 1 bog hver måned',                                          type: 'monthly', months: Array(12).fill(false), done: false, doneDate: null, note: '' },
-      { id: 22, title: 'Spar/invester 3.000 DKK pr. måned (mål: 36.000 DKK/år)',       type: 'monthly', months: Array(12).fill(false), done: false, doneDate: null, note: '' },
-      { id: 25, title: 'Lav et fysisk minde med dit instant-kamera 📸',                 type: 'monthly', months: Array(12).fill(false), done: false, doneDate: null, note: '' },
-    ],
-  },
   party: { goals: [
     { id: 1, title: 'Byt lejligheden',                type: 'binary',  done: false, doneDate: null, note: '' },
     { id: 2, title: 'Lang togtur',                    type: 'binary',  done: false, doneDate: null, note: '' },
@@ -299,36 +269,6 @@ const STARTER_PRESETS = {
     { id: 5, title: 'Spise mere hjemmelavet mad',     type: 'monthly', months: Array(12).fill(false), done: false, doneDate: null, note: '' },
     { id: 6, title: 'Mere (spontan) sex',             type: 'monthly', months: Array(12).fill(false), done: false, doneDate: null, note: '' },
     { id: 7, title: 'Læs højt for hinanden',          type: 'monthly', months: Array(12).fill(false), done: false, doneDate: null, note: '' },
-  ] },
-  b: { goals: [
-    // ── BINARY GOALS ──
-    { id: 1,  title: 'Byt lejlighed',                                    type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 2,  title: 'Vær glad for hele mit hjem',                       type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 3,  title: 'Bliv midlevel til boksning',                       type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 4,  title: 'Føle mig stærkere',                                type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 5,  title: 'Bookclub meetup',                                   type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 6,  title: 'Begynd at investere',                              type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 7,  title: 'Spare mere end 65k',                               type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 8,  title: 'Glastatovøren: insta',                             type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 9,  title: 'Glastatovøren: loppemarked',                       type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 10, title: 'Bedre morgenrutine',                               type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 11, title: 'Give flere hjemmelavede gaver',                    type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 12, title: 'Strik noget større',                               type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 13, title: 'Scrolle mindre',                                   type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 14, title: 'Keramikkursus',                                    type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 15, title: 'Closet cleanout',                                  type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 16, title: 'Logbog: køb til migselv',                         type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 17, title: 'Mindre kalender, mere spontanitet',                type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 18, title: 'Husk dage uden planer',                            type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 19, title: 'Hvile mere i mit arbejde',                         type: 'binary',  done: false, doneDate: null, note: '' },
-    { id: 20, title: 'Være tro mod mig selv i familierelationer',        type: 'binary',  done: false, doneDate: null, note: '' },
-    // ── COUNT GOALS ──
-    { id: 21, title: 'Boks 90+ gange',    type: 'count', target: 90, current: 0, unit: 'gange',       done: false, doneDate: null, note: '' },
-    { id: 22, title: '5 nye tatoveringer', type: 'count', target:  5, current: 0, unit: 'tatoveringer', done: false, doneDate: null, note: '' },
-    { id: 23, title: '10+ koncerter',     type: 'count', target: 10, current: 0, unit: 'koncerter',   done: false, doneDate: null, note: '' },
-    // ── MONTHLY GOALS ──
-    { id: 24, title: '1 bog om måneden', type: 'monthly', months: Array(12).fill(false), done: false, doneDate: null, note: '' },
-    { id: 25, title: 'Fredagsløbeture',  type: 'monthly', months: Array(12).fill(false), done: false, doneDate: null, note: '' },
   ] },
 };
 
@@ -466,8 +406,6 @@ function saveData() {
 
 async function seedGoals(presetKey) {
   const presetMap = {
-    a:     { tab: 'me',       goals: STARTER_PRESETS.a.goals },
-    b:     { tab: 'me',       goals: STARTER_PRESETS.b.goals },
     party: { tab: 'together', goals: STARTER_PRESETS.party.goals }
   };
   const preset = presetMap[presetKey];
@@ -533,7 +471,7 @@ function goalItemHTML(g, index, tab, options = {}) {
 function getCardGoals(tab) {
   if (tab === 'all') {
     return [
-      ...data.together.goals.map(g   => ({ ...g, _tab: 'together', _tagCls: 'owner-couple',  _tagText: (data.together?.name || 'PARTY').toUpperCase() })),
+      ...data.together.goals.map(g   => ({ ...g, _tab: 'together', _tagCls: 'owner-party',  _tagText: (data.together?.name || 'PARTY').toUpperCase() })),
       ...(data.partner?.goals || []).map(g => ({ ...g, _tab: 'partner',  _tagCls: 'owner-partner', _tagText: (data.partner?.name || 'PARTNER').toUpperCase() })),
       ...data.me.goals.map(g         => ({ ...g, _tab: 'me',       _tagCls: 'owner-me',      _tagText: (data.me?.name || 'ME').toUpperCase()               })),
     ];
@@ -717,13 +655,13 @@ function openGoalModal(tab = 'me', goalId = null) {
 
   // Owner field: always show so user can assign/reassign
   const ownerField  = document.getElementById('gm-owner-field');
-  const coupleBtn   = document.getElementById('gm-couple-btn');
-  const coupleHint  = document.getElementById('gm-couple-hint');
+  const partyBtn   = document.getElementById('gm-party-btn');
+  const partyHint  = document.getElementById('gm-party-hint');
   const hasGroup    = !!currentGroupId;
   ownerField.style.display  = 'block';
-  coupleBtn.disabled        = !hasGroup;
-  coupleBtn.style.opacity   = hasGroup ? '1' : '0.45';
-  coupleHint.style.display  = hasGroup ? 'none' : 'block';
+  partyBtn.disabled        = !hasGroup;
+  partyBtn.style.opacity   = hasGroup ? '1' : '0.45';
+  partyHint.style.display  = hasGroup ? 'none' : 'block';
 
   if (isNew) {
     document.getElementById('gm-title-input').value = '';
@@ -806,15 +744,26 @@ function saveGoalModal() {
   } else {
     // ── Create new ─────────────────────────────────────────────
     const goals  = data[newTab].goals;
+    if (goals.length >= 25) {
+      errEl.textContent = 'Quest log full! Remove a quest to add another (max 25).';
+      return;
+    }
     const newId  = goals.length > 0 ? Math.max(...goals.map(g => g.id)) + 1 : 1;
     const newGoal = { id: newId, title, type, done: false, doneDate: null, note: '', photo: null, deadline: null, order: goals.length,
                       ...GOAL_TYPES[type].initialState() };
     data[newTab].goals.push(newGoal);
+
+    // Secret badge: fire on very first personal quest ever
+    if (newTab === 'me' && data.me.goals.length === 1) {
+      const secret = checkAndAwardSecretBadge(data, 's0');
+      if (secret) pendingCelebrations.push({ type: 'badge', badge: secret });
+    }
   }
 
   saveData();
   render();
   closeGoalModal();
+  if (pendingCelebrations.length && !celebrating) processCelebrations();
 }
 
 function openDeleteConfirm() {
@@ -976,7 +925,10 @@ function renderBadgeCase() {
     const req        = b.threshold(total);
     const isSelected = selectedBadge?.badgeId === b.id && selectedBadge?.tab === tab;
     return badgeSlotHTML(b, isUnlocked, isUnlocked ? b.name.split(' ')[0] : `${req} DONE`, isSelected);
-  }).join('');
+  }).join('') + (tab === 'me' ? SECRET_BADGE_DEFS.filter(b => unlocked.includes(b.id)).map(b => {
+    const isSelected = selectedBadge?.badgeId === b.id && selectedBadge?.tab === tab;
+    return badgeSlotHTML(b, true, '✦ SECRET', isSelected);
+  }).join('') : '');
 
   renderBadgeDetail();
 }
@@ -987,7 +939,7 @@ function renderBadgeDetail() {
   if (!selectedBadge) { el.innerHTML = ''; return; }
 
   const { badgeId, tab } = selectedBadge;
-  const b = BADGE_DEFS.find(bd => bd.id === badgeId);
+  const b = BADGE_DEFS.find(bd => bd.id === badgeId) || SECRET_BADGE_DEFS.find(bd => bd.id === badgeId);
   if (!b) { el.innerHTML = ''; return; }
 
   const unlocked = (data[tab]?.unlockedBadges || []).includes(badgeId);
@@ -1039,9 +991,27 @@ function renderGoalList() {
   if (!list) return;
 
   if (!goals.length) {
-    // Together tab with no group yet — full-body render like TEAM tab
+    const wb = document.getElementById('win-body');
+
+    // ME tab — full-body render, bypasses inset-panel, matches ALL tab
+    if (tab === 'me') {
+      wb.className = 'win-body team-body';
+      wb.innerHTML = `
+        <div class="locked-panel">
+          <div class="locked-icon">🗺️</div>
+          <div class="locked-title">YOUR LEGEND BEGINS HERE</div>
+          <div class="locked-sub">A blank map stretches before you. No roads marked. No quests assigned. Just you, and twelve months to write your legend.</div>
+          <div class="starter-row">
+            <button class="starter-btn" id="empty-add-quest-btn">⚔️ WRITE YOUR FIRST QUEST ▶</button>
+          </div>
+        </div>`;
+      document.getElementById('empty-add-quest-btn').addEventListener('click', () => openGoalModal('me'));
+      return;
+    }
+
+    // Together tab with no group yet
     if (tab === 'together' && !currentGroupId) {
-      const wb = document.getElementById('win-body');
+      wb.className = 'win-body party-body';
       wb.innerHTML = `
         <div class="locked-panel">
           <div class="locked-icon">💎</div>
@@ -1053,28 +1023,25 @@ function renderGoalList() {
       return;
     }
 
-    const icon  = tab === 'together' ? '💎' : '🌸';
-    const label = tab === 'me' ? data.me.name : tab === 'partner' ? (data.partner?.name || 'Partner') : (data.together?.name || 'PARTY');
+    // Together-with-group or partner — render inside the inset panel
+    const label = tab === 'partner' ? (data.partner?.name || 'Partner') : (data.together?.name || 'PARTY');
+    if (tab === 'together') wb.className = 'win-body party-body';
 
-    // Show starter preset buttons for editable tabs (me + together)
-    const starterHTML = (tab === 'me') ? `
+    const starterHTML = (tab === 'together') ? `
       <div class="starter-row">
-        <div class="starter-label">Load a starter set?</div>
-        <button class="starter-btn" data-seed="a">📋 PRESET A (${STARTER_PRESETS.a.goals.length} quests)</button>
-        <button class="starter-btn" data-seed="b">📋 PRESET B (${STARTER_PRESETS.b.goals.length} quests)</button>
-      </div>` : (tab === 'together' && currentGroupId) ? `
-      <div class="starter-row">
-        <div class="starter-label">Load starter party quests?</div>
+        <button class="starter-btn" id="empty-add-quest-btn">💎 ADD A PARTY QUEST ▶</button>
+        <div class="starter-label">— or load a starter set —</div>
         <button class="starter-btn" data-seed="party">💎 PARTY (${STARTER_PRESETS.party.goals.length} quests)</button>
       </div>` : '';
 
     list.innerHTML = `
       <div class="locked-panel">
-        <div class="locked-icon">${icon}</div>
-        <div class="locked-title">${label.toUpperCase()} QUESTS COMING SOON</div>
-        <div class="locked-sub">Add goals to unlock this quest board!</div>
+        <div class="locked-icon">${tab === 'together' ? '💎' : '🌸'}</div>
+        <div class="locked-title">${tab === 'partner' ? label.toUpperCase() + ' HAS NO QUESTS YET' : 'YOUR LEGEND BEGINS HERE'}</div>
+        <div class="locked-sub">${tab === 'partner' ? label + " hasn't written any quests yet." : 'A blank map stretches before you. No roads marked. No quests assigned. Just you, and twelve months to write your legend.'}</div>
         ${starterHTML}
       </div>`;
+    document.getElementById('empty-add-quest-btn')?.addEventListener('click', () => openGoalModal('together'));
     return;
   }
 
@@ -1092,10 +1059,25 @@ function renderAllTab() {
   const allTotal = totalGoalsAll(data);
   const allPct   = allTotal ? Math.round((allDone / allTotal) * 100) : 0;
 
+  if (allTotal === 0) {
+    wb.className = 'win-body team-body';
+    wb.innerHTML = `
+      <div class="locked-panel">
+        <div class="locked-icon">🗺️</div>
+        <div class="locked-title">YOUR LEGEND BEGINS HERE</div>
+        <div class="locked-sub">A blank map stretches before you. No roads marked. No quests assigned. Just you, and twelve months to write your legend.</div>
+        <div class="starter-row">
+          <button class="starter-btn" id="empty-add-quest-btn">⚔️ WRITE YOUR FIRST QUEST ▶</button>
+        </div>
+      </div>`;
+    document.getElementById('empty-add-quest-btn').addEventListener('click', () => openGoalModal('me'));
+    return;
+  }
+
   const meName      = (data.me?.name      || 'ME').toUpperCase();
   const partnerName = (data.partner?.name || '').toUpperCase();
   const sections = [
-    { tab: 'together', label: '💎 ' + (data.together?.name || 'PARTY').toUpperCase(), cls: 'couple-header', tagCls: 'owner-couple', tagText: (data.together?.name || 'PARTY').toUpperCase() },
+    { tab: 'together', label: '💎 ' + (data.together?.name || 'PARTY').toUpperCase(), cls: 'party-header', tagCls: 'owner-party', tagText: (data.together?.name || 'PARTY').toUpperCase() },
     ...(data.partner ? [{ tab: 'partner', label: '👤 ' + partnerName, cls: 'partner-header', tagCls: 'owner-partner', tagText: partnerName }] : []),
     { tab: 'me', label: '👤 ' + meName, cls: 'me-header', tagCls: 'owner-me', tagText: meName },
   ];
@@ -1651,7 +1633,7 @@ function handleWinBodyClick(e) {
     return;
   }
 
-  // Group switcher (couple tab)
+  // Group switcher (party tab)
   const groupSwitcher = e.target.closest('.group-switcher');
   if (groupSwitcher) return; // handled by 'change' event
 

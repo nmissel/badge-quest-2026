@@ -103,7 +103,7 @@ export async function syncAllToFirestore(uid, groupId, data) {
   });
   await userBatch.commit();
 
-  // Couple goals + badges
+  // Party goals + badges
   if (groupId && data.together) {
     const groupBatch = writeBatch(db);
     data.together.goals.forEach(goal => {
