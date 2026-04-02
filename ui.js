@@ -118,8 +118,9 @@ export function updateClock() {
 
 export function updateYearWidget() {
   const now     = new Date();
-  const start   = new Date('2026-01-01');
-  const end     = new Date('2027-01-01');
+  const year    = now.getFullYear();
+  const start   = new Date(`${year}-01-01`);
+  const end     = new Date(`${year + 1}-01-01`);
   const total   = end - start;
   const elapsed = now - start;
   const pct     = Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
@@ -157,7 +158,7 @@ export async function enableNotifications(setStatus) {
   updateNotifBtn();
   if (perm === 'granted') {
     setStatus('QUEST REMINDERS ENABLED ✓', 2000);
-    new Notification('Badge Quest 2026 🎯', {
+    new Notification('Eventyr 🗺️', {
       body: "Reminders are on! We'll nudge you if quests go quiet.",
       icon: './icons/icon.svg'
     });
@@ -173,8 +174,8 @@ export function checkInactivity() {
   const daysSince = (Date.now() - parseInt(lastSave)) / (1000 * 60 * 60 * 24);
   if (daysSince >= 3) {
     const days = Math.floor(daysSince);
-    new Notification('Badge Quest 2026 🎯', {
-      body: `${days} days without a quest update — your 2026 goals are waiting!`,
+    new Notification('Eventyr 🗺️', {
+      body: `${days} days without a quest update — your quests are waiting!`,
       icon: './icons/icon.svg'
     });
   }

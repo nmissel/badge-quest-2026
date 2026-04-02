@@ -1,9 +1,9 @@
 // ============================================================
-//  BADGE QUEST 2026 — Service Worker
+//  EVENTYR — Service Worker
 //  Caches app shell for offline use
 // ============================================================
 
-const CACHE = 'badge-quest-v10';
+const CACHE = 'eventyr-v11';
 
 const SHELL = [
   './index.html',

@@ -1,7 +1,7 @@
 {
-  "name": "Badge Quest 2026",
-  "short_name": "Badge Quest",
-  "description": "Gamified goal tracker for Las & Sof — 2026",
+  "name": "Eventyr",
+  "short_name": "Eventyr",
+  "description": "Your adventure companion — track quests, earn badges, write your legend.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0C2478",

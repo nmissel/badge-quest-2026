@@ -1753,6 +1753,7 @@ function handleWinBodyClick(e) {
 
   // Shuffle button
   if (e.target.closest('#shuffle-btn')) {
+    sfxClick();
     shuffleGoals(activeTab);
     return;
   }
