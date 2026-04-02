@@ -16,7 +16,7 @@
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=DotGothic16&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -34,15 +34,13 @@
       </div>
       <div class="header-right">
         <button class="notif-btn" id="notif-btn" title="Enable quest reminders">🔔</button>
-        <button class="signout-btn" id="signout-btn" title="Sign out">Sign out</button>
       </div>
     </header>
 
-    <!-- Year Countdown Strip -->
+    <!-- Year Strip -->
     <div class="year-strip">
-      <span class="year-strip-label" id="year-days">— days left</span>
+      <span class="year-strip-label" id="year-days">— days in</span>
       <div class="year-track"><div class="year-fill" id="year-fill" style="width:0%"></div></div>
-      <span class="year-strip-sub" id="year-sub">Year 0%</span>
     </div>
 
     <!-- Tabs -->
@@ -66,7 +64,7 @@
 
       <!-- Progress Bar -->
       <div class="progress-section">
-        <span class="prog-label" id="prog-label">QUESTS: 0 / 25</span>
+        <span class="prog-label" id="prog-label">0 QUESTS DONE</span>
         <div class="prog-track"><div class="prog-fill" id="prog-fill" style="width: 0%"></div></div>
         <span class="prog-pct" id="prog-pct">0%</span>
       </div>
@@ -172,6 +170,7 @@
         </div>
         <p id="profile-error" class="auth-error"></p>
         <button class="auth-nav-btn auth-nav-btn--primary" id="profile-save-btn">SAVE CHANGES ▶</button>
+        <button class="popup-btn popup-btn-secondary profile-signout-btn" id="signout-btn">LOG OUT</button>
       </div>
     </div>
   </div>

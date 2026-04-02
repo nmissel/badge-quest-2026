@@ -117,21 +117,19 @@ export function updateClock() {
 }
 
 export function updateYearWidget() {
-  const now      = new Date();
-  const start    = new Date('2026-01-01');
-  const end      = new Date('2027-01-01');
-  const total    = end - start;
-  const elapsed  = now - start;
-  const pct      = Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
-  const daysLeft = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
+  const now     = new Date();
+  const start   = new Date('2026-01-01');
+  const end     = new Date('2027-01-01');
+  const total   = end - start;
+  const elapsed = now - start;
+  const pct     = Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
+  const daysIn  = Math.max(0, Math.floor(elapsed / (1000 * 60 * 60 * 24)));
 
   const daysEl = document.getElementById('year-days');
   const fillEl = document.getElementById('year-fill');
-  const subEl  = document.getElementById('year-sub');
   if (!daysEl) return;
-  daysEl.textContent = `${daysLeft} DAYS LEFT`;
+  daysEl.textContent = `${daysIn} DAYS IN`;
   fillEl.style.width = `${pct}%`;
-  subEl.textContent  = `Year ${pct}% done`;
 }
 
 // ── Notifications ─────────────────────────────────────────────

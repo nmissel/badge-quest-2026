@@ -172,14 +172,6 @@ body {
   flex-shrink: 0;
 }
 
-.year-strip-sub {
-  font-family: 'Tahoma', sans-serif;
-  font-size: 10px;
-  color: #555;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
 /* ============ YEAR TRACK (shared) ============ */
 
 .year-track {
@@ -686,7 +678,7 @@ body {
   cursor: pointer;
   color: #000;
   white-space: nowrap;
-  min-height: 32px;
+  min-height: 44px;
 }
 .sb-btn:hover {
   background: linear-gradient(180deg, #DDEEFF 0%, #AACCEE 50%, #88AACC 100%);
@@ -705,8 +697,8 @@ body {
 }
 
 .sb-text {
-  font-family: 'Tahoma', sans-serif;
-  font-size: 11px;
+  font-family: 'DotGothic16', monospace;
+  font-size: 14px;
   color: #0A246A;
   white-space: nowrap;
 }
@@ -2829,21 +2821,6 @@ body {
   margin: -6px 0;
 }
 
-/* ── Sign out button in header ── */
-.signout-btn {
-  background: none;
-  border: 1px solid rgba(255,255,255,0.35);
-  border-radius: 3px;
-  color: rgba(255,255,255,0.85);
-  font-family: 'Tahoma', sans-serif;
-  font-size: 10px;
-  padding: 2px 7px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s;
-}
-.signout-btn:hover { background: rgba(255,255,255,0.15); }
-
 /* ── Color picker (username setup) ── */
 .color-picker-row {
   display: flex;
@@ -4236,6 +4213,14 @@ body {
   flex-direction: column;
   gap: 12px;
 }
+
+.profile-signout-btn {
+  width: 100%;
+  font-size: 6px;
+  margin-top: 4px;
+  color: #800000;
+}
+.profile-signout-btn:hover { color: #cc0000; }
 
 .profile-preview-row {
   display: flex;

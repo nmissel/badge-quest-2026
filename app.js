@@ -889,7 +889,7 @@ function ensureWinBodyStructure() {
     wb.innerHTML = `
       ${groupSwitcherHTML}
       <div class="progress-section">
-        <span class="prog-label" id="prog-label">QUESTS: 0 / 0</span>
+        <span class="prog-label" id="prog-label">0 QUESTS DONE</span>
         <div class="prog-track"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
         <span class="prog-pct" id="prog-pct">0%</span>
       </div>
@@ -1031,7 +1031,7 @@ function renderProgress() {
   const done  = goals.length ? countDone(data, tab) : 0;
   const total = goals.length;
   const pct   = total ? Math.round((done / total) * 100) : 0;
-  document.getElementById('prog-label').textContent = `QUESTS: ${done} / ${total}`;
+  document.getElementById('prog-label').textContent = `${done} QUESTS DONE`;
   document.getElementById('prog-fill').style.width  = `${pct}%`;
   document.getElementById('prog-pct').textContent   = `${pct}%`;
 }
@@ -1150,7 +1150,7 @@ function renderAllTab() {
 
   wb.innerHTML = `
     <div class="progress-section">
-      <span class="prog-label">ALL QUESTS: ${allDone} / ${allTotal || '?'}</span>
+      <span class="prog-label">${allDone} QUESTS DONE</span>
       <div class="prog-track"><div class="prog-fill" id="prog-fill" style="width:${allPct}%"></div></div>
       <span class="prog-pct">${allPct}%</span>
     </div>
@@ -1205,7 +1205,7 @@ function renderTeamTab() {
 
     <!-- Combined progress -->
     <div class="team-prog-section">
-      <span class="team-prog-label">COMBINED: ${allDone} / ${allTotal || '?'}</span>
+      <span class="team-prog-label">${allDone} DONE TOGETHER</span>
       <div class="team-prog-track">
         <div class="team-prog-fill" style="width:${allPct}%"></div>
       </div>
