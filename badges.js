@@ -207,14 +207,30 @@ export function earnedBadges(data, tab) {
 }
 
 export function recalcBadges(data, tab) {
-  data[tab].unlockedBadges = earnedBadges(data, tab).map(b => b.id);
+  // Preserve secret badge IDs (strings like 's0', 's1') — they live in the
+  // same array but are not returned by earnedBadges(), so a plain overwrite
+  // would silently delete them whenever a goal is uncompleted.
+  const secretIds = (data[tab].unlockedBadges || []).filter(id => typeof id === 'string');
+  data[tab].unlockedBadges = [...earnedBadges(data, tab).map(b => b.id), ...secretIds];
+
+  // Clean up badgeDates for regular badges that are no longer earned.
+  // badgeDates drives the "Recently Earned" strip — stale dates cause badges
+  // to appear there after an undo. Secret badge dates (string keys) are intentionally kept.
+  if (data[tab].badgeDates) {
+    for (const key of Object.keys(data[tab].badgeDates)) {
+      if (!isNaN(key) && !data[tab].unlockedBadges.includes(Number(key))) {
+        delete data[tab].badgeDates[key];
+      }
+    }
+  }
 }
 
 export function checkAndAwardBadges(data, tab) {
   const prev      = data[tab].unlockedBadges || [];
+  const secretIds = prev.filter(id => typeof id === 'string'); // preserve secret badges
   const nowEarned = earnedBadges(data, tab);
   const newOnes   = nowEarned.filter(b => !prev.includes(b.id));
-  data[tab].unlockedBadges = nowEarned.map(b => b.id);
+  data[tab].unlockedBadges = [...nowEarned.map(b => b.id), ...secretIds];
   if (!data[tab].badgeDates) data[tab].badgeDates = {};
   newOnes.forEach(b => { data[tab].badgeDates[b.id] = new Date().toISOString(); });
   return newOnes;

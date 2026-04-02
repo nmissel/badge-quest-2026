@@ -215,10 +215,14 @@ export async function acceptGroupInvite(inviteId, invite, acceptingUid, acceptin
 
   // Update acceptor's own doc first (always allowed — own document)
   await updateDoc(doc(db, 'users', acceptingUid), { groups: arrayUnion(groupId) });
-  // Try to update inviter's doc — may fail if security rules block cross-user writes
+  // Try to update inviter's doc — may fail if Firestore security rules block cross-user writes.
+  // If it fails, the group exists and the acceptor is in it, but the inviter's groups[] won't
+  // include the new groupId — they won't see the group in their list until a server-side fix.
   try {
     await updateDoc(doc(db, 'users', invite.fromUid), { groups: arrayUnion(groupId) });
-  } catch (_) {}
+  } catch (e) {
+    console.warn('⚠️ Could not update inviter groups[] — security rules may block cross-user writes. groupId:', groupId, e);
+  }
 
   return groupId;
 }

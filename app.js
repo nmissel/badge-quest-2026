@@ -101,13 +101,13 @@ const GOAL_TYPES = {
     modalFields: true,
 
     initialState: () => ({
-      target:  parseInt(document.getElementById('gm-target').value) || 10,
-      unit:    document.getElementById('gm-unit').value.trim() || 'times',
+      target:  parseInt(document.getElementById('gm-target')?.value) || 10,
+      unit:    document.getElementById('gm-unit')?.value.trim() || 'times',
       current: 0,
     }),
     updateFields(goal) {
-      goal.target = parseInt(document.getElementById('gm-target').value) || 10;
-      goal.unit   = document.getElementById('gm-unit').value.trim() || 'times';
+      goal.target = parseInt(document.getElementById('gm-target')?.value) || 10;
+      goal.unit   = document.getElementById('gm-unit')?.value.trim() || 'times';
     },
     clearFields(goal) { delete goal.months; },
 
@@ -375,7 +375,7 @@ function showDeadlinePopup(tab, id, btnEl) {
   const clearBtn = document.getElementById('dl-popup-clear');
   input.value = goal.deadline || '';
   input.min   = new Date().toISOString().split('T')[0];
-  input.max   = '2026-12-31';
+  input.max   = `${new Date().getFullYear()}-12-31`;
   clearBtn.style.display = goal.deadline ? 'inline-block' : 'none';
   const r = btnEl.getBoundingClientRect();
   popup.style.top  = (r.bottom + 6) + 'px';
@@ -405,11 +405,11 @@ function urgentWarningsHTML(tabs) {
   if (!items.length) return '';
   const hasOverdue = items.some(x => x.u === 'overdue');
   const rows = items.map(x =>
-    `<div class="deadline-warning-item">${x.u === 'overdue' ? '🚨' : '⚡'} ${esc(x.title)} — ${x.dayStr}</div>`
+    `<div class="deadline-warning-item">${x.u === 'overdue' ? '⏳' : '⚡'} ${esc(x.title)} — ${x.dayStr}</div>`
   ).join('');
   return `
     <div class="deadline-warning-panel ${hasOverdue ? 'deadline-warning-overdue' : ''}">
-      <div class="deadline-warning-title">${hasOverdue ? '🚨 OVERDUE QUESTS' : '⚡ URGENT QUESTS'}</div>
+      <div class="deadline-warning-title">${hasOverdue ? '⏳ PAST DEADLINE' : '⚡ URGENT QUESTS'}</div>
       ${rows}
     </div>`;
 }
