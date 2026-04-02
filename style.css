@@ -3090,7 +3090,7 @@ body {
   cursor: pointer;
   color: #333;
   white-space: nowrap;
-  min-height: 28px;
+  min-height: 36px;
   transition: filter 0.1s;
 }
 .shuffle-btn:hover {
