@@ -504,11 +504,11 @@ body {
 
 /* Type-coded left borders — removed */
 
-.goal-item.done { background: #EEF7EE; }
+.goal-item.done { background: #EEF7EE; border-left-color: #4CAF50; }
 .goal-item.done:nth-child(even) { background: #E8F4E8; }
 .goal-item.done .goal-title {
   text-decoration: line-through;
-  color: #888;
+  color: #5C9E5C;
 }
 .goal-item.done:hover { background: linear-gradient(90deg, #186418, #0D4E0D); }
 .goal-item.done:hover .goal-title { color: #90EE90; }
@@ -1345,8 +1345,10 @@ body {
   font-size: 5px;
   text-align: center;
   padding: 8px 2px;
-  background: #FFFFFF;
-  border: 1px solid #ACA899;
+  background: linear-gradient(180deg, #FFFFFF 0%, #ECE9D8 100%);
+  border: 1px solid;
+  border-color: #FFFFFF #808070 #808070 #FFFFFF;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.8);
   border-radius: 2px;
   cursor: pointer;
   color: #555;
@@ -1356,20 +1358,28 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  transition: background 0.1s;
 }
 .month-cell:hover {
   background: linear-gradient(180deg, #DDEEFF 0%, #AACCEE 100%);
-  border-color: #316AC5;
+  border-color: #316AC5 #0A246A #0A246A #316AC5;
   color: #0A246A;
 }
 .month-cell.checked {
-  background: linear-gradient(180deg, #E0F8E0 0%, #C4ECC4 100%);
-  border-color: #4CAF50;
+  background: linear-gradient(180deg, #C4ECC4 0%, #E0F8E0 100%);
+  border-color: #2A8A2A #6AC86A #6AC86A #2A8A2A;
+  box-shadow: inset 1px 1px 2px rgba(0,0,0,0.12);
   color: #1A6A1A;
+  animation: cell-pop 0.2s ease-out;
 }
 .month-cell.checked:hover {
-  background: linear-gradient(180deg, #C4ECC4 0%, #A8E0A8 100%);
-  border-color: #2A8A2A;
+  background: linear-gradient(180deg, #A8E0A8 0%, #C4ECC4 100%);
+  border-color: #1A6A1A #4CAF50 #4CAF50 #1A6A1A;
+}
+@keyframes cell-pop {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.18); }
+  100% { transform: scale(1); }
 }
 
 /* ============ OWNER TAGS (ALL tab) ============ */
@@ -3070,17 +3080,29 @@ body {
 .add-quest-btn:hover  { filter: brightness(1.15); }
 .add-quest-btn:active { transform: translate(1px,1px); box-shadow: none; }
 .shuffle-btn {
-  background: none;
-  border: 1px solid #999;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 5px;
+  background: linear-gradient(180deg, #FAFAFA 0%, #E8E4D8 45%, #D0CCBC 50%, #C4C0B0 100%);
+  border: 1px solid;
+  border-color: #FFFFFF #808070 #808070 #FFFFFF;
   border-radius: 3px;
-  padding: 3px 6px;
-  font-size: 13px;
+  padding: 4px 8px;
   cursor: pointer;
-  line-height: 1;
-  transition: transform 0.3s;
+  color: #333;
+  white-space: nowrap;
+  min-height: 28px;
+  transition: filter 0.1s;
 }
-.shuffle-btn:hover  { transform: rotate(180deg); }
-.shuffle-btn:active { transform: rotate(360deg); }
+.shuffle-btn:hover {
+  background: linear-gradient(180deg, #DDEEFF 0%, #AACCEE 50%, #88AACC 100%);
+  border-color: #316AC5;
+  color: #0A246A;
+}
+.shuffle-btn:active {
+  background: linear-gradient(180deg, #B8CCDD 0%, #DDEEFF 100%);
+  border-color: #0A246A;
+  transform: translate(1px, 1px);
+}
 @keyframes quest-complete-flash {
   0%   { box-shadow: inset 0 0 0 2000px rgba(46, 160, 46, 0.55); }
   100% { box-shadow: inset 0 0 0 2000px rgba(46, 160, 46, 0); }
@@ -4061,7 +4083,7 @@ body {
 }
 .goal-item.done .goal-title {
   text-decoration: line-through;
-  color: #999;
+  color: #5C9E5C;
 }
 
 .goal-action {

@@ -895,11 +895,11 @@ function ensureWinBodyStructure() {
       </div>
       <div class="inset-panel quest-panel">
         <div class="panel-title-row">
-          <span class="panel-title">📜 QUEST LOG</span>
+          <span class="panel-title">✦ QUEST LOG</span>
           <div class="panel-title-actions">
             ${(activeTab === 'me' || activeTab === 'together') ? `
-              <button class="shuffle-btn" id="shuffle-btn" title="Shuffle quest order">🔀</button>
-              <button class="add-quest-btn" id="add-quest-btn" title="Add new quest">+ NEW</button>
+              <button class="shuffle-btn" id="shuffle-btn" title="Shuffle quest order">SHUFFLE</button>
+              <button class="add-quest-btn" id="add-quest-btn" title="Add new quest">+ QUEST</button>
             ` : ''}
           </div>
         </div>
@@ -1156,7 +1156,7 @@ function renderAllTab() {
     </div>
     <div class="inset-panel quest-panel">
       <div class="panel-title-row">
-        <span class="panel-title">📋 ALL QUESTS</span>
+        <span class="panel-title">✦ ALL QUESTS</span>
       </div>
       <div class="goal-list" id="goal-list">${urgentWarningsHTML(['me', 'together', ...(data.partner ? ['partner'] : [])]) + goalsHTML}</div>
     </div>`;
@@ -1214,7 +1214,7 @@ function renderTeamTab() {
 
     <!-- Combined total badges -->
     <div class="inset-panel team-badge-panel">
-      <div class="panel-title">🏅 COMBINED BADGES — unlock by hitting totals together</div>
+      <div class="panel-title">✦ COMBINED BADGES</div>
       <div class="badge-case">
         ${COMBINED_BADGE_DEFS.map(b => {
           const needed = b.threshold(allTotal);
@@ -1226,7 +1226,7 @@ function renderTeamTab() {
 
     <!-- Balance badges -->
     <div class="inset-panel balance-badge-panel">
-      <div class="panel-title">⚖️ BALANCE BADGES — unlock when BOTH players hit the same %</div>
+      <div class="panel-title">✦ BALANCE BADGES</div>
       <div style="font-family:VT323,monospace;font-size:16px;color:#555;margin-bottom:8px;padding:0 4px">
         ${meName}: ${mePct}% · ${partnerName}: ${data.partner ? partnerPct + '%' : '(no partner yet)'}
       </div>
@@ -1493,11 +1493,11 @@ function renderTeamsTab() {
   wb.innerHTML = `
     ${switcherHTML}
     <div class="inset-panel" style="margin-bottom:8px">
-      <div class="panel-title">🗺️ YOUR CREW</div>
+      <div class="panel-title">✦ YOUR CREW</div>
       ${membersHTML || '<div class="partners-empty" style="padding:12px">Member data loading…</div>'}
     </div>
     <div class="inset-panel">
-      <div class="panel-title">🏅 TEAM BADGES — earn these together</div>
+      <div class="panel-title">✦ TEAM BADGES</div>
       <div class="badge-case">${teamBadgesHTML}</div>
     </div>`;
 
@@ -2099,11 +2099,11 @@ if ('serviceWorker' in navigator) {
 function updateTabLabels() {
   // PARTY tab — always visible
   const partyTab = document.getElementById('tab-together');
-  if (partyTab) partyTab.textContent = '💎 PARTY';
+  if (partyTab) partyTab.textContent = 'PARTY';
 
   // ME tab label — show username
   const meTab = document.getElementById('tab-me');
-  if (meTab && data.me?.name) meTab.textContent = `👤 ${data.me.name.toUpperCase()}`;
+  if (meTab && data.me?.name) meTab.textContent = data.me.name.toUpperCase();
 
   // TEAM tab — always visible (shows empty state if not in a team)
   const teamTab = document.getElementById('tab-teams');
