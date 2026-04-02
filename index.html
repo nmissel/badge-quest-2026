@@ -21,7 +21,7 @@
 </head>
 <body>
 
-  <div class="app">
+  <div class="app" style="display:none">
 
     <!-- App Header (XP Luna gradient, no window chrome) -->
     <header class="app-header" id="title-bar">
@@ -216,8 +216,94 @@
     </div>
   </div>
 
+  <!-- ── Hero Screen ──────────────────────────────────────── -->
+  <div id="hero-screen" style="display:none">
+    <div class="hero-bg" id="hero-bg"></div>
+
+    <!-- Title — XP window, appears after battle scene fades -->
+    <div class="hero-title-wrap" id="hero-title-wrap">
+      <div class="hero-xp-window">
+        <div class="hero-xp-titlebar">
+          <span class="hero-xp-win-title">Badge Quest 2026</span>
+          <div class="hero-xp-controls">
+            <button class="hero-xp-ctrl hero-xp-min">&#8211;</button>
+            <button class="hero-xp-ctrl hero-xp-max">&#9633;</button>
+            <button class="hero-xp-ctrl hero-xp-close">&#10005;</button>
+          </div>
+        </div>
+        <div class="hero-xp-body">
+          <div class="hero-logo" id="hero-logo">BADGE QUEST</div>
+          <div class="hero-year" id="hero-year">2 0 2 6</div>
+          <div class="hero-tagline" id="hero-tagline">A quest is better shared.</div>
+        </div>
+        <div class="hero-xp-footer">
+          <button class="hero-begin-btn" id="hero-begin-btn">&#9876; BEGIN YOUR ADVENTURE &#9656;</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Battle scene — slides in, then fades out -->
+    <div class="hero-scene-wrap" id="hero-scene-wrap">
+      <div class="hero-ground" id="hero-ground"></div>
+
+      <!-- HERO sprite (amber adventurer, facing right) -->
+      <div class="hero-sprite hero-sprite--hero" id="hero-sprite-hero">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 104" width="96" height="104">
+          <g fill="#D4782A">
+            <rect x="32" y="0"  width="32" height="8"/>
+            <rect x="24" y="8"  width="48" height="8"/>
+            <rect x="24" y="16" width="48" height="8"/>
+            <rect x="24" y="24" width="48" height="8"/>
+            <rect x="32" y="32" width="32" height="8"/>
+            <rect x="8"  y="40" width="80" height="8"/>
+            <rect x="8"  y="48" width="88" height="8"/>
+            <rect x="8"  y="56" width="80" height="8"/>
+            <rect x="16" y="64" width="64" height="8"/>
+            <rect x="16" y="72" width="64" height="8"/>
+            <rect x="16" y="80" width="16" height="8"/>
+            <rect x="64" y="80" width="16" height="8"/>
+            <rect x="16" y="88" width="16" height="8"/>
+            <rect x="64" y="88" width="16" height="8"/>
+            <rect x="8"  y="96" width="24" height="8"/>
+            <rect x="64" y="96" width="24" height="8"/>
+          </g>
+        </svg>
+      </div>
+
+      <!-- DRAGON sprite (crimson dragon, facing left) -->
+      <div class="hero-sprite hero-sprite--dragon" id="hero-sprite-dragon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 112 96" width="112" height="96">
+          <g fill="#AA1111">
+            <rect x="80" y="0"  width="16" height="8"/>
+            <rect x="64" y="8"  width="48" height="8"/>
+            <rect x="48" y="16" width="64" height="8"/>
+            <rect x="16" y="24" width="88" height="8"/>
+            <rect x="0"  y="32" width="8"  height="8"/>
+            <rect x="16" y="32" width="80" height="8"/>
+            <rect x="0"  y="40" width="88" height="8"/>
+            <rect x="0"  y="48" width="80" height="8"/>
+            <rect x="8"  y="56" width="64" height="8"/>
+            <rect x="16" y="64" width="48" height="8"/>
+            <rect x="16" y="72" width="16" height="8"/>
+            <rect x="48" y="72" width="16" height="8"/>
+            <rect x="16" y="80" width="16" height="8"/>
+            <rect x="48" y="80" width="16" height="8"/>
+            <rect x="8"  y="88" width="24" height="8"/>
+            <rect x="40" y="88" width="32" height="8"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <!-- White flash overlay for confrontation moment -->
+    <div class="hero-flash" id="hero-flash"></div>
+
+    <!-- Skip hint -->
+    <div class="hero-skip-hint" id="hero-skip-hint">&#9834; CLICK ANYWHERE TO BEGIN WITH SOUND</div>
+  </div>
+
   <!-- ── Auth Overlay — Treasure Hunt Wizard ──────────────── -->
-  <div id="auth-overlay">
+  <div id="auth-overlay" style="display:none">
 
     <div id="auth-wizard" class="auth-window auth-window--wizard">
 

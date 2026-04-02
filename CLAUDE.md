@@ -11,6 +11,33 @@ Your job is to make **small, correct, and safe improvements** without breaking:
 - Firebase data integrity
 - modular vanilla JS structure
 
+---
+
+## Product Philosophy (read this before building anything)
+
+Badge Quest is an **adventure companion**, not a to-do list. This is not a subtle distinction — it shapes every feature, every piece of copy, and every UI decision.
+
+**Completion is never required.** Goals can change. Life changes. Abandoning a quest is not failure — it's the adventure going a different direction. The app never judges.
+
+**No pressure. No guilt. No shame.** The product should not chase users when they're gone, punish them for inactivity, or make them feel behind. It should be delightful when they return.
+
+**Use it when you feel like it.** We don't care about time-in-app or streaks. We care that when someone opens it, they feel something good.
+
+**The journey is the point, not the destination.** A quest that's sat on the board for 6 months is not a red mark — it's a story.
+
+**Badge philosophy:**
+- **Visible badges** celebrate participation and adventure — showing up, trying, being in motion. Not grinding to 100%.
+- **Secret badges** are for discoverers. Any completionist mechanic (finish everything, unlock all badges) lives here — hidden, never pressure, pure joy when found.
+- Regular badges should feel like happy milestones, not a checklist to clear.
+
+**When building, always ask:**
+- Does this create pressure or guilt? If yes, redesign it.
+- Does this empty state invite or shame? It should always invite.
+- Does this progress element say "look how far you've come" or "look how much is left"? It should always be the former.
+- Would a notification or reminder feel like a friend waving, or a boss chasing? Always the former.
+
+---
+
 ## Project Files
 
 All files live in:

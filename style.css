@@ -4284,3 +4284,291 @@ body {
 .profile-swatch:hover    { transform: scale(1.15); }
 .profile-swatch.selected { border-color: #fff; box-shadow: 0 0 0 2px #0C2478, 1px 1px 0 rgba(0,0,0,0.3); }
 
+/* ══════════════════════════════════════════════════════════════
+   HERO SCREEN — Pokémon intro style
+   ══════════════════════════════════════════════════════════════ */
+
+#hero-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+/* ── Background + stars ─────────────────────────────────────── */
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 35%, #0D1540 0%, #05050F 65%);
+}
+
+.hero-star {
+  position: absolute;
+  background: #fff;
+  border-radius: 50%;
+  opacity: 0;
+  animation: hero-twinkle 3s ease-in-out infinite;
+}
+@keyframes hero-twinkle {
+  0%, 100% { opacity: 0.15; }
+  50%       { opacity: 0.95; }
+}
+
+/* ── Battle scene ───────────────────────────────────────────── */
+.hero-scene-wrap {
+  position: absolute;
+  bottom: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  gap: 80px;
+  z-index: 1;
+  transition: opacity 0.9s ease;
+}
+.hero-scene-wrap.scene-out { opacity: 0; pointer-events: none; }
+
+.hero-ground {
+  position: absolute;
+  bottom: -12px;
+  left: -60px;
+  right: -60px;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, #1D5C30 15%, #1D5C30 85%, transparent);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.55s ease;
+}
+.hero-ground.ground-in { transform: scaleX(1); }
+
+.hero-sprite--hero {
+  opacity: 0;
+  transform: translateX(-50px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  filter: drop-shadow(0 0 14px #D4782A99);
+  image-rendering: pixelated;
+}
+.hero-sprite--dragon {
+  opacity: 0;
+  transform: translateX(50px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  filter: drop-shadow(0 0 18px #AA111199);
+  image-rendering: pixelated;
+}
+.hero-sprite--hero.sprite-in,
+.hero-sprite--dragon.sprite-in {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ── Flash ──────────────────────────────────────────────────── */
+.hero-flash {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+  transition: opacity 0.12s ease;
+}
+.hero-flash.flash-on  { opacity: 0.9; }
+.hero-flash.flash-off { opacity: 0; transition: opacity 0.4s ease; }
+
+/* ── Title block (XP Window) ────────────────────────────────── */
+.hero-title-wrap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -44%);
+  z-index: 1;
+  width: 90vw;
+  max-width: 420px;
+  opacity: 0;
+  transition: opacity 0.85s ease, transform 0.85s ease;
+}
+.hero-title-wrap.show {
+  opacity: 1;
+  transform: translate(-50%, -50%);
+}
+
+.hero-xp-window {
+  border-radius: 8px 8px 4px 4px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px #0A246A,
+    inset 2px 2px 0 rgba(255,255,255,0.25),
+    inset -1px -1px 0 #3058A8,
+    0 10px 40px rgba(0,0,0,0.9);
+}
+
+.hero-xp-titlebar {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 55%),
+    linear-gradient(90deg,
+      #0C2478 0%, #1848BE 18%,
+      #3870DA 38%, #4A88F0 50%,
+      #3870DA 62%, #1848BE 82%,
+      #0C2478 100%
+    );
+  padding: 5px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hero-xp-win-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hero-xp-controls {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.hero-xp-ctrl {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-family: 'Tahoma', sans-serif;
+  font-weight: bold;
+  color: #fff;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.5);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+  background: linear-gradient(180deg, #5A9AE8 0%, #2B6BCF 45%, #1455BB 100%);
+  border-top:    1px solid #7AAAE8;
+  border-left:   1px solid #4A7ED0;
+  border-right:  1px solid #0A2478;
+  border-bottom: 1px solid #0A2478;
+}
+
+.hero-xp-close {
+  background: linear-gradient(180deg, #f8a0a0 0%, #d94040 40%, #b01010 100%);
+  border-top:    1px solid #f8c0c0;
+  border-left:   1px solid #e06060;
+  border-right:  1px solid #880000;
+  border-bottom: 1px solid #660000;
+}
+
+.hero-xp-body {
+  background: #ECE9D8;
+  padding: 24px 24px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.hero-logo {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(14px, 4.5vw, 26px);
+  color: #0C2478;
+  letter-spacing: 3px;
+}
+
+.hero-year {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(8px, 2vw, 12px);
+  color: #1848BE;
+  letter-spacing: 10px;
+}
+
+.hero-tagline {
+  font-family: 'VT323', monospace;
+  font-size: clamp(18px, 4vw, 26px);
+  color: #444;
+  font-style: italic;
+}
+
+.hero-xp-footer {
+  background: #ECE9D8;
+  border-top: 1px solid #ACA899;
+  padding: 12px 24px;
+  display: flex;
+  justify-content: center;
+}
+
+/* ── Begin button (XP standard button) ─────────────────────── */
+.hero-begin-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(6px, 1.8vw, 9px);
+  color: #000;
+  background: linear-gradient(180deg, #FFFFFF 0%, #ECE9D8 40%, #D4CFC0 100%);
+  border-top:    2px solid #FFFFFF;
+  border-left:   2px solid #E0DDD8;
+  border-right:  2px solid #888880;
+  border-bottom: 2px solid #888880;
+  padding: 8px 20px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: background 0.1s;
+}
+.hero-begin-btn:hover {
+  background: linear-gradient(180deg, #EBF3FF 0%, #C8DEFF 40%, #B0CFFF 100%);
+  border-top:    2px solid #FFFFFF;
+  border-left:   2px solid #7AAAD8;
+  border-right:  2px solid #1E5AB8;
+  border-bottom: 2px solid #1E5AB8;
+}
+.hero-begin-btn:active {
+  background: linear-gradient(180deg, #C8C4B8 0%, #C0BDB0 100%);
+  border-top:    2px solid #888880;
+  border-left:   2px solid #888880;
+  border-right:  2px solid #FFFFFF;
+  border-bottom: 2px solid #FFFFFF;
+}
+
+/* ── Skip hint ──────────────────────────────────────────────── */
+.hero-skip-hint {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 5px;
+  color: rgba(255,255,255,0.2);
+  letter-spacing: 2px;
+  z-index: 3;
+  pointer-events: none;
+  animation: hero-skip-fade 1s ease 1.5s forwards;
+  opacity: 0;
+}
+@keyframes hero-skip-fade {
+  to { opacity: 1; }
+}
+
+/* ── Exit transition ────────────────────────────────────────── */
+#hero-screen.exiting {
+  animation: hero-exit 0.65s ease forwards;
+  pointer-events: none;
+}
+@keyframes hero-exit {
+  to { opacity: 0; }
+}
+
+/* ── Mobile adjustments ─────────────────────────────────────── */
+@media (max-width: 400px) {
+  .hero-scene-wrap { gap: 30px; }
+  .hero-sprite--hero  svg { width: 72px;  height: 78px;  }
+  .hero-sprite--dragon svg { width: 84px;  height: 72px;  }
+}
+
