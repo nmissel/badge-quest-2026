@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auth Wizard Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="auth-overlay" style="display:flex">
+  <div id="auth-wizard" class="auth-window auth-window--wizard">
+    <div class="auth-titlebar">
+      <span class="auth-titlebar-icon">⚔️</span>
+      <span class="auth-titlebar-text">BADGE QUEST 2026</span>
+      <div class="auth-win-btns">
+        <button class="auth-win-btn" tabindex="-1">─</button>
+        <button class="auth-win-btn auth-win-btn--x" tabindex="-1">✕</button>
+      </div>
+    </div>
+
+    <div class="wizard-steps" id="wizard-steps">
+      <div class="wizard-step active" data-step="1">1</div>
+      <div class="wizard-connector" data-after="1"></div>
+      <div class="wizard-step locked" data-step="2">2</div>
+      <div class="wizard-connector" data-after="2"></div>
+      <div class="wizard-step locked" data-step="3">3</div>
+      <div class="wizard-connector" data-after="3"></div>
+      <div class="wizard-step locked" data-step="4">4</div>
+      <div class="wizard-connector" data-after="4"></div>
+      <div class="wizard-step locked wizard-step--x" data-step="5">X</div>
+    </div>
+
+    <div class="wizard-content">
+      <div class="step-content" id="step-1">
+        <div class="story-hero">
+          <span class="story-hero-icon">⚔️</span>
+        </div>
+        <div class="auth-pixel-title story-main-title">BADGE QUEST<br>2026</div>
+        <p class="story-lore">The year is 2026. A blank map stretches before you, full of dragons to slay, habits to forge, and memories to make.</p>
+        <p class="story-lore">No roads marked. No quests assigned. Just you, and twelve months to write your legend.</p>
+      </div>
+
+      <div class="step-content" id="step-2" style="display:none">
+        <div class="auth-pixel-title">WHAT IS<br>BADGE QUEST?</div>
+        <p class="auth-subtitle">Your personal quest log for 2026. Set goals for the year, track your progress, and earn legendary badges as you complete them.</p>
+        <div class="story-features">
+          <div class="story-feature"><span class="story-feature-icon">📜</span><span>Write quests: one-time feats or monthly habits</span></div>
+          <div class="story-feature"><span class="story-feature-icon">🏅</span><span>Complete quests to unlock legendary badges</span></div>
+          <div class="story-feature"><span class="story-feature-icon">💎</span><span>Invite a companion and quest together</span></div>
+        </div>
+      </div>
+
+      <div class="step-content" id="step-3" style="display:none">
+        <div class="auth-shield-wrap">
+          <span class="auth-shield-icon">🛡️</span>
+        </div>
+        <div class="auth-pixel-title">SIGN IN<br>TO QUEST</div>
+        <p class="auth-subtitle">Secure your quest log with your Google account.</p>
+        <button class="google-btn" onclick="goToStep(4)">
+          <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+            <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+            <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+            <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+            <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+          </svg>
+          Sign in with Google
+        </button>
+      </div>
+
+      <div class="step-content" id="step-4" style="display:none">
+        <div class="auth-pixel-title">CHOOSE YOUR AVATAR</div>
+        <p class="auth-subtitle">Enter a name for the quest logs. Visible to your party and team.</p>
+        <label class="auth-field-label" for="username-input">USERNAME:</label>
+        <input id="username-input" class="auth-input" type="text" maxlength="20" placeholder="Enter quest name..." oninput="const v=this.value.trim();document.getElementById('avatar-preview-name').textContent=v.toUpperCase()||'NEW_PLAYER_01';document.getElementById('avatar-preview-icon').textContent=v.charAt(0).toUpperCase()||'?';">
+        <div class="color-picker-row">
+          <span class="color-picker-label">COLOR SIGNATURE:</span>
+          <div class="color-swatches color-swatches--wide">
+            <button class="color-swatch selected" data-color="#cc0000" style="background:#cc0000"></button>
+            <button class="color-swatch" data-color="#E91E63" style="background:#E91E63"></button>
+            <button class="color-swatch" data-color="#FF9800" style="background:#FF9800"></button>
+            <button class="color-swatch" data-color="#FFEB3B" style="background:#FFEB3B"></button>
+            <button class="color-swatch" data-color="#4CAF50" style="background:#4CAF50"></button>
+            <button class="color-swatch" data-color="#2E7D32" style="background:#2E7D32"></button>
+            <button class="color-swatch" data-color="#00BCD4" style="background:#00BCD4"></button>
+            <button class="color-swatch" data-color="#1848BE" style="background:#1848BE"></button>
+            <button class="color-swatch" data-color="#3F51B5" style="background:#3F51B5"></button>
+            <button class="color-swatch" data-color="#7B2D8B" style="background:#7B2D8B"></button>
+            <button class="color-swatch" data-color="#880E4F" style="background:#880E4F"></button>
+            <button class="color-swatch" data-color="#795548" style="background:#795548"></button>
+            <button class="color-swatch" data-color="#607D8B" style="background:#607D8B"></button>
+            <button class="color-swatch" data-color="#333333" style="background:#333333"></button>
+            <button class="color-swatch" data-color="#E65100" style="background:#E65100"></button>
+          </div>
+        </div>
+        <div class="auth-avatar-preview">
+          <div class="auth-avatar-icon" id="avatar-preview-icon" style="background:#cc0000">?</div>
+          <div>
+            <div class="auth-avatar-label">LVL 1 ADVENTURER</div>
+            <div class="auth-avatar-name" id="avatar-preview-name">NEW_PLAYER_01</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-content" id="step-5" style="display:none">
+        <div class="begin-x-mark">✕</div>
+        <div class="auth-pixel-title">YOU FOUND IT,<br>ADVENTURER!</div>
+        <p class="story-lore">Every legend begins with a blank page. You just picked up the pen.</p>
+      </div>
+    </div>
+
+    <div class="wizard-footer" id="wizard-footer">
+      <div class="auth-footer">
+        <span>🗺️ Your 2026 adventure awaits</span>
+        <span>Ver 2026.04.12</span>
+      </div>
+      <div class="wizard-footer-btns" id="wizard-footer-btns">
+        <button class="auth-nav-btn auth-nav-btn--primary" onclick="goToStep(2)">NEXT ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="auth-taskbar">
+    <button class="auth-taskbar-start">▶ START</button>
+    <div class="auth-taskbar-clock">12:00 PM</div>
+  </div>
+</div>
+
+<script>
+function goToStep(n) {
+  document.querySelectorAll('.wizard-step').forEach(el => {
+    const s = parseInt(el.dataset.step);
+    el.classList.remove('active','locked','completed');
+    if (s < n)  el.classList.add('completed');
+    if (s === n) el.classList.add('active');
+    if (s > n)  el.classList.add('locked');
+  });
+  document.querySelectorAll('.wizard-connector').forEach(el => {
+    el.classList.toggle('passed', parseInt(el.dataset.after) < n);
+  });
+  document.querySelectorAll('.step-content').forEach((el, i) => {
+    el.style.display = (i + 1 === n) ? '' : 'none';
+  });
+  const btns = document.getElementById('wizard-footer-btns');
+  if (n === 1) {
+    btns.innerHTML = `<button class="auth-nav-btn auth-nav-btn--primary" onclick="goToStep(2)">NEXT ▶</button>`;
+  } else if (n === 2) {
+    btns.innerHTML = `<button class="auth-nav-btn" onclick="goToStep(1)">◀ BACK</button><button class="auth-nav-btn auth-nav-btn--primary" onclick="goToStep(3)">NEXT ▶</button>`;
+  } else if (n === 3) {
+    btns.innerHTML = `<button class="auth-nav-btn" onclick="goToStep(2)">◀ BACK</button>`;
+  } else if (n === 4) {
+    btns.innerHTML = `<button class="auth-nav-btn auth-nav-btn--primary" onclick="goToStep(5)">NEXT ▶</button>`;
+  } else if (n === 5) {
+    btns.innerHTML = `<button class="auth-nav-btn auth-nav-btn--primary wizard-next-full">⚔️ BEGIN QUEST ▶</button>`;
+  }
+}
+document.querySelectorAll('.color-swatch').forEach(sw => {
+  sw.addEventListener('click', () => {
+    document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+    sw.classList.add('selected');
+    document.getElementById('avatar-preview-icon').style.background = sw.dataset.color;
+  });
+});
+</script>
+</body>
+</html>

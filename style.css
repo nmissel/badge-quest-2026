@@ -2367,18 +2367,18 @@ body {
   position: absolute;
   bottom: 0; left: 0; right: 0;
   height: 34px;
-  background: linear-gradient(180deg, #3A8A3A 0%, #2A6A2A 100%);
+  background: linear-gradient(180deg, #1A3068 0%, #0C1E48 100%);
   display: flex;
   align-items: center;
   padding: 0 8px;
   justify-content: space-between;
   z-index: 1;
-  border-top: 1px solid #5BB85B;
+  border-top: 1px solid #2848A8;
 }
 .auth-taskbar-start {
-  background: linear-gradient(180deg, #5BB85B 0%, #3A8A3A 100%);
+  background: linear-gradient(180deg, #2858B8 0%, #1A3068 100%);
   color: #fff;
-  border: 1px solid #2A6A2A;
+  border: 1px solid #0A246A;
   border-radius: 3px;
   font-family: 'Press Start 2P', monospace;
   font-size: 7px;
@@ -2423,6 +2423,7 @@ body {
 /* Login screen extras */
 .auth-shield-wrap {
   text-align: center;
+  width: 100%;
   margin-bottom: 18px;
 }
 .auth-shield-icon {
@@ -2451,7 +2452,7 @@ body {
   border: 1px solid #757575;
 }
 .auth-level-sep {
-  text-align: center;
+  text-align: left;
   font-family: 'Tahoma', sans-serif;
   font-size: 10px;
   color: #888;
@@ -2464,7 +2465,7 @@ body {
   font-size: 11px;
   color: #2E7D32;
   line-height: 1.9;
-  text-align: center;
+  text-align: left;
   margin-bottom: 8px;
 }
 .auth-footer {
@@ -2527,24 +2528,21 @@ body {
   box-shadow: 0 3px 10px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.25);
 }
 
-/* Step 3 — sign in: fully centred */
+/* Step 3 — sign in */
 #step-3 {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
+  text-align: left;
 }
-#step-3 .auth-pixel-title,
-#step-3 .auth-subtitle { text-align: center; width: 100%; }
 
-/* Step 5 — begin: fully centred */
+/* Step 5 — begin */
 #step-5 {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
+  text-align: left;
 }
-#step-5 .auth-pixel-title { text-align: center; width: 100%; }
 #step-5 .story-lore { margin-top: 10px; margin-bottom: 0; }
 .auth-avatar-label {
   font-family: 'Tahoma', sans-serif;
@@ -2615,7 +2613,7 @@ body {
 .story-main-title {
   font-size: 12px;
   color: #0C2478;
-  text-align: center;
+  text-align: left;
   margin: 8px 0 12px;
 }
 .story-lore {
@@ -2623,7 +2621,7 @@ body {
   font-size: 13px;
   color: #222;
   line-height: 1.5;
-  text-align: center;
+  text-align: left;
   font-style: italic;
   margin: 0 0 10px;
 }
@@ -2658,37 +2656,25 @@ body {
   padding-bottom: 34px;
   font-family: 'Tahoma', sans-serif;
   background:
-    /* Trees */
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='80'%3E%3Crect x='22' y='54' width='6' height='24' fill='%235D4037'/%3E%3Cpolygon points='25,4 7,34 43,34' fill='%231B5E20'/%3E%3Cpolygon points='25,18 5,50 45,50' fill='%232E7D32'/%3E%3Cpolygon points='25,32 4,62 46,62' fill='%23388E3C'/%3E%3C/svg%3E") no-repeat 0% bottom / 40px 64px,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='80'%3E%3Crect x='22' y='54' width='6' height='24' fill='%235D4037'/%3E%3Cpolygon points='25,4 7,34 43,34' fill='%231B5E20'/%3E%3Cpolygon points='25,18 5,50 45,50' fill='%232E7D32'/%3E%3Cpolygon points='25,32 4,62 46,62' fill='%23388E3C'/%3E%3C/svg%3E") no-repeat 5% bottom / 52px 80px,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='80'%3E%3Crect x='22' y='54' width='6' height='24' fill='%235D4037'/%3E%3Cpolygon points='25,4 7,34 43,34' fill='%231B5E20'/%3E%3Cpolygon points='25,18 5,50 45,50' fill='%232E7D32'/%3E%3Cpolygon points='25,32 4,62 46,62' fill='%23388E3C'/%3E%3C/svg%3E") no-repeat 11% bottom / 36px 58px,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='80'%3E%3Crect x='22' y='54' width='6' height='24' fill='%235D4037'/%3E%3Cpolygon points='25,4 7,34 43,34' fill='%231B5E20'/%3E%3Cpolygon points='25,18 5,50 45,50' fill='%232E7D32'/%3E%3Cpolygon points='25,32 4,62 46,62' fill='%23388E3C'/%3E%3C/svg%3E") no-repeat 17% bottom / 44px 68px,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='80'%3E%3Crect x='22' y='54' width='6' height='24' fill='%235D4037'/%3E%3Cpolygon points='25,4 7,34 43,34' fill='%231B5E20'/%3E%3Cpolygon points='25,18 5,50 45,50' fill='%232E7D32'/%3E%3Cpolygon points='25,32 4,62 46,62' fill='%23388E3C'/%3E%3C/svg%3E") no-repeat 80% bottom / 42px 66px,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='80'%3E%3Crect x='22' y='54' width='6' height='24' fill='%235D4037'/%3E%3Cpolygon points='25,4 7,34 43,34' fill='%231B5E20'/%3E%3Cpolygon points='25,18 5,50 45,50' fill='%232E7D32'/%3E%3Cpolygon points='25,32 4,62 46,62' fill='%23388E3C'/%3E%3C/svg%3E") no-repeat 86% bottom / 34px 54px,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='80'%3E%3Crect x='22' y='54' width='6' height='24' fill='%235D4037'/%3E%3Cpolygon points='25,4 7,34 43,34' fill='%231B5E20'/%3E%3Cpolygon points='25,18 5,50 45,50' fill='%232E7D32'/%3E%3Cpolygon points='25,32 4,62 46,62' fill='%23388E3C'/%3E%3C/svg%3E") no-repeat 92% bottom / 50px 76px,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='80'%3E%3Crect x='22' y='54' width='6' height='24' fill='%235D4037'/%3E%3Cpolygon points='25,4 7,34 43,34' fill='%231B5E20'/%3E%3Cpolygon points='25,18 5,50 45,50' fill='%232E7D32'/%3E%3Cpolygon points='25,32 4,62 46,62' fill='%23388E3C'/%3E%3C/svg%3E") no-repeat 98% bottom / 44px 70px,
-    /* Clouds */
-    radial-gradient(ellipse 90px 42px at 14% 17%, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.75) 40%, transparent 72%),
-    radial-gradient(ellipse 58px 28px at 21% 11%, rgba(255,255,255,0.88) 0%, transparent 68%),
-    radial-gradient(ellipse 76px 36px at 70% 21%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.7) 42%, transparent 72%),
-    radial-gradient(ellipse 46px 22px at 77% 14%, rgba(255,255,255,0.82) 0%, transparent 68%),
-    radial-gradient(ellipse 42px 20px at 46% 9%, rgba(255,255,255,0.7) 0%, transparent 68%),
-    /* Rolling hills */
-    radial-gradient(ellipse 80% 160px at 22% 100%, #4CAF50 0%, #4CAF50 38%, transparent 100%),
-    radial-gradient(ellipse 80% 180px at 78% 100%, #388E3C 0%, #388E3C 36%, transparent 100%),
-    /* Sky and ground */
-    linear-gradient(to bottom,
-      #1E78C8 0%,
-      #3A9AD8 18%,
-      #5EC8F0 36%,
-      #A8D8F0 52%,
-      #7BC87A 52%,
-      #5BB85B 55%,
-      #4CAF50 63%,
-      #388E3C 74%,
-      #2E7D32 87%,
-      #1B5E20 100%
-    );
+    /* Stars — same world as the battle scene */
+    radial-gradient(1.5px 1.5px at 12% 8%,   rgba(255,255,255,0.85) 0%, transparent 100%),
+    radial-gradient(1px   1px   at 45% 10%,  rgba(255,255,255,0.95) 0%, transparent 100%),
+    radial-gradient(2px   2px   at 55% 5%,   rgba(255,255,255,1)    0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 83% 18%,  rgba(255,255,255,0.75) 0%, transparent 100%),
+    radial-gradient(1px   1px   at 7%  22%,  rgba(255,255,255,0.55) 0%, transparent 100%),
+    radial-gradient(1px   1px   at 30% 28%,  rgba(255,255,255,0.45) 0%, transparent 100%),
+    radial-gradient(1px   1px   at 90% 8%,   rgba(255,255,255,0.5)  0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 68% 30%,  rgba(255,255,255,0.65) 0%, transparent 100%),
+    radial-gradient(1px   1px   at 22% 42%,  rgba(255,255,255,0.4)  0%, transparent 100%),
+    radial-gradient(1px   1px   at 78% 44%,  rgba(255,255,255,0.5)  0%, transparent 100%),
+    radial-gradient(1px   1px   at 38% 16%,  rgba(255,255,255,0.6)  0%, transparent 100%),
+    radial-gradient(1px   1px   at 60% 42%,  rgba(255,255,255,0.3)  0%, transparent 100%),
+    /* Dark tree silhouettes — same ground as the battle scene */
+    radial-gradient(ellipse 90% 160px at 18% 100%, #060E06 0%, #060E06 20%, transparent 72%),
+    radial-gradient(ellipse 90% 140px at 82% 100%, #050C05 0%, #050C05 18%, transparent 70%),
+    radial-gradient(ellipse 60% 100px at 50% 100%, #081208 0%, #081208 14%, transparent 65%),
+    /* Night sky — matches hero screen */
+    radial-gradient(ellipse at 50% 35%, #0D1540 0%, #05050F 65%);
 }
 
 .auth-window {
@@ -2770,9 +2756,11 @@ body {
 .google-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   padding: 0 20px;
   height: 40px;
+  width: 100%;
   background: linear-gradient(180deg, #fff 0%, #e8e8e8 100%);
   border: 2px solid;
   border-color: #fff #888 #888 #fff;
@@ -2975,6 +2963,7 @@ body {
 /* Step 5 — X mark */
 .begin-x-mark {
   text-align: center;
+  width: 100%;
   font-family: 'Press Start 2P', monospace;
   font-size: 28px;
   color: #FFD700;
@@ -3081,26 +3070,23 @@ body {
 .add-quest-btn:active { transform: translate(1px,1px); box-shadow: none; }
 .shuffle-btn {
   font-family: 'Press Start 2P', monospace;
-  font-size: 5px;
-  background: linear-gradient(180deg, #FAFAFA 0%, #E8E4D8 45%, #D0CCBC 50%, #C4C0B0 100%);
-  border: 1px solid;
-  border-color: #FFFFFF #808070 #808070 #FFFFFF;
+  font-size: 6px;
+  background: linear-gradient(180deg, #f0f0f0 0%, #d8d4cc 100%);
+  border: 1px solid #aaa;
   border-radius: 3px;
   padding: 4px 8px;
   cursor: pointer;
-  color: #333;
+  color: #555;
   white-space: nowrap;
-  min-height: 36px;
   transition: filter 0.1s;
 }
 .shuffle-btn:hover {
-  background: linear-gradient(180deg, #DDEEFF 0%, #AACCEE 50%, #88AACC 100%);
-  border-color: #316AC5;
-  color: #0A246A;
+  background: linear-gradient(180deg, #e8e8e8 0%, #c8c4bc 100%);
+  border-color: #888;
+  color: #333;
 }
 .shuffle-btn:active {
-  background: linear-gradient(180deg, #B8CCDD 0%, #DDEEFF 100%);
-  border-color: #0A246A;
+  background: linear-gradient(180deg, #c8c4bc 0%, #e8e8e8 100%);
   transform: translate(1px, 1px);
 }
 @keyframes quest-complete-flash {
@@ -4577,5 +4563,103 @@ body {
   .hero-scene-wrap { gap: 30px; }
   .hero-sprite--hero  svg { width: 72px;  height: 78px;  }
   .hero-sprite--dragon svg { width: 84px;  height: 72px;  }
+}
+
+/* ── Quest dialog actions (reminders + challenge) ────────────── */
+.qd-actions {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.qd-remind-row {
+  display: flex;
+  gap: 6px;
+}
+
+.qd-remind-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 5px;
+  padding: 10px 8px;
+  min-height: 44px;
+  background: linear-gradient(180deg, #f0f0f0 0%, #d8d4cc 100%);
+  border: 1px solid #aaa;
+  border-radius: 3px;
+  cursor: pointer;
+  color: #555;
+  white-space: nowrap;
+  flex: 1;
+}
+.qd-remind-btn:hover  { background: linear-gradient(180deg, #e8e8e8 0%, #c8c4bc 100%); color: #333; border-color: #888; }
+.qd-remind-btn:active { transform: translate(1px,1px); }
+
+.qd-remind-confirm-btn { background: linear-gradient(180deg, #3870DA 0%, #1848BE 100%); color: #fff; border-color: #0A246A; flex: 0; }
+.qd-remind-confirm-btn:hover { filter: brightness(1.15); }
+
+.qd-remind-cancel-btn { flex: 0; color: #800; }
+
+.qd-reminder-status {
+  font-family: VT323, monospace;
+  font-size: 14px;
+  color: #0A246A;
+  background: #EAF0FF;
+  border: 1px solid #B0C4FF;
+  border-radius: 3px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.qd-remind-clear {
+  font-size: 11px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #888;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+.qd-remind-clear:hover { color: #c00; }
+
+.qd-remind-input-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.qd-remind-input {
+  font-family: VT323, monospace;
+  font-size: 14px;
+  border: 1px solid #888;
+  border-radius: 3px;
+  padding: 4px 6px;
+  background: #fafafa;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Challenge button (on partner quests) ────────────────────── */
+.qd-challenge-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  padding: 10px 16px;
+  background: linear-gradient(180deg, #8B1A1A 0%, #5A0000 100%);
+  color: #FFD700;
+  border: 1px solid #FFD700;
+  border-radius: 3px;
+  cursor: pointer;
+  width: 100%;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  transition: filter 0.1s;
+}
+.qd-challenge-btn:hover  { filter: brightness(1.2); }
+.qd-challenge-btn:active { transform: translate(1px,1px); filter: none; }
+.qd-challenge-btn.qd-challenge-sent {
+  background: linear-gradient(180deg, #1A4A1A 0%, #0A2A0A 100%);
+  color: #90EE90;
+  border-color: #90EE90;
+  cursor: default;
 }
 

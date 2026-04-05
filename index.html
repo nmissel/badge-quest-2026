@@ -189,6 +189,7 @@
         <div class="qd-controls" id="qd-controls"></div>
         <div class="qd-meta" id="qd-meta"></div>
         <button class="qd-more-btn" id="qd-more-btn" style="display:none">▼ DETAILS</button>
+        <div id="qd-actions" class="qd-actions"></div>
       </div>
       <div class="popup-footer">
         <button class="popup-btn popup-btn-secondary" id="qd-close">CLOSE</button>
@@ -369,11 +370,6 @@
             </svg>
             Sign in with Google
           </button>
-          <div class="auth-level-sep">LEVEL 1 REQUIRED</div>
-          <div class="auth-status">
-            <div>SYSTEM_STATUS: READY</div>
-            <div>AWAITING_AUTH_KEY...</div>
-          </div>
           <p id="auth-error" class="auth-error"></p>
         </div>
 
@@ -608,6 +604,20 @@
       <div class="invite-banner-content" id="invite-banner-content"></div>
     </div>
   </template>
+
+  <!-- ── Challenge Received Popup ─────────────────────────────── -->
+  <div class="overlay" id="challenge-overlay" style="display:none">
+    <div class="popup">
+      <div class="popup-titlebar blink">⚔ AN UNEXPECTED QUEST!</div>
+      <div class="popup-body">
+        <div class="popup-icon">🧙</div>
+        <div class="popup-text" id="challenge-text"></div>
+      </div>
+      <div class="popup-footer">
+        <button class="popup-btn" id="challenge-ok">ANSWER THE CALL ▶</button>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="app.js"></script>
 </body>

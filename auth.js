@@ -240,12 +240,17 @@ function goToStep(n) {
 function updateWizardFooter(n) {
   const btns = document.getElementById('wizard-footer-btns');
 
-  if (n === 1 || n === 2) {
+  if (n === 1) {
     btns.innerHTML = `<button class="auth-nav-btn auth-nav-btn--primary" id="wizard-next-btn">NEXT ▶</button>`;
-    document.getElementById('wizard-next-btn').onclick = () => goToStep(n + 1);
+    document.getElementById('wizard-next-btn').onclick = () => goToStep(2);
+  } else if (n === 2) {
+    btns.innerHTML = `<button class="auth-nav-btn" id="wizard-back-btn">◀ BACK</button><button class="auth-nav-btn auth-nav-btn--primary" id="wizard-next-btn">NEXT ▶</button>`;
+    document.getElementById('wizard-back-btn').onclick = () => goToStep(1);
+    document.getElementById('wizard-next-btn').onclick = () => goToStep(3);
   } else if (n === 3) {
-    // Sign-in step — no footer next button, sign-in is in content
-    btns.innerHTML = '';
+    // Sign-in step — back only, sign-in triggers step 4
+    btns.innerHTML = `<button class="auth-nav-btn" id="wizard-back-btn">◀ BACK</button>`;
+    document.getElementById('wizard-back-btn').onclick = () => goToStep(2);
   } else if (n === 4) {
     btns.innerHTML = `<button class="auth-nav-btn auth-nav-btn--primary" id="wizard-next-btn">NEXT ▶</button>`;
     document.getElementById('wizard-next-btn').onclick = submitSetup;
