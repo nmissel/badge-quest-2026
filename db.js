@@ -239,3 +239,29 @@ export async function leaveGroup(groupId, uid) {
   await updateDoc(doc(db, 'users', uid),      { groups: arrayRemove(groupId) });
   await updateDoc(doc(db, 'groups', groupId), { members: arrayRemove(uid) });
 }
+
+// ── Challenges ────────────────────────────────────────────────
+
+export async function sendChallenge(fromUid, fromName, toUid, questTitle) {
+  const ref = doc(collection(db, 'challenges'));
+  await setDoc(ref, {
+    fromUid, fromName, toUid,
+    questTitle,
+    status: 'pending',
+    createdAt: serverTimestamp()
+  });
+}
+
+export async function getPendingChallenges(uid) {
+  const q = query(
+    collection(db, 'challenges'),
+    where('toUid', '==', uid),
+    where('status', '==', 'pending')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function dismissChallenge(id) {
+  await updateDoc(doc(db, 'challenges', id), { status: 'dismissed' });
+}

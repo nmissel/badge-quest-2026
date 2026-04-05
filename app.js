@@ -6,7 +6,8 @@ import {
   loadUserData, loadGroupData, loadPartnerData,
   syncAllToFirestore, saveUserGoal, saveGroupGoal,
   getPendingInvitesForEmail, getSentInvites, addGroupToUser,
-  saveUserProfile
+  saveUserProfile,
+  sendChallenge, getPendingChallenges, dismissChallenge
 } from './db.js';
 import {
   BADGE_DEFS, COMBINED_BADGE_DEFS, BALANCE_BADGE_DEFS, TEAM_BADGE_DEFS,
@@ -19,7 +20,7 @@ import {
   earnedTeamGroupBadges
 } from './badges.js';
 import {
-  sfxClick, sfxCount, sfxMonthTick, sfxGoalComplete, sfxBadgeUnlock,
+  playTone, sfxClick, sfxCount, sfxMonthTick, sfxGoalComplete, sfxBadgeUnlock,
   resizeImage, launchConfetti, launchShimmer,
   openPhotoViewer, closePhotoViewer,
   updateClock, updateYearWidget,
@@ -33,6 +34,29 @@ import {
 } from './partners.js';
 
 const MONTHS = ['JAN','FEB','MAR','APR','MAJ','JUN','JUL','AUG','SEP','OKT','NOV','DEC'];
+
+// ── Gandalf texts ─────────────────────────────────────────────
+const FATE_NUDGE_SET = [
+  'A company is being assembled. Between now and {date}, thirteen adventurers and a wizard will knock on your door about "{title}". You cannot know when. Just... be ready.',
+  'The grey pilgrim has been dispatched. He will arrive at your door sometime before {date} — uninvited, as they do — about "{title}". Have your walking boots by the door.',
+  '"In a hole in the ground there lived an adventurer who had forgotten about: {title}." A wizard has been informed. He will fix this before {date}.',
+  'A map has been marked. "{title}" has a red X on it. The wizard says the company will arrive before {date}. He didn\'t say which morning.',
+  'You cannot outrun a wizard\'s schedule. Before {date}, he will appear at your door about "{title}". Probably at breakfast time. They always come at breakfast time.',
+];
+const FATE_NUDGE_FIRE = [
+  'The company has arrived. Thirteen adventurers and one wizard are standing outside about "{title}". They\'ve been walking a long time. You should probably go.',
+  'Good morning! This is the day the wizard chose. "{title}" is waiting and the road goes ever on — but it starts here, today.',
+  '"I\'m looking for someone to share in an adventure." He found you. "{title}" is the adventure. The cart is packed. Will you come?',
+  'The wizard arrived at precisely the right time — his time. "{title}" has been waiting. The door is open. The road begins now.',
+  'An unexpected party materialised at your doorstep. Their only topic: "{title}". The wizard says nothing, but he is clearly very pleased with himself.',
+];
+const CHALLENGE_RECEIVED = [
+  '"{from}" assembled a company and sent them to your door. They speak of: "{title}". A wizard stands at the back, saying nothing helpful. They\'re waiting.',
+  'A dwarf knocked thirteen times on your door at an unreasonable hour. Behind him: twelve more, and a wizard. The quest: "{title}". Sent by "{from}".',
+  'Your map has been marked by {from}. A red X now sits on "{title}". The company is outside. The wizard says you won\'t refuse. He\'s probably right.',
+  '"An adventure?" you said nervously. {from} sent the whole company. The quest: "{title}". Your breakfast is getting cold.',
+  'The grey wizard delivered a message from {from}: "{title}" needs doing, and you\'re the one for it. He declined to explain why. He never does.',
+];
 
 // Escape user-controlled strings before inserting into innerHTML
 const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -335,6 +359,9 @@ let _qdGoal     = null;  // goal currently open in the quest dialog
 let _qdTab      = null;  // its data tab
 let _qdIdx      = null;  // display index (1-based)
 let _qdMetaOpen = false; // whether the DETAILS section is expanded
+let _partnerUid        = null; // UID of current party partner
+let _pendingChallenges = [];   // challenges received by this user
+let _challengeQueue    = [];   // queue of challenges to show as popups
 
 // ── DEADLINE HELPERS ──────────────────────────────────────────
 // Single source of truth for the days calculation used by all deadline functions.
@@ -1529,6 +1556,133 @@ function closeQuestDialog() {
   _qdTab  = null;
 }
 
+// ── Challenge ─────────────────────────────────────────────────
+async function handleChallengeClick() {
+  if (!_qdGoal || !_partnerUid) return;
+  const btn = document.getElementById('qd-challenge-btn');
+  if (btn) { btn.textContent = '⏳ SENDING…'; btn.disabled = true; }
+  try {
+    const myName = currentProfile?.username || data.me?.name || 'Your party member';
+    await sendChallenge(currentUser.uid, myName, _partnerUid, _qdGoal.title);
+    sfxClick();
+    const partnerName = data.partner?.name || 'them';
+    if (btn) {
+      btn.textContent = `✓ CHALLENGE SENT TO ${partnerName.toUpperCase()}!`;
+      btn.classList.add('qd-challenge-sent');
+    }
+    // Close dialog after a beat — don't leave user stranded on a disabled button
+    setTimeout(closeQuestDialog, 1800);
+  } catch (e) {
+    if (btn) { btn.textContent = '⚔ CHALLENGE THEM!'; btn.disabled = false; }
+    console.error('sendChallenge failed', e);
+  }
+}
+
+// ── Reminders ─────────────────────────────────────────────────
+function _notifGuard() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') {
+    setStatus('⚔ The wizard needs permission to find you — tap 🔔 above first', 4000);
+    return false;
+  }
+  return true;
+}
+
+function handleFateNudge() {
+  if (!_qdGoal) return;
+  if (!_notifGuard()) return;
+  // Clear any existing custom reminder for this quest — one reminder at a time
+  localStorage.removeItem(`reminder_cust_${_qdGoal.id}`);
+  const key = `reminder_rand_${_qdGoal.id}`;
+  const daysAhead = 1 + Math.floor(Math.random() * 59); // 1–60 days
+  const fireAt = Date.now() + daysAhead * 24 * 60 * 60 * 1000;
+  localStorage.setItem(key, JSON.stringify({ ts: fireAt, title: _qdGoal.title, type: 'random' }));
+  sfxClick();
+  const fireDate = new Date(fireAt);
+  const dateStr  = fireDate.toLocaleDateString('da-DK', { day: '2-digit', month: 'long' });
+  const picked   = FATE_NUDGE_SET[Math.floor(Math.random() * FATE_NUDGE_SET.length)]
+    .replace('{title}', _qdGoal.title).replace('{date}', dateStr);
+  setStatus(picked, 6000);
+  renderQuestDialog();
+}
+
+function handleCustomReminder() {
+  if (!_notifGuard()) return;
+  const actionsEl = document.getElementById('qd-actions');
+  if (!actionsEl) return;
+  const now = new Date();
+  now.setHours(now.getHours() + 1, 0, 0, 0);
+  const defaultVal = now.toISOString().slice(0, 16);
+  actionsEl.innerHTML = `
+    <div class="qd-remind-input-row">
+      <input type="datetime-local" id="qd-remind-input" class="qd-remind-input" value="${defaultVal}" min="${defaultVal}">
+      <button class="qd-remind-btn qd-remind-confirm-btn" id="qd-reminder-confirm">SET ▶</button>
+      <button class="qd-remind-btn qd-remind-cancel-btn" id="qd-reminder-cancel">✕</button>
+    </div>`;
+}
+
+function confirmCustomReminder() {
+  if (!_qdGoal) return;
+  const input = document.getElementById('qd-remind-input');
+  if (!input?.value) return;
+  // Clear any existing random reminder for this quest — one reminder at a time
+  localStorage.removeItem(`reminder_rand_${_qdGoal.id}`);
+  const key = `reminder_cust_${_qdGoal.id}`;
+  const ts  = new Date(input.value).getTime();
+  localStorage.setItem(key, JSON.stringify({ ts, title: _qdGoal.title, type: 'custom' }));
+  sfxClick();
+  setStatus('REMINDER SET ✓ — the wizard has been briefed', 2500);
+  renderQuestDialog();
+}
+
+// ── Check reminders on load ────────────────────────────────────
+function checkQuestReminders() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const now = Date.now();
+  // Collect keys first — never mutate localStorage while iterating by index
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k?.startsWith('reminder_rand_') || k?.startsWith('reminder_cust_')) keys.push(k);
+  }
+  for (const key of keys) {
+    try {
+      const { ts, title } = JSON.parse(localStorage.getItem(key));
+      if (ts <= now) {
+        const text = FATE_NUDGE_FIRE[Math.floor(Math.random() * FATE_NUDGE_FIRE.length)]
+          .replace('{title}', title);
+        new Notification('Eventyr 🗺️', { body: text, icon: './icons/icon.svg' });
+        localStorage.removeItem(key);
+      } else {
+        // Schedule within session if firing within 24h
+        const msUntil = ts - now;
+        if (msUntil < 24 * 60 * 60 * 1000) {
+          setTimeout(() => {
+            if (!('Notification' in window) || Notification.permission !== 'granted') return;
+            const t = FATE_NUDGE_FIRE[Math.floor(Math.random() * FATE_NUDGE_FIRE.length)]
+              .replace('{title}', title);
+            new Notification('Eventyr 🗺️', { body: t, icon: './icons/icon.svg' });
+            localStorage.removeItem(key);
+          }, msUntil);
+        }
+      }
+    } catch (_) {}
+  }
+}
+
+// ── Show challenge popups ─────────────────────────────────────
+function showNextChallenge() {
+  if (_challengeQueue.length === 0) return;
+  const ch = _challengeQueue[0];
+  const text = CHALLENGE_RECEIVED[Math.floor(Math.random() * CHALLENGE_RECEIVED.length)]
+    .replace('{from}',  ch.fromName  || 'your party member')
+    .replace('{title}', ch.questTitle || 'an unknown quest');
+  document.getElementById('challenge-text').textContent = text;
+  document.getElementById('challenge-overlay').style.display = 'flex';
+  // Two-note NPC dialogue chime (Pokémon-era: low then high)
+  playTone(523, 0.15, 'square', 0.18, 0);
+  playTone(659, 0.15, 'square', 0.18, 0.18);
+}
+
 function renderQuestDialog() {
   if (!_qdGoal) return;
   const g   = _qdGoal;
@@ -1539,35 +1693,67 @@ function renderQuestDialog() {
   document.getElementById('qd-title').textContent = g.title;
 
   const controls = document.getElementById('qd-controls');
-  if (g.type === 'binary') {
-    controls.innerHTML = g.done
-      ? `<button class="goal-check card-check-btn card-done-btn" data-id="${g.id}" data-tab="${tab}" data-type="binary">✓ QUEST COMPLETE!<span class="card-btn-sub">tap to undo</span></button>`
-      : `<button class="goal-check card-check-btn" data-id="${g.id}" data-tab="${tab}" data-type="binary">◻ MARK AS DONE</button>`;
-  } else if (g.type === 'count') {
-    const maxed = g.current >= g.target;
-    const pct   = g.target > 0 ? (g.current / g.target) * 100 : 0;
-    controls.innerHTML = `
-      <div class="card-count-row">
-        <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${tab}" data-action="dec" ${g.current === 0 ? 'disabled' : ''}>−</button>
-        <div class="card-count-bar-wrap">
-          <div class="card-count-track">
-            <div class="card-count-fill ${maxed ? 'maxed' : ''}" style="width:${pct}%"></div>
+  const editBtn  = document.getElementById('qd-edit');
+  const actionsEl = document.getElementById('qd-actions');
+
+  if (tab === 'partner') {
+    // Partner quests — no interaction, just a challenge button
+    editBtn.style.display = 'none';
+    controls.innerHTML = `<button class="qd-challenge-btn" id="qd-challenge-btn">⚔ CHALLENGE THEM!</button>`;
+    actionsEl.innerHTML = '';
+  } else {
+    editBtn.style.display = '';
+
+    if (g.type === 'binary') {
+      controls.innerHTML = g.done
+        ? `<button class="goal-check card-check-btn card-done-btn" data-id="${g.id}" data-tab="${tab}" data-type="binary">✓ QUEST COMPLETE!<span class="card-btn-sub">tap to undo</span></button>`
+        : `<button class="goal-check card-check-btn" data-id="${g.id}" data-tab="${tab}" data-type="binary">◻ MARK AS DONE</button>`;
+    } else if (g.type === 'count') {
+      const maxed = g.current >= g.target;
+      const pct   = g.target > 0 ? (g.current / g.target) * 100 : 0;
+      controls.innerHTML = `
+        <div class="card-count-row">
+          <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${tab}" data-action="dec" ${g.current === 0 ? 'disabled' : ''}>−</button>
+          <div class="card-count-bar-wrap">
+            <div class="card-count-track">
+              <div class="card-count-fill ${maxed ? 'maxed' : ''}" style="width:${pct}%"></div>
+            </div>
+            <div class="card-count-label">
+              <span class="card-count-num ${maxed ? 'maxed' : ''}">${g.current} / ${g.target}</span>
+              <span class="card-count-unit">${esc(g.unit)}</span>
+            </div>
           </div>
-          <div class="card-count-label">
-            <span class="card-count-num ${maxed ? 'maxed' : ''}">${g.current} / ${g.target}</span>
-            <span class="card-count-unit">${esc(g.unit)}</span>
-          </div>
-        </div>
-        <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${tab}" data-action="inc" ${maxed ? 'disabled' : ''}>+</button>
-      </div>`;
-  } else if (g.type === 'monthly') {
-    const checked = (g.months || []).filter(Boolean).length;
-    const maxed   = checked >= 12;
-    controls.innerHTML = `
-      <div class="qd-monthly-ctrl">
-        <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${tab}" data-action="dec" data-type="monthly" ${checked === 0 ? 'disabled' : ''}>−</button>
-        <span class="qd-month-count${maxed ? ' maxed' : ''}">${checked} / 12 months</span>
-        <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${tab}" data-action="inc" data-type="monthly" ${maxed ? 'disabled' : ''}>+</button>
+          <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${tab}" data-action="inc" ${maxed ? 'disabled' : ''}>+</button>
+        </div>`;
+    } else if (g.type === 'monthly') {
+      const checked = (g.months || []).filter(Boolean).length;
+      const maxed   = checked >= 12;
+      controls.innerHTML = `
+        <div class="qd-monthly-ctrl">
+          <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${tab}" data-action="dec" data-type="monthly" ${checked === 0 ? 'disabled' : ''}>−</button>
+          <span class="qd-month-count${maxed ? ' maxed' : ''}">${checked} / 12 months</span>
+          <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${tab}" data-action="inc" data-type="monthly" ${maxed ? 'disabled' : ''}>+</button>
+        </div>`;
+    }
+
+    // Reminder section
+    const randKey  = `reminder_rand_${g.id}`;
+    const custKey  = `reminder_cust_${g.id}`;
+    const randRaw  = localStorage.getItem(randKey);
+    const custRaw  = localStorage.getItem(custKey);
+    let reminderStatus = '';
+    if (randRaw) {
+      const d = new Date(JSON.parse(randRaw).ts);
+      reminderStatus = `<div class="qd-reminder-status">🎲 Fate's nudge set — wizard arrives before ${d.toLocaleDateString('da-DK', { day:'2-digit', month:'short' })} <button class="qd-remind-clear" data-rkey="${randKey}">✕</button></div>`;
+    } else if (custRaw) {
+      const d = new Date(JSON.parse(custRaw).ts);
+      reminderStatus = `<div class="qd-reminder-status">🔔 Reminder: ${d.toLocaleDateString('da-DK', { day:'2-digit', month:'short', year:'numeric' })} ${d.toLocaleTimeString('da-DK', { hour:'2-digit', minute:'2-digit' })} <button class="qd-remind-clear" data-rkey="${custKey}">✕</button></div>`;
+    }
+    actionsEl.innerHTML = `
+      ${reminderStatus}
+      <div class="qd-remind-row">
+        <button class="qd-remind-btn" id="qd-fate-btn">🎲 FATE'S NUDGE</button>
+        <button class="qd-remind-btn" id="qd-custom-btn">📅 REMIND ME</button>
       </div>`;
   }
 
@@ -1943,6 +2129,16 @@ function init() {
   document.getElementById('qd-close').addEventListener('click', closeQuestDialog);
   document.getElementById('quest-dialog').addEventListener('click', e => {
     if (e.target.id === 'quest-dialog') { closeQuestDialog(); return; }
+    if (e.target.id === 'qd-challenge-btn')    { handleChallengeClick(); return; }
+    if (e.target.id === 'qd-fate-btn')         { handleFateNudge(); return; }
+    if (e.target.id === 'qd-custom-btn')       { handleCustomReminder(); return; }
+    if (e.target.id === 'qd-reminder-confirm') { confirmCustomReminder(); return; }
+    if (e.target.id === 'qd-reminder-cancel')  { renderQuestDialog(); return; }
+    if (e.target.closest('.qd-remind-clear')) {
+      const key = e.target.closest('.qd-remind-clear').dataset.rkey;
+      if (key) { localStorage.removeItem(key); renderQuestDialog(); }
+      return;
+    }
     handleWinBodyClick(e);
   });
   document.getElementById('qd-edit').addEventListener('click', () => {
@@ -1955,6 +2151,16 @@ function init() {
   document.getElementById('qd-more-btn').addEventListener('click', () => {
     _qdMetaOpen = !_qdMetaOpen;
     renderQuestDialog();
+  });
+
+  // Challenge received popup
+  document.getElementById('challenge-ok').addEventListener('click', async () => {
+    document.getElementById('challenge-overlay').style.display = 'none';
+    const ch = _challengeQueue.shift();
+    if (ch) {
+      try { await dismissChallenge(ch.id); } catch (_) {}
+    }
+    if (_challengeQueue.length > 0) setTimeout(showNextChallenge, 400);
   });
 
   // Profile panel
@@ -2137,7 +2343,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentGroupId = partyGroups[0].id;
         data.together  = partyGroups[0];
         const partnerUid = partyGroups[0].members?.find(uid => uid !== user.uid);
-        if (partnerUid) data.partner = await loadPartnerData(partnerUid);
+        if (partnerUid) { _partnerUid = partnerUid; data.partner = await loadPartnerData(partnerUid); }
       }
 
       // Load member data for team groups
@@ -2168,7 +2374,7 @@ document.addEventListener('DOMContentLoaded', () => {
               currentGroupId = inv.groupId;
               data.together  = gd;
               const partnerUid = gd.members?.find(uid => uid !== user.uid);
-              if (partnerUid) data.partner = await loadPartnerData(partnerUid);
+              if (partnerUid) { _partnerUid = partnerUid; data.partner = await loadPartnerData(partnerUid); }
             }
             if (!currentTeamId && gd.type === 'team') {
               currentTeamId = inv.groupId;
@@ -2190,14 +2396,26 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (_) { _pendingInvites = []; }
     }
 
+    // Check for pending challenges
+    try {
+      _pendingChallenges = await getPendingChallenges(user.uid);
+    } catch (_) { _pendingChallenges = []; }
+
     // Update header + tabs
     updateProfileChip(profile.username, profile.color);
     updateTabLabels();
 
     init();
+    checkQuestReminders();
 
     // Show invite banner if there are pending invites
     if (_pendingInvites.length > 0) renderInviteBanner();
+
+    // Show challenge popup if any are pending
+    if (_pendingChallenges.length > 0) {
+      _challengeQueue = [..._pendingChallenges];
+      setTimeout(showNextChallenge, 1200);
+    }
   });
 
   // Sign-out button

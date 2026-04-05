@@ -2,6 +2,18 @@
 
 Ideas to explore in future sessions. Not committed to — just captured.
 
+## 🔴 Firestore Security Rules — challenges collection (do this next session)
+The `challenges` collection was added for the partner challenge feature but has no security rules yet.
+Writes will be blocked on the live Firebase project until these are added manually in the Firebase console.
+
+**Rules to add** under Firestore → Rules:
+```
+match /challenges/{id} {
+  allow create: if request.auth.uid == request.resource.data.fromUid;
+  allow read, update: if request.auth.uid == resource.data.toUid;
+}
+```
+
 ## Badges Tab — Make It More Engaging
 The current PERSONAL / PARTY / TEAM structure feels correct but the tab itself is too static.
 Ideas to explore when we get to it:
