@@ -12,11 +12,10 @@ import {
 import {
   BADGE_DEFS, COMBINED_BADGE_DEFS, BALANCE_BADGE_DEFS, TEAM_BADGE_DEFS,
   SECRET_BADGE_DEFS, checkAndAwardSecretBadge,
-  bumpSecretCounter, getSecretCounter, setSecretCounter,
   makeBadgeSVG, badgeSlotHTML,
-  countDone, getPct, totalDoneAll, totalGoalsAll,
-  earnedBadges, recalcBadges, checkAndAwardBadges,
-  earnedTeamBadges, recalcTeamBadges, checkAndAwardTeamBadges,
+  countDone, totalDoneAll, totalGoalsAll,
+  recalcBadges, checkAndAwardBadges,
+  recalcTeamBadges, checkAndAwardTeamBadges,
   earnedTeamGroupBadges
 } from './badges.js';
 import {
@@ -24,7 +23,7 @@ import {
   resizeImage, launchConfetti, launchShimmer,
   openPhotoViewer, closePhotoViewer,
   updateClock, updateYearWidget,
-  enableNotifications, updateNotifBtn, checkInactivity
+  enableNotifications, updateNotifBtn
 } from './ui.js';
 import {
   initPartners,
@@ -32,8 +31,6 @@ import {
   handlePartnersClick, handleAcceptInvite, handleDeclineInvite,
   handleSendInvite, renderInviteBanner
 } from './partners.js';
-
-const MONTHS = ['JAN','FEB','MAR','APR','MAJ','JUN','JUL','AUG','SEP','OKT','NOV','DEC'];
 
 // ── Gandalf texts ─────────────────────────────────────────────
 const FATE_NUDGE_SET = [
@@ -61,22 +58,15 @@ const CHALLENGE_RECEIVED = [
 // Escape user-controlled strings before inserting into innerHTML
 const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-// Block-style progress bar for quest rows (RPG log aesthetic)
-const blockBar = (current, target, width = 8) => {
-  const filled = target > 0 ? Math.round((current / target) * width) : 0;
-  return '█'.repeat(Math.min(filled, width)) + '░'.repeat(Math.max(width - filled, 0));
-};
-
 // ── GOAL TYPE REGISTRY ─────────────────────────────────────────
 // To add a new goal type: add one entry here. Nothing else to touch.
 // Each type defines:
-//   label          — display name shown on card type badge
+//   label          — display name shown in the quest dialog
 //   modalFields    — (optional) true if the modal shows extra fields (currently only 'count')
 //   initialState() — returns type-specific fields to spread onto a new/switched goal
 //   updateFields(goal) — updates type-specific fields when editing same type in modal
 //   clearFields(goal)  — deletes all type-specific fields (called when switching type)
-//   listItemHTML(g, ctx) — renders the list-view item; ctx has: num, ta, noteHTML, photoHTML, wrap
-//   cardControlsHTML(g, realTab) — renders the card-view interactive controls
+//   listItemHTML(g, ctx) — renders the list-view item; ctx has: num, tab
 //   applyChange(goal, action) — mutates goal, returns 'complete' | 'uncomplete' | null
 const GOAL_TYPES = {
 
@@ -87,24 +77,13 @@ const GOAL_TYPES = {
     updateFields() {},
     clearFields(goal) { delete goal.target; delete goal.current; delete goal.unit; delete goal.months; },
 
-    listItemHTML(g, { num, ta, wrap, tab }) {
-      return wrap(`
+    listItemHTML(g, { num, tab }) {
+      return `
         <div class="goal-item goal-binary ${g.done ? 'done' : ''}" data-id="${g.id}" data-tab="${tab}" style="--pct:${g.done ? 100 : 0}%">
           <span class="goal-num">${num}</span>
           <span class="goal-title">${esc(g.title)}</span>
           <div class="goal-action"><span class="goal-progress${g.done ? ' maxed' : ''}">${g.done ? 1 : 0}/1</span></div>
-        </div>`);
-    },
-
-    cardControlsHTML(g, realTab) {
-      return g.done
-        ? `<button class="goal-check card-check-btn card-done-btn" data-id="${g.id}" data-tab="${realTab}" data-type="binary">
-             ✓ QUEST COMPLETE!
-             <span class="card-btn-sub">tap to undo</span>
-           </button>`
-        : `<button class="goal-check card-check-btn" data-id="${g.id}" data-tab="${realTab}" data-type="binary">
-             ◻ MARK AS DONE
-           </button>`;
+        </div>`;
     },
 
     applyChange(goal, action) {
@@ -135,33 +114,13 @@ const GOAL_TYPES = {
     },
     clearFields(goal) { delete goal.months; },
 
-    listItemHTML(g, { num, wrap, tab }) {
+    listItemHTML(g, { num, tab }) {
       const maxed = g.current >= g.target;
-      const bar   = blockBar(g.current, g.target);
-      return wrap(`
+      return `
         <div class="goal-item count-goal ${g.done ? 'done' : ''}" data-id="${g.id}" data-tab="${tab}" style="--pct:${g.target > 0 ? Math.round((g.current / g.target) * 100) : 0}%">
           <span class="goal-num">${num}</span>
           <span class="goal-title">${esc(g.title)}</span>
           <div class="goal-action"><span class="goal-progress${maxed ? ' maxed' : ''}">${g.current}/${g.target}</span></div>
-        </div>`);
-    },
-
-    cardControlsHTML(g, realTab) {
-      const maxed = g.current >= g.target;
-      const pct   = g.target > 0 ? (g.current / g.target) * 100 : 0;
-      return `
-        <div class="card-count-row">
-          <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${realTab}" data-action="dec" ${g.current === 0 ? 'disabled' : ''}>−</button>
-          <div class="card-count-bar-wrap">
-            <div class="card-count-track">
-              <div class="card-count-fill ${maxed ? 'maxed' : ''}" style="width:${pct}%"></div>
-            </div>
-            <div class="card-count-label">
-              <span class="card-count-num ${maxed ? 'maxed' : ''}">${g.current} / ${g.target}</span>
-              <span class="card-count-unit">${esc(g.unit)}</span>
-            </div>
-          </div>
-          <button class="cnt-btn card-cnt-btn" data-id="${g.id}" data-tab="${realTab}" data-action="inc" ${maxed ? 'disabled' : ''}>+</button>
         </div>`;
     },
 
@@ -186,28 +145,13 @@ const GOAL_TYPES = {
     updateFields() {},
     clearFields(goal) { delete goal.target; delete goal.current; delete goal.unit; },
 
-    listItemHTML(g, { num, wrap, tab }) {
+    listItemHTML(g, { num, tab }) {
       const checked = (g.months || []).filter(Boolean).length;
-      return wrap(`
+      return `
         <div class="goal-item monthly-goal ${g.done ? 'done' : ''}" data-id="${g.id}" data-tab="${tab}" style="--pct:${Math.round((checked / 12) * 100)}%">
           <span class="goal-num">${num}</span>
           <span class="goal-title">${esc(g.title)}</span>
           <div class="goal-action"><span class="goal-progress${checked >= 12 ? ' maxed' : ''}">${checked}/12</span></div>
-        </div>`);
-    },
-
-    cardControlsHTML(g, realTab) {
-      const checked = g.months.filter(Boolean).length;
-      const maxed   = checked >= 12;
-      const cells   = MONTHS.map((m, i) => `
-        <div class="month-cell ${g.months[i] ? 'checked' : ''}"
-             data-id="${g.id}" data-tab="${realTab}" data-month="${i}">${m}</div>`).join('');
-      return `
-        <div class="card-monthly-wrap">
-          <div class="month-grid card-month-grid">${cells}</div>
-          <div class="card-monthly-count">
-            <span class="card-monthly-count-label ${maxed ? 'maxed' : ''}">${checked} / 12 mdr.</span>
-          </div>
         </div>`;
     },
 
@@ -344,18 +288,9 @@ let activeTab           = 'all';
 let pendingCelebrations = [];
 let celebrating         = false;
 let recentCompletions   = []; // timestamps for SPEEDRUNNER secret badge
-let expandedMonthGoal   = null; // id of currently expanded monthly goal
-let selectedBadge       = null; // { badgeId, tab } — Pokédex detail panel
-let _deadlineCtx        = null; // { tab, id } for floating deadline popup
-let viewMode            = 'list';  // 'list' | 'card'
-let cardIndex           = {};      // { [tab]: number } — current card per tab
-let _cardSlideDir       = 'none';  // 'right' | 'left' | 'none' — slide animation direction
-let badgeCaseOpen       = false;   // badge case collapsed by default
+let _deadlineCtx       = null; // { tab, id } for floating deadline popup
 let _editCtx            = null;    // { tab, goalId } for edit modal, null = new goal
-let _cardFlipped        = false;   // card showing calendar instead of content
-let _calYear            = new Date().getFullYear();
-let _calMonth           = new Date().getMonth(); // 0-indexed
-let _qdGoal     = null;  // goal currently open in the quest dialog
+let _qdGoal    = null;  // goal currently open in the quest dialog
 let _qdTab      = null;  // its data tab
 let _qdIdx      = null;  // display index (1-based)
 let _qdMetaOpen = false; // whether the DETAILS section is expanded
@@ -455,10 +390,7 @@ function saveData() {
   if (!currentUser) return;
   setStatus('SAVING…');
   syncAllToFirestore(currentUser.uid, currentGroupId, data)
-    .then(() => {
-      localStorage.setItem('badgequest_lastSave', Date.now().toString());
-      setStatus('SAVED ✓', 2000);
-    })
+    .then(() => setStatus('SAVED ✓', 2000))
     .catch(e => {
       console.error('Save error:', e);
       setStatus('SAVE FAILED!');
@@ -506,202 +438,12 @@ function setStatus(msg, resetAfter = 0) {
 // ── GOAL ITEM TEMPLATE ────────────────────────────────────────
 // Single source of truth for goal HTML.
 // Used by both renderGoalList() (individual tabs) and renderAllTab().
-// options.showTag  — show the owner chip (party / partner / me)
-// options.tagCls / options.tagText — owner chip styling
-function goalItemHTML(g, index, tab, options = {}) {
-  const { showTag = false, tagCls = '', tagText = '' } = options;
-  const num      = String(index + 1).padStart(3, '0');
-  const noteHTML = g.done && g.note  ? `<span class="goal-note-text">✎ ${esc(g.note)}</span>` : '';
-  const photoHTML= g.done && g.photo ? `<img class="goal-photo-thumb" src="${g.photo}" data-photo alt="Memory">` : '';
-  const dlBadge  = !g.done ? deadlineBadgeHTML(g) : '';
-  const dlBtn    = !g.done ? `<button class="deadline-btn" data-id="${g.id}" data-tab="${tab}" title="Set deadline">📅</button>` : '';
-  const tag      = showTag ? `<span class="owner-tag ${tagCls}">${esc(tagText)}</span>` : '';
-  const ta       = `data-tab="${tab}"`;
-  const wrap = inner => inner;
-
+function goalItemHTML(g, index, tab) {
+  const num     = String(index + 1).padStart(3, '0');
   const typeDef = GOAL_TYPES[g.type];
-  let html = typeDef ? typeDef.listItemHTML(g, { num, ta, noteHTML, photoHTML, wrap, tab }) : '';
+  let html = typeDef ? typeDef.listItemHTML(g, { num, tab }) : '';
   if (tab === 'partner') html = html.replace('class="goal-item ', 'class="goal-item partner-readonly ');
   return html;
-}
-
-// ── CARD VIEW HELPERS ─────────────────────────────────────────
-
-// Returns a flat array of goals enriched with _tab / _tagCls / _tagText.
-// For individual tabs, just wraps each goal; for 'all' flattens all three tabs.
-function getCardGoals(tab) {
-  if (tab === 'all') {
-    return [
-      ...data.together.goals.map(g   => ({ ...g, _tab: 'together', _tagCls: 'owner-party',  _tagText: (data.together?.name || 'PARTY').toUpperCase() })),
-      ...(data.partner?.goals || []).map(g => ({ ...g, _tab: 'partner',  _tagCls: 'owner-partner', _tagText: (data.partner?.name || 'PARTNER').toUpperCase() })),
-      ...data.me.goals.map(g         => ({ ...g, _tab: 'me',       _tagCls: 'owner-me',      _tagText: (data.me?.name || 'ME').toUpperCase()               })),
-    ];
-  }
-  return (data[tab]?.goals || []).map(g => ({ ...g, _tab: tab }));
-}
-
-// Navigate the card view by delta (+1 = next, -1 = prev).
-function navigateCard(tab, delta) {
-  const goals  = getCardGoals(tab);
-  const idx    = cardIndex[tab] ?? 0;
-  const newIdx = Math.max(0, Math.min(goals.length - 1, idx + delta));
-  if (newIdx === idx) return;
-  _cardFlipped   = false;
-  _cardSlideDir  = delta > 0 ? 'right' : 'left';
-  cardIndex[tab] = newIdx;
-  render();
-  _cardSlideDir = 'none'; // reset after synchronous render
-}
-
-// Builds the calendar "back face" HTML for the card deadline picker.
-function buildCalendarHTML(g, realTab) {
-  const MNAMES = ['January','February','March','April','May','June',
-                  'July','August','September','October','November','December'];
-  const DNAMES = ['Mo','Tu','We','Th','Fr','Sa','Su'];
-  const year  = _calYear, month = _calMonth;
-  const first = new Date(year, month, 1).getDay();
-  const startCol  = (first + 6) % 7; // Mon-start offset
-  const daysInMon = new Date(year, month + 1, 0).getDate();
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const selected = g.deadline;
-
-  const dowCells = DNAMES.map(d => `<div class="cal-dow">${d}</div>`).join('');
-  let dayCells = '';
-  for (let i = 0; i < startCol; i++) dayCells += `<div class="cal-day cal-empty"></div>`;
-  for (let d = 1; d <= daysInMon; d++) {
-    const ds   = `${year}-${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const date = new Date(year, month, d);
-    const past = date < today;
-    const sel  = ds === selected;
-    const tod  = date.getTime() === today.getTime();
-    const cls  = ['cal-day', past ? 'cal-past' : '', sel ? 'cal-selected' : '', tod ? 'cal-today' : ''].filter(Boolean).join(' ');
-    const attrs = past ? '' : ` data-cal-date="${ds}" data-id="${g.id}" data-tab="${realTab}"`;
-    dayCells += `<div class="${cls}"${attrs}>${d}</div>`;
-  }
-
-  const footer = selected
-    ? `<button class="cal-clear-btn" data-id="${g.id}" data-tab="${realTab}">✕ CLEAR DATE</button>`
-    : `<span class="cal-hint">tap a date to set deadline</span>`;
-
-  return `
-    <div class="card-titlebar">
-      <div class="card-tb-left">
-        <span class="card-tb-icon">📅</span>
-        <span class="card-tb-title">SET DEADLINE</span>
-      </div>
-      <div class="card-tb-right">
-        <button class="card-tb-x cal-flip-back">✕</button>
-      </div>
-    </div>
-    <div class="card-calendar-body">
-      <div class="cal-nav-row">
-        <button class="cal-nav" data-cal-dir="-1">‹</button>
-        <span class="cal-month-label">${MNAMES[month]} ${year}</span>
-        <button class="cal-nav" data-cal-dir="1">›</button>
-      </div>
-      <div class="cal-grid">${dowCells}${dayCells}</div>
-      <div class="cal-footer">${footer}</div>
-    </div>`;
-}
-
-// Renders the Pokédex-style card for the current goal in the list.
-function renderCardView(goals, tab) {
-  if (!goals.length) {
-    return `
-      <div class="locked-panel">
-        <div class="locked-icon">🃏</div>
-        <div class="locked-title">NO QUESTS YET</div>
-        <div class="locked-sub">Add goals to see them in card view!</div>
-      </div>`;
-  }
-
-  const idx      = Math.max(0, Math.min(goals.length - 1, cardIndex[tab] ?? 0));
-  cardIndex[tab] = idx; // clamp & persist
-  const g        = goals[idx];
-  const realTab  = g._tab || tab; // actual data tab for event handlers
-  const total    = goals.length;
-
-  // Slide animation class (only set during navigateCard calls)
-  const slideClass = _cardSlideDir === 'right' ? 'slide-right'
-                   : _cardSlideDir === 'left'  ? 'slide-left' : '';
-
-  // Owner tag (visible in ALL tab card view)
-  const ownerTag = g._tagText
-    ? `<span class="owner-tag ${g._tagCls}" style="font-size:4.5px">${esc(g._tagText)}</span>`
-    : '';
-
-  // Human-readable type label
-  const typeLabel = GOAL_TYPES[g.type]?.label || g.type.toUpperCase();
-
-  // ── Controls (type-specific) ──────────────────────────────────
-  const controlsHTML = GOAL_TYPES[g.type]?.cardControlsHTML(g, realTab) ?? '';
-
-  // ── Meta (note + photo — deadline has its own bar) ───────────
-  const dlBadge  = !g.done ? deadlineBadgeHTML(g) : '';
-  const noteHTML = g.done && g.note  ? `<div class="card-note">✎ ${esc(g.note)}</div>` : '';
-  const photoHTML= g.done && g.photo ? `<img class="card-photo goal-photo-thumb" src="${g.photo}" alt="Memory">` : '';
-  const hasMeta  = noteHTML || photoHTML;
-
-  // ── Card inner: normal front or calendar back ─────────────────
-  const dlBtnLabel = g.deadline ? g.deadline : 'SET DEADLINE';
-  const cardInner = _cardFlipped
-    ? buildCalendarHTML(g, realTab)
-    : `
-        <div class="card-titlebar ${g.done ? 'done' : ''}">
-          <div class="card-tb-left">
-            <span class="card-tb-icon">🎯</span>
-            <span class="card-tb-title">${esc(g.title)}</span>
-          </div>
-          <div class="card-tb-right">
-            ${ownerTag}
-            <span class="card-type-badge card-type-${g.type}">${typeLabel}</span>
-            <button class="card-tb-x" title="Back to list">✕</button>
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="card-controls">${controlsHTML}</div>
-          ${hasMeta ? `<div class="card-meta">${noteHTML}${photoHTML}</div>` : ''}
-        </div>
-        ${!g.done ? `
-        <div class="card-deadline-bar">
-          ${dlBadge}
-          <button class="card-dl-btn" data-id="${g.id}" data-tab="${realTab}">📅 ${dlBtnLabel}</button>
-        </div>` : ''}`;
-
-  // ── Progress dots (max 40 goals before switching to counter) ──
-  const dotsHTML = total <= 40
-    ? `<div class="card-dots">
-        ${goals.map((gd, i) => `<div class="card-dot ${i === idx ? 'current' : ''} ${gd.done ? 'done' : ''}"
-          data-card-dot="${i}" data-card-tab="${tab}" title="Quest ${i + 1}"></div>`).join('')}
-      </div>`
-    : `<div class="card-counter-text">Quest ${idx + 1} of ${total}</div>`;
-
-  // ── Adjacent goals for peek strips ───────────────────────────
-  const prevGoal = idx > 0         ? goals[idx - 1] : null;
-  const nextGoal = idx < total - 1 ? goals[idx + 1] : null;
-  function peekHtml(adj, navDir) {
-    if (!adj) return `<div class="card-side-peek card-side-empty"></div>`;
-    return `
-      <div class="card-side-peek ${adj.done ? 'done' : ''}" data-nav="${navDir}" data-card-tab="${tab}">
-        <div class="peek-inner">
-          <span class="card-tb-icon">🎯</span>
-          <span class="card-peek-title">${adj.title}</span>
-        </div>
-        <div class="peek-body"></div>
-      </div>`;
-  }
-
-  return `
-    <div class="card-view">
-      <div class="card-carousel">
-        ${peekHtml(prevGoal, 'prev')}
-        <div class="quest-card ${g.done ? 'done' : ''} ${slideClass} ${_cardFlipped ? 'card-cal-mode' : ''}">
-          ${cardInner}
-        </div>
-        ${peekHtml(nextGoal, 'next')}
-      </div>
-      ${dotsHTML}
-    </div>`;
 }
 
 // ── GOAL CRUD ─────────────────────────────────────────────────
@@ -887,6 +629,11 @@ function shuffleGoals(tab) {
 
 // ── RENDER ────────────────────────────────────────────────────
 function render() {
+  // Party badges (data.team) are never saved: they're worked out from the quest
+  // counts. Bring them up to date before drawing, so they show right after a
+  // reopen, and so the next quest you finish only celebrates badges that are
+  // really new (applyGoalInteraction checks for new ones before it renders).
+  recalcTeamBadges(data);
   if (activeTab === 'all') {
     renderAllTab();
   } else if (activeTab === 'badges') {
@@ -973,85 +720,6 @@ function updateTitleBarColor() {
   document.getElementById('title-bar').style.background = gradients[activeTab] || gradients.all;
 }
 
-function renderBadgeCase() {
-  const tab      = activeTab;
-  const unlocked = (data[tab]?.unlockedBadges || []);
-
-  // Always update the summary chip and arrow (visible even when collapsed)
-  const summaryEl = document.getElementById('badge-case-summary');
-  if (summaryEl) summaryEl.textContent = `${unlocked.length} / ${BADGE_DEFS.length}`;
-  const arrowEl = document.getElementById('badge-case-arrow');
-  if (arrowEl) arrowEl.textContent = badgeCaseOpen ? '▲' : '▼';
-
-  // Show/hide the body
-  const bodyEl = document.getElementById('badge-case-body');
-  if (bodyEl) bodyEl.style.display = badgeCaseOpen ? '' : 'none';
-
-  if (!badgeCaseOpen) return; // skip rendering badge grids when collapsed
-
-  const container = document.getElementById('badge-case');
-  if (!container) return;
-  const total = data[tab].goals.length;
-
-  if (total === 0) {
-    container.innerHTML = `<div style="font-family:VT323,monospace;font-size:20px;color:#aaa;padding:8px 0;width:100%;text-align:center">Add goals to unlock badges!</div>`;
-    renderBadgeDetail();
-    return;
-  }
-
-  container.innerHTML = BADGE_DEFS.map(b => {
-    const isUnlocked = unlocked.includes(b.id);
-    const req        = b.threshold(total);
-    const isSelected = selectedBadge?.badgeId === b.id && selectedBadge?.tab === tab;
-    return badgeSlotHTML(b, isUnlocked, isUnlocked ? b.name.split(' ')[0] : `${req} DONE`, isSelected);
-  }).join('') + (tab === 'me' ? SECRET_BADGE_DEFS.filter(b => unlocked.includes(b.id)).map(b => {
-    const isSelected = selectedBadge?.badgeId === b.id && selectedBadge?.tab === tab;
-    return badgeSlotHTML(b, true, '✦ SECRET', isSelected);
-  }).join('') : '');
-
-  renderBadgeDetail();
-}
-
-function renderBadgeDetail() {
-  const el = document.getElementById('badge-detail');
-  if (!el) return;
-  if (!selectedBadge) { el.innerHTML = ''; return; }
-
-  const { badgeId, tab } = selectedBadge;
-  const b = BADGE_DEFS.find(bd => bd.id === badgeId) || SECRET_BADGE_DEFS.find(bd => bd.id === badgeId);
-  if (!b) { el.innerHTML = ''; return; }
-
-  const unlocked = (data[tab]?.unlockedBadges || []).includes(badgeId);
-  const dateStr  = data[tab]?.badgeDates?.[badgeId];
-  const formattedDate = dateStr
-    ? new Date(dateStr).toLocaleDateString('da-DK', { day: 'numeric', month: 'short', year: 'numeric' })
-    : null;
-  const totalGoals = data[tab]?.goals.length || 0;
-  const req = b.threshold(totalGoals);
-
-  if (unlocked) {
-    el.innerHTML = `
-      <div class="badge-detail-card">
-        <div class="badge-detail-svg">${makeBadgeSVG(b, 44)}</div>
-        <div class="badge-detail-info">
-          <div class="badge-detail-name">${b.name}</div>
-          <div class="badge-detail-desc">${b.desc}</div>
-          <div class="badge-detail-date">${formattedDate ? `✓ Earned ${formattedDate}` : '✓ Earned (date unknown)'}</div>
-        </div>
-      </div>`;
-  } else {
-    el.innerHTML = `
-      <div class="badge-detail-card locked-detail">
-        <div class="badge-detail-svg locked">${makeBadgeSVG(b, 44)}</div>
-        <div class="badge-detail-info">
-          <div class="badge-detail-name" style="color:#999">???</div>
-          <div class="badge-detail-desc" style="color:#888">Requires ${req} quests done</div>
-          <div class="badge-detail-date" style="color:#aaa">Keep questing!</div>
-        </div>
-      </div>`;
-  }
-}
-
 function renderProgress() {
   const tab   = activeTab;
   const goals = data[tab]?.goals || [];
@@ -1116,15 +784,14 @@ function renderGoalList() {
     list.innerHTML = `
       <div class="locked-panel">
         <div class="locked-icon">${tab === 'together' ? '💎' : '🌸'}</div>
-        <div class="locked-title">${tab === 'partner' ? label.toUpperCase() + ' HAS NO QUESTS YET' : 'YOUR LEGEND BEGINS HERE'}</div>
-        <div class="locked-sub">${tab === 'partner' ? label + " hasn't written any quests yet." : 'A blank map stretches before you. No roads marked. No quests assigned. Just you, and twelve months to write your legend.'}</div>
+        <div class="locked-title">${tab === 'partner' ? esc(label.toUpperCase()) + ' HAS NO QUESTS YET' : 'YOUR LEGEND BEGINS HERE'}</div>
+        <div class="locked-sub">${tab === 'partner' ? esc(label) + " hasn't written any quests yet." : 'A blank map stretches before you. No roads marked. No quests assigned. Just you, and twelve months to write your legend.'}</div>
         ${starterHTML}
       </div>`;
     document.getElementById('empty-add-quest-btn')?.addEventListener('click', () => openGoalModal('together'));
     return;
   }
 
-  document.getElementById('win-body')?.classList.remove('card-mode');
   list.innerHTML = urgentWarningsHTML([tab])
     + goals.map((g, i) => goalItemHTML(g, i, tab)).join('');
 }
@@ -1156,22 +823,21 @@ function renderAllTab() {
   const meName      = (data.me?.name      || 'ME').toUpperCase();
   const partnerName = (data.partner?.name || '').toUpperCase();
   const sections = [
-    { tab: 'together', label: '💎 ' + (data.together?.name || 'PARTY').toUpperCase(), cls: 'party-header', tagCls: 'owner-party', tagText: (data.together?.name || 'PARTY').toUpperCase() },
-    ...(data.partner ? [{ tab: 'partner', label: '👤 ' + partnerName, cls: 'partner-header', tagCls: 'owner-partner', tagText: partnerName }] : []),
-    { tab: 'me', label: '👤 ' + meName, cls: 'me-header', tagCls: 'owner-me', tagText: meName },
+    { tab: 'together', label: '💎 ' + (data.together?.name || 'PARTY').toUpperCase(), cls: 'party-header' },
+    ...(data.partner ? [{ tab: 'partner', label: '👤 ' + partnerName, cls: 'partner-header' }] : []),
+    { tab: 'me', label: '👤 ' + meName, cls: 'me-header' },
   ];
 
   const goalsHTML = sections.map(sec => {
     const goals = data[sec.tab].goals;
     const done  = countDone(data, sec.tab);
     const total = goals.length;
+    // labels hold group and player names other people typed, so escape them
     const header = `<div class="all-section-header ${sec.cls}">
-      <span class="all-section-label">${sec.label}</span>
+      <span class="all-section-label">${esc(sec.label)}</span>
       <span class="all-section-count">${total === 0 ? 'No quests yet' : `${done} / ${total} done`}</span>
     </div>`;
-    const items = goals.map((g, i) => goalItemHTML(g, i, sec.tab, {
-      showTag: true, tagCls: sec.tagCls, tagText: sec.tagText
-    })).join('');
+    const items = goals.map((g, i) => goalItemHTML(g, i, sec.tab)).join('');
     return header + items;
   }).join('');
 
@@ -1187,88 +853,6 @@ function renderAllTab() {
       </div>
       <div class="goal-list" id="goal-list">${urgentWarningsHTML(['me', 'together', ...(data.partner ? ['partner'] : [])]) + goalsHTML}</div>
     </div>`;
-}
-
-// ── TEAM TAB RENDER ───────────────────────────────────────────
-function renderTeamTab() {
-  const wb = document.getElementById('win-body');
-  wb.className = 'win-body team-body';
-
-  const meDone      = countDone(data, 'me');
-  const partnerDone = data.partner ? countDone(data, 'partner') : 0;
-  const togDone     = countDone(data, 'together');
-  const allDone     = meDone + partnerDone + togDone;
-  const allTotal    = totalGoalsAll(data);
-  const allPct      = allTotal ? Math.round((allDone / allTotal) * 100) : 0;
-
-  const mePct      = getPct(data, 'me');
-  const partnerPct = data.partner ? getPct(data, 'partner') : 0;
-  const meName      = data.me?.name    || 'ME';
-  const partnerName = data.partner?.name || 'PARTNER';
-
-  const unlockedC = (data.team || {}).unlockedCombinedBadges || [];
-  const unlockedB = (data.team || {}).unlockedBalanceBadges  || [];
-
-  wb.innerHTML = `
-    <!-- Stats row -->
-    <div class="team-stats-row">
-      <div class="team-stat-box">
-        <span class="team-stat-num">${meDone}</span>
-        <span class="team-stat-label">👤 ${meName.toUpperCase()}</span>
-      </div>
-      <div class="team-stat-box">
-        <span class="team-stat-num">${partnerDone}</span>
-        <span class="team-stat-label">👤 ${partnerName.toUpperCase()}</span>
-      </div>
-      <div class="team-stat-box">
-        <span class="team-stat-num">${togDone}</span>
-        <span class="team-stat-label">💎 TOGETHER</span>
-      </div>
-      <div class="team-stat-box" style="background:linear-gradient(180deg,#FFFFF0,#FFFCCC);border-color:#C8A800">
-        <span class="team-stat-num" style="color:#7A5500">${allDone}</span>
-        <span class="team-stat-label">🏆 TOTAL</span>
-      </div>
-    </div>
-
-    <!-- Combined progress -->
-    <div class="team-prog-section">
-      <span class="team-prog-label">${allDone} DONE TOGETHER</span>
-      <div class="team-prog-track">
-        <div class="team-prog-fill" style="width:${allPct}%"></div>
-      </div>
-      <span class="team-prog-pct" style="font-family:'Press Start 2P',monospace;font-size:6.5px;color:#5A3800;min-width:36px;text-align:right">${allPct}%</span>
-    </div>
-
-    <!-- Combined total badges -->
-    <div class="inset-panel team-badge-panel">
-      <div class="panel-title">✦ COMBINED BADGES</div>
-      <div class="badge-case">
-        ${COMBINED_BADGE_DEFS.map(b => {
-          const needed = b.threshold(allTotal);
-          const unlocked = unlockedC.includes(b.id);
-          return badgeSlotHTML(b, unlocked, unlocked ? b.name.split(' ')[0] : `${needed} DONE`);
-        }).join('')}
-      </div>
-    </div>
-
-    <!-- Balance badges -->
-    <div class="inset-panel balance-badge-panel">
-      <div class="panel-title">✦ BALANCE BADGES</div>
-      <div style="font-family:VT323,monospace;font-size:16px;color:#555;margin-bottom:8px;padding:0 4px">
-        ${meName}: ${mePct}% · ${partnerName}: ${data.partner ? partnerPct + '%' : '(no partner yet)'}
-      </div>
-      <div class="badge-case">
-        ${BALANCE_BADGE_DEFS.map(b => {
-          const unlocked = unlockedB.includes(b.id);
-          const bothAt   = mePct >= b.threshold && partnerPct >= b.threshold;
-          return badgeSlotHTML(b, unlocked, unlocked ? b.name : `BOTH @ ${b.threshold}%`);
-        }).join('')}
-      </div>
-    </div>
-  `;
-
-  // Reset win-body class on tab switch away
-  wb.className = 'win-body team-body';
 }
 
 
@@ -1400,10 +984,7 @@ function renderBadgeCabinet() {
   // even if the ID didn't make it into unlockedBadges due to a missed save.
   const unlockedSecrets = SECRET_BADGE_DEFS.filter(b => meUnlocked.includes(b.id) || meDates[b.id]);
   const secretHTML = unlockedSecrets.length
-    ? unlockedSecrets.map(b => {
-        const isSelected = selectedBadge?.badgeId === b.id && selectedBadge?.tab === 'me';
-        return badgeSlotHTML(b, true, '✦ SECRET', isSelected);
-      }).join('')
+    ? unlockedSecrets.map(b => badgeSlotHTML(b, true, '✦ SECRET')).join('')
     : `<div class="badges-secret-empty">Whispers of hidden honours... None revealed yet.<br><span class="badges-secret-hint">They find you. You do not find them.</span></div>`;
 
   wb.innerHTML = `
@@ -1833,8 +1414,8 @@ function renderQuestDialog() {
     moreBtn.textContent    = _qdMetaOpen ? '▲ HIDE' : '▼ DETAILS';
     meta.innerHTML = _qdMetaOpen ? `
       ${g.note     ? `<div class="card-note">✎ ${esc(g.note)}</div>` : ''}
-      ${g.deadline ? `<div class="qd-deadline">📅 ${g.deadline}</div>` : ''}
-      ${g.photo    ? `<img class="qd-photo" src="${g.photo}" alt="Memory">` : ''}
+      ${g.deadline ? `<div class="qd-deadline">📅 ${esc(g.deadline)}</div>` : ''}
+      ${g.photo    ? `<img class="qd-photo" src="${esc(g.photo)}" alt="Memory">` : ''}
     ` : '';
   } else {
     moreBtn.style.display = 'none';
@@ -1872,7 +1453,7 @@ function showGoalComplete({ title, goalRef, tab }) {
   photoInput.value = '';
   photoBtn.textContent = '📷 Add Photo';
   photoPreview.innerHTML = goalRef.photo
-    ? `<img class="popup-photo-preview" src="${goalRef.photo}" alt=""><button class="photo-remove-btn" type="button">✕ Remove</button>`
+    ? `<img class="popup-photo-preview" src="${esc(goalRef.photo)}" alt=""><button class="photo-remove-btn" type="button">✕ Remove</button>`
     : '';
 
   overlay.style.display = 'flex';
@@ -1965,8 +1546,6 @@ function showSecretBadgeUnlock(badge) {
 // ── TABS ──────────────────────────────────────────────────────
 function switchTab(name) {
   activeTab = name;
-  expandedMonthGoal = null;
-  selectedBadge = null;
   hideDeadlinePopup();
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
 
@@ -2043,30 +1622,6 @@ function handleWinBodyClick(e) {
       { type: 'adjust', delta: cntBtn.dataset.action === 'inc' ? 1 : -1 }
     );
     if (_qdGoal) renderQuestDialog();
-    return;
-  }
-
-  // Month grid cells
-  const monthCell = e.target.closest('.month-cell');
-  if (monthCell) {
-    applyGoalInteraction(
-      monthCell.dataset.tab || activeTab,
-      parseInt(monthCell.dataset.id),
-      { type: 'month', index: parseInt(monthCell.dataset.month) }
-    );
-    return;
-  }
-
-  // Monthly expand — title click or count-display click (only monthly ones have data-id)
-  const expandEl = e.target.closest('.monthly-title, .count-display[data-id]');
-  if (expandEl) {
-    const tab  = expandEl.dataset.tab || activeTab;
-    const goal = data[tab]?.goals.find(g => g.id === parseInt(expandEl.dataset.id));
-    if (goal?.type === 'monthly') {
-      const key = `${tab}-${goal.id}`;
-      expandedMonthGoal = expandedMonthGoal === key ? null : key;
-      render();
-    }
     return;
   }
 
@@ -2310,25 +1865,6 @@ function init() {
 
   // Tab labels are set dynamically by updateTabLabels() after auth
 
-  // Swipe support for card view (vertical: swipe up = next, swipe down = prev)
-  let _touchStartY = 0;
-  const wb = document.getElementById('win-body');
-  wb.addEventListener('touchstart', e => {
-    if (viewMode !== 'card') return;
-    _touchStartY = e.touches[0].clientY;
-  }, { passive: true });
-  wb.addEventListener('touchend', e => {
-    if (viewMode !== 'card') return;
-    const dy = e.changedTouches[0].clientY - _touchStartY;
-    if (Math.abs(dy) > 50) navigateCard(activeTab, dy > 0 ? -1 : 1);
-  }, { passive: true });
-
-  // Keyboard arrow keys for card view (up/down)
-  document.addEventListener('keydown', e => {
-    if (viewMode !== 'card') return;
-    if (e.key === 'ArrowUp')   navigateCard(activeTab, -1);
-    if (e.key === 'ArrowDown') navigateCard(activeTab,  1);
-  });
 
   // ── Goal modal ───────────────────────────────────────────────
   document.getElementById('gm-cancel').addEventListener('click', closeGoalModal);
@@ -2363,9 +1899,6 @@ function init() {
   const notifBtn = document.getElementById('notif-btn');
   notifBtn.addEventListener('click', () => enableNotifications(setStatus));
   updateNotifBtn();
-
-  // Check inactivity on load (only if permission already granted)
-  checkInactivity();
 }
 
 // ── PWA: SERVICE WORKER ───────────────────────────────────────

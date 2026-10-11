@@ -29,10 +29,6 @@ export async function loadUserData(uid) {
   };
 }
 
-export async function saveUserBadges(uid, unlockedBadges, badgeDates) {
-  await updateDoc(doc(db, 'users', uid), { unlockedBadges, badgeDates });
-}
-
 // ── Group ─────────────────────────────────────────────────────
 
 export async function loadGroupData(groupId) {
@@ -54,14 +50,6 @@ export async function loadGroupData(groupId) {
     unlockedBalanceBadges:   gd.unlockedBalanceBadges    || [],
     badgeDates:              gd.badgeDates               || {}
   };
-}
-
-export async function saveGroupBadges(groupId, combined, balance, dates) {
-  await updateDoc(doc(db, 'groups', groupId), {
-    unlockedCombinedBadges: combined,
-    unlockedBalanceBadges:  balance,
-    badgeDates:             dates
-  });
 }
 
 // ── Partner (read-only) ───────────────────────────────────────
@@ -151,11 +139,7 @@ export async function deleteGroupGoal(groupId, goalId) {
   await deleteDoc(doc(db, 'groups', groupId, 'goals', String(goalId)));
 }
 
-// ── Email ─────────────────────────────────────────────────────
-
-export async function saveUserEmail(uid, email) {
-  await updateDoc(doc(db, 'users', uid), { email }).catch(() => {});
-}
+// ── Profile ───────────────────────────────────────────────────
 
 export async function saveUserProfile(uid, username, color) {
   await updateDoc(doc(db, 'users', uid), { username, color });

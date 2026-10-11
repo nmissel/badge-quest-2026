@@ -1,0 +1,4 @@
+# Local-only files: keep them out of git, and so off the live site.
+.claude/
+reset-progress.html
+launch.bat

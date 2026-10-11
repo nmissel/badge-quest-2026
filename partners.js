@@ -4,7 +4,7 @@
 // ============================================================
 import { currentUser, currentProfile } from './auth.js';
 import {
-  sendGroupInvite, getPendingInvitesForEmail, getSentInvites,
+  sendGroupInvite, getSentInvites,
   acceptGroupInvite, declineGroupInvite, leaveGroup,
   loadGroupData, loadPartnerData
 } from './db.js';
@@ -40,7 +40,7 @@ export function closePartnersPanel() {
 
 // ── Render partners panel ─────────────────────────────────────
 export async function renderPartnersPanel() {
-  const { allGroups, currentGroupId, _pendingInvites } = _getAppState();
+  const { allGroups, _pendingInvites } = _getAppState();
   const uid = currentUser?.uid;
   if (!uid) return;
 
@@ -88,7 +88,7 @@ export async function renderPartnersPanel() {
       return `
         <div class="partners-sent-row">
           <div>
-            <span class="partners-sent-to">${inv.toEmail}</span>
+            <span class="partners-sent-to">${esc(inv.toEmail)}</span>
             <span style="font-family:VT323,monospace;font-size:14px;color:#888"> — ${esc(inv.groupName || '')}</span>
           </div>
           <span class="partners-sent-status ${statusCls}">${statusLbl}</span>

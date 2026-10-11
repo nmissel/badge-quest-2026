@@ -159,24 +159,10 @@ export async function enableNotifications(setStatus) {
   if (perm === 'granted') {
     setStatus('QUEST REMINDERS ENABLED ✓', 2000);
     new Notification('Eventyr 🗺️', {
-      body: "Reminders are on! We'll nudge you if quests go quiet.",
+      body: 'Reminders are on! The wizard only calls about quests you ask him to watch.',
       icon: './icons/icon.svg'
     });
   } else {
     setStatus('NOTIFICATIONS BLOCKED', 2500);
-  }
-}
-
-export function checkInactivity() {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  const lastSave = localStorage.getItem('badgequest_lastSave');
-  if (!lastSave) return;
-  const daysSince = (Date.now() - parseInt(lastSave)) / (1000 * 60 * 60 * 24);
-  if (daysSince >= 3) {
-    const days = Math.floor(daysSince);
-    new Notification('Eventyr 🗺️', {
-      body: `${days} days without a quest update — your quests are waiting!`,
-      icon: './icons/icon.svg'
-    });
   }
 }

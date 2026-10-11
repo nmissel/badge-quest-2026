@@ -1,0 +1,10 @@
+# Files that are part of the project but not part of the app.
+# They stay in git; Vercel just doesn't publish them on the live site.
+# (BADGES.md would otherwise give away every secret badge's trigger.)
+*.md
+Screenshots/
+map-tests.html
+onboarding-preview.html
+reset-progress.html
+launch.bat
+.claude/

@@ -18,7 +18,6 @@ export let currentUser    = null;
 export let currentProfile = null;
 
 // ── Wizard state ───────────────────────────────────────────
-let _wizardStep   = 1;
 let _wizardOnReady = null;
 
 // ── Overlay show/hide ──────────────────────────────────────
@@ -211,8 +210,6 @@ function startAuthClock() {
 
 // ── Step navigation ────────────────────────────────────────
 function goToStep(n) {
-  _wizardStep = n;
-
   // Update step indicators
   document.querySelectorAll('.wizard-step').forEach(el => {
     const s = parseInt(el.dataset.step);
@@ -310,7 +307,7 @@ async function submitSetup() {
 
     // Personalise the X step title
     const titleEl = document.getElementById('begin-title');
-    if (titleEl) titleEl.innerHTML = `YOU FOUND IT,<br>${username.toUpperCase()}!`;
+    if (titleEl) titleEl.replaceChildren('YOU FOUND IT,', document.createElement('br'), username.toUpperCase() + '!');
 
     goToStep(5);
   } catch (e) {

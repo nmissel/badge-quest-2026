@@ -509,11 +509,11 @@ export function makeBadgeSVG(badge, size = 52) {
 </svg>`;
 }
 
-export function badgeSlotHTML(b, isUnlocked, labelOverride = null, isSelected = false) {
+export function badgeSlotHTML(b, isUnlocked, labelOverride = null) {
   const label = labelOverride ?? (isUnlocked ? b.name.split(' ')[0] : '?');
   const rarityClass = isUnlocked && b.rarity ? `rarity-${b.rarity}` : '';
   return `
-    <div class="badge-slot ${isUnlocked ? '' : 'locked'} ${rarityClass} ${isSelected ? 'selected' : ''}"
+    <div class="badge-slot ${isUnlocked ? '' : 'locked'} ${rarityClass}"
          data-badge-id="${b.id}" title="${b.name}: ${b.desc}">
       <div class="badge-gem ${isUnlocked ? 'unlocked' : 'locked'}">${makeBadgeSVG(b, 52)}</div>
       <div class="badge-label">${label}</div>

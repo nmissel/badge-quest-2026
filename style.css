@@ -113,8 +113,6 @@ body {
   justify-self: center;
 }
 
-.title-icon { font-size: 18px; line-height: 1; }
-
 .title-text {
   font-family: 'Press Start 2P', monospace;
   font-size: 8px;
@@ -261,30 +259,6 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Card mode: chain flex all the way so the card fills the screen */
-.win-body.card-mode {
-  overflow: hidden;
-}
-.win-body.card-mode .quest-panel {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-.win-body.card-mode .goal-list {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.win-body.card-mode .card-view {
-  flex: 1;
-  min-height: 0;
-  padding: 8px 8px 4px;
-  justify-content: center;
-}
-.win-body.card-mode .card-carousel {
-  flex: 0 0 auto;
-}
 
 /* ============ XP INSET PANEL ============ */
 
@@ -306,10 +280,6 @@ body {
 }
 
 /* ============ BADGE CASE ============ */
-
-.badge-case-panel {
-  background: linear-gradient(180deg, #F8F7F2 0%, #EDE9DC 100%);
-}
 
 .badge-case {
   display: flex;
@@ -358,48 +328,6 @@ body {
 
 /* ── Badge Pokédex Detail Panel ─────────────────────────────── */
 #badge-detail { margin-top: 6px; }
-
-.badge-detail-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: linear-gradient(135deg, #FFFFF0 0%, #FFF8DC 100%);
-  border: 2px solid #0A246A;
-  border-radius: 4px;
-  padding: 8px 10px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 2px 5px rgba(0,0,0,0.15);
-  animation: detail-pop 0.18s ease-out;
-}
-.badge-detail-card.locked-detail {
-  background: linear-gradient(135deg, #F0F0F0, #E8E8E8);
-  border-color: #999;
-}
-@keyframes detail-pop {
-  from { opacity: 0; transform: translateY(-5px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.badge-detail-svg        { flex-shrink: 0; filter: drop-shadow(0 0 5px rgba(255,215,0,0.6)); }
-.badge-detail-svg.locked { filter: grayscale(1) brightness(0.45); }
-.badge-detail-info       { flex: 1; min-width: 0; }
-.badge-detail-name {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 5.5px;
-  color: #0A246A;
-  margin-bottom: 5px;
-  letter-spacing: 0.04em;
-}
-.badge-detail-desc {
-  font-family: 'VT323', monospace;
-  font-size: 15px;
-  color: #222;
-  line-height: 1.2;
-  margin-bottom: 3px;
-}
-.badge-detail-date {
-  font-family: 'VT323', monospace;
-  font-size: 13px;
-  color: #2E7D32;
-}
 
 /* ============ XP PROGRESS BAR ============ */
 
@@ -500,7 +428,6 @@ body {
 }
 .goal-item:hover .goal-title,
 .goal-item:hover .goal-num { color: #fff; }
-.goal-item:hover .count-display { color: #fff; background: #1A50A0; border-color: #0A246A; }
 
 /* Type-coded left borders — removed */
 
@@ -560,13 +487,6 @@ body {
 
 /* ============ COUNT CONTROLS ============ */
 
-.count-ctrl {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
 /* XP gel button — sized for comfortable touch */
 .cnt-btn {
   width: 36px;
@@ -600,26 +520,6 @@ body {
   border-color: #0A246A;
 }
 .cnt-btn:disabled { color: #aaa; cursor: default; filter: none; }
-
-.count-display {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 6px;
-  background: #FFFFFF;
-  border: 1px solid;
-  border-color: #7A7668 #FFFFFF #FFFFFF #7A7668;
-  box-shadow: inset 1px 1px 2px rgba(0,0,0,0.1);
-  padding: 4px 5px;
-  min-width: 64px;
-  text-align: center;
-  color: #0A246A;
-  white-space: nowrap;
-  line-height: 1.6;
-  border-radius: 1px;
-}
-.count-display.maxed {
-  color: #2A7A2A;
-  background: linear-gradient(180deg, #F0FFF0 0%, #E0F8E0 100%);
-}
 
 /* ============ LOCKED PANEL ============ */
 
@@ -1049,17 +949,6 @@ body {
 }
 .deadline-warning-overdue .deadline-warning-item { color: #4a0000; }
 
-/* ============ CHARACTER AVATARS ============ */
-
-.char-svg {
-  display: inline-block;
-  vertical-align: middle;
-  image-rendering: pixelated;
-  margin-right: 2px;
-  margin-bottom: 1px;
-}
-.tab .char-svg { margin-bottom: 0; }
-.team-stat-label .char-svg { width: 14px; height: 17px; }
 
 /* ============ BLINK ============ */
 
@@ -1069,19 +958,6 @@ body {
   50%       { opacity: 0; }
 }
 
-/* ============ TEAM TAB ============ */
-
-.team-tab {
-  margin-left: auto;
-  color: #7A5500 !important;
-  background: linear-gradient(180deg, #FFF8E0 0%, #FFE880 50%, #F0D000 100%) !important;
-  border-color: #FFE888 #A08000 #A08000 #FFE888 !important;
-}
-.team-tab.active {
-  color: #5A3A00 !important;
-  background: linear-gradient(180deg, #FFFFF0 0%, #FFF8D0 100%) !important;
-  border-color: #FFE888 #A08000 #FFF8D0 #FFE888 !important;
-}
 
 /* ============ TEAM TAB BODY ============ */
 
@@ -1095,104 +971,6 @@ body {
   background: #F3EEFF;
 }
 
-.team-stats-row {
-  display: flex;
-  gap: 6px;
-}
-
-.team-stat-box {
-  flex: 1;
-  background: #FFFFFF;
-  border: 1px solid #ACA899;
-  border-radius: 2px;
-  padding: 8px 6px;
-  text-align: center;
-  box-shadow: inset 1px 1px 0 rgba(0,0,0,0.06);
-}
-.team-stat-num {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 16px;
-  color: #0A246A;
-  display: block;
-  margin-bottom: 4px;
-}
-.team-stat-label {
-  font-family: 'VT323', monospace;
-  font-size: 16px;
-  color: #666;
-}
-
-.team-prog-section {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 8px;
-  background: linear-gradient(180deg, #FFF0C0 0%, #FFDF80 100%);
-  border: 1px solid #C8A800;
-  border-radius: 2px;
-}
-.team-prog-label {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 6.5px;
-  color: #5A3800;
-  white-space: nowrap;
-}
-.team-prog-track {
-  flex: 1;
-  height: 16px;
-  background: #FFFFFF;
-  border: 1px solid #C8A800;
-  border-radius: 1px;
-  overflow: hidden;
-}
-.team-prog-fill {
-  height: 100%;
-  /* Classic XP chunky gold blocks with white gaps */
-  background: repeating-linear-gradient(
-    90deg,
-    #A07000 0px,
-    #E8A800 1px,
-    #FFD040 5px,
-    #E8A800 10px,
-    #A07000 11px,
-    #FFFFFF 11px,
-    #FFFFFF 14px
-  );
-  transition: width 0.4s ease;
-  position: relative;
-}
-.team-prog-fill::after {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 50%;
-  background: linear-gradient(180deg, rgba(255,255,255,0.35) 0%, transparent 100%);
-  pointer-events: none;
-}
-.team-prog-pct {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 6.5px;
-  color: #5A3800;
-  min-width: 36px;
-  text-align: right;
-}
-
-/* team badge case */
-.team-badge-panel {
-  background: linear-gradient(180deg, #FFF8E0 0%, #FFF0C0 100%);
-  border: 1px solid;
-  border-color: #C8A800 #FFF8E0 #FFF8E0 #C8A800;
-  padding: 8px;
-}
-.team-badge-panel .panel-title { color: #7A5500; }
-
-.balance-badge-panel {
-  background: linear-gradient(180deg, #F0F8FF 0%, #DFF0FF 100%);
-  border: 1px solid;
-  border-color: #7AAAD0 #F0F8FF #F0F8FF #7AAAD0;
-  padding: 8px;
-}
-.balance-badge-panel .panel-title { color: #0A3878; }
 
 /* ============ COMPLETION NOTE ============ */
 
@@ -1316,96 +1094,8 @@ body {
 }
 .photo-viewer-close:hover { background: #ffcccc; border-color: #cc0000; color: #800000; }
 
-/* Note shown under completed goal */
-.goal-note-text {
-  font-family: 'VT323', monospace;
-  font-size: 15px;
-  color: #888;
-  font-style: italic;
-  margin-top: 1px;
-  display: block;
-}
-.goal-item:hover .goal-note-text { color: #AAC8FF; }
-.goal-item.done:hover .goal-note-text { color: #90EE90; }
-
-/* Wrap title + note */
-.goal-title-wrap {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-width: 0;
-}
-
-/* ============ MONTHLY GOAL GRID ============ */
-
-.month-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 3px;
-  margin-top: 6px;
-  padding: 6px;
-  background: #F5F3EE;
-  border: 1px solid #DDD9C8;
-  border-radius: 2px;
-}
-
-.month-cell {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 5px;
-  text-align: center;
-  padding: 8px 2px;
-  background: linear-gradient(180deg, #FFFFFF 0%, #ECE9D8 100%);
-  border: 1px solid;
-  border-color: #FFFFFF #808070 #808070 #FFFFFF;
-  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.8);
-  border-radius: 2px;
-  cursor: pointer;
-  color: #555;
-  line-height: 1.4;
-  min-height: 44px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.1s;
-}
-.month-cell:hover {
-  background: linear-gradient(180deg, #DDEEFF 0%, #AACCEE 100%);
-  border-color: #316AC5 #0A246A #0A246A #316AC5;
-  color: #0A246A;
-}
-.month-cell.checked {
-  background: linear-gradient(180deg, #C4ECC4 0%, #E0F8E0 100%);
-  border-color: #2A8A2A #6AC86A #6AC86A #2A8A2A;
-  box-shadow: inset 1px 1px 2px rgba(0,0,0,0.12);
-  color: #1A6A1A;
-  animation: cell-pop 0.2s ease-out;
-}
-.month-cell.checked:hover {
-  background: linear-gradient(180deg, #A8E0A8 0%, #C4ECC4 100%);
-  border-color: #1A6A1A #4CAF50 #4CAF50 #1A6A1A;
-}
-@keyframes cell-pop {
-  0%   { transform: scale(1); }
-  45%  { transform: scale(1.18); }
-  100% { transform: scale(1); }
-}
 
 /* ============ OWNER TAGS (ALL tab) ============ */
-
-.owner-tag {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 5px;
-  padding: 3px 5px;
-  border-radius: 2px;
-  flex-shrink: 0;
-  white-space: nowrap;
-  border: 1px solid;
-  line-height: 1;
-}
-.owner-party   { background: #EEE8FF; color: #3A0C6A; border-color: #9966CC; }
-.goal-item:hover .owner-tag { opacity: 0.85; }
 
 /* Partner goals are read-only — show a lock indicator */
 .goal-item.partner-readonly { opacity: 0.82; cursor: default; }
@@ -1414,12 +1104,6 @@ body {
   font-size: 10px;
   margin-left: 4px;
   opacity: 0.6;
-}
-/* Owner tags inside the blue titlebar get white-glass treatment */
-.card-titlebar .owner-tag {
-  background: rgba(255,255,255,0.2);
-  color: #fff;
-  border-color: rgba(255,255,255,0.4);
 }
 
 /* Section dividers in ALL view */
@@ -1449,18 +1133,6 @@ body {
   margin-left: auto;
 }
 
-/* ============ ALL TAB PROGRESS ============ */
-
-.all-prog-section {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 8px;
-  background: linear-gradient(180deg, #ECE9D8 0%, #DDD9C8 100%);
-  border: 1px solid #ACA899;
-  border-radius: 2px;
-  flex-shrink: 0;
-}
 
 /* ============ TWO-ROW GOAL ITEMS (count + monthly) ============ */
 
@@ -1472,155 +1144,6 @@ body {
   padding: 8px 10px 8px 9px;
 }
 
-/* Row 1: number + title + actions */
-.gi-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Row 2: controls, indented to align with title */
-.gi-controls {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding-left: 26px; /* goal-num (18px) + gap (8px) */
-  padding-top: 2px;
-  padding-bottom: 2px;
-}
-
-.gi-controls .count-display {
-  flex: 1;
-}
-
-/* Right-side action group (deadline badge, photo, btn, owner tag) */
-.gi-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-/* Inline count controls inside gi-actions */
-.gi-count-inline {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-.gi-count-num {
-  font-family: 'VT323', monospace;
-  font-size: 18px;
-  color: #1848BE;
-  min-width: 38px;
-  text-align: center;
-  line-height: 1;
-}
-.gi-count-num.maxed {
-  color: #2A7A2A;
-}
-
-/* List-view compact count/monthly progress bar */
-.gi-cnt-btn {
-  width: 32px;
-  height: 32px;
-  font-size: 17px;
-  flex-shrink: 0;
-}
-
-.gi-bar-wrap {
-  flex: 0 0 80px;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.gi-bar-track {
-  height: 12px;
-  background: #C4C0B8;
-  border: 1px solid #808080;
-  box-shadow: inset 1px 1px 2px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.4);
-  border-radius: 1px;
-  overflow: hidden;
-}
-
-.gi-bar-fill {
-  height: 100%;
-  background: repeating-linear-gradient(
-    90deg,
-    #4EC94E 0px, #4EC94E 7px,
-    #2BA52B 7px, #2BA52B 8px
-  );
-  transition: width 0.35s cubic-bezier(.25,.8,.25,1);
-}
-
-.gi-bar-fill.maxed {
-  background: repeating-linear-gradient(
-    90deg,
-    #FFD700 0px, #FFD700 7px,
-    #C8A000 7px, #C8A000 8px
-  );
-}
-
-.gi-bar-label {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-}
-
-.gi-bar-num {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 5px;
-  color: #0A246A;
-  line-height: 1;
-}
-
-.gi-bar-num.maxed { color: #2A7A2A; }
-
-.gi-bar-unit {
-  font-family: 'VT323', monospace;
-  font-size: 11px;
-  color: #555;
-  line-height: 1;
-}
-
-/* Expandable monthly goal */
-.goal-item.monthly-goal.monthly-expanded { background: #F8F7F0; }
-.goal-item.monthly-goal.monthly-expanded:nth-child(even) { background: #F2F0E8; }
-
-.month-grid-wrap {
-  width: 100%;
-  padding-left: 0;
-}
-
-/* ============ BADGE CASE COLLAPSIBLE ============ */
-
-.badge-case-toggle {
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  user-select: none;
-  transition: color 0.15s;
-}
-.badge-case-toggle:hover { color: #316AC5; }
-
-.badge-case-summary {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 5.5px;
-  color: #4CAF50;
-  background: #E8F8E8;
-  border: 1px solid #88CC88;
-  border-radius: 2px;
-  padding: 2px 6px;
-  line-height: 1.8;
-}
-
-.badge-case-arrow {
-  font-size: 8px;
-  margin-left: auto;
-  color: #ACA899;
-  transition: transform 0.2s ease;
-}
 
 /* ============ PANEL TITLE ROW (view toggle host) ============ */
 
@@ -1635,335 +1158,9 @@ body {
   margin-bottom: 0;
 }
 
-/* ============ VIEW TOGGLE BUTTONS ============ */
-
-.view-toggle {
-  display: flex;
-  gap: 2px;
-  flex-shrink: 0;
-}
-.view-btn {
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(180deg, #F4F2EA 0%, #DDD9C8 100%);
-  border: 1px solid;
-  border-color: #FFFFFF #808070 #808070 #FFFFFF;
-  border-radius: 2px;
-  cursor: pointer;
-  color: #999;
-  padding: 0;
-  font-size: 13px;
-  line-height: 1;
-}
-.view-btn:hover {
-  background: linear-gradient(180deg, #DDEEFF 0%, #AACCEE 100%);
-  border-color: #316AC5;
-  color: #0A246A;
-}
-.view-btn.active {
-  background: linear-gradient(180deg, #C8DCEE 0%, #AACCEE 100%);
-  border-color: #0A246A #316AC5 #316AC5 #0A246A;
-  color: #0A246A;
-  box-shadow: inset 1px 1px 2px rgba(0,0,0,0.18);
-}
 
 /* ============ CARD VIEW CONTAINER ============ */
 
-.card-view {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 2px 0;
-}
-
-/* ── The quest card ───────────────────────────────────────────── */
-
-/* ── Carousel wrapper (vertical stack) ───────────────────────── */
-.card-carousel {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
-}
-
-/* Peek strip: adjacent card peeking behind the active one */
-.card-side-peek {
-  flex: 0 0 100px;
-  height: 100px;
-  overflow: hidden;
-  border: 2px solid #0A246A;
-  border-radius: 6px;
-  opacity: 0.52;
-  cursor: pointer;
-  transform: scale(0.93);
-  filter: blur(1.5px);
-  transition: opacity 0.15s, filter 0.15s, transform 0.15s;
-}
-.card-side-peek.done {
-  border-color: #1B5E20;
-}
-.card-side-peek.done .peek-inner {
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 55%),
-    linear-gradient(90deg,
-      #0A3A0A 0%, #1B6E1B 18%, #2E9E2E 38%,
-      #3EBB3E 50%,
-      #2E9E2E 62%, #1B6E1B 82%, #0A3A0A 100%
-    );
-}
-.card-side-peek:hover { opacity: 0.75; filter: blur(0.6px); transform: scale(0.95); }
-.card-side-empty {
-  background: transparent;
-  border-color: transparent;
-  opacity: 0;
-  cursor: default;
-  pointer-events: none;
-}
-
-/* Title bar portion of the peek card */
-.peek-inner {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 8px;
-  height: 36px;
-  flex-shrink: 0;
-  white-space: nowrap;
-  pointer-events: none;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 55%),
-    linear-gradient(90deg,
-      #0C2478 0%, #1848BE 18%, #3870DA 38%,
-      #4A88F0 50%,
-      #3870DA 62%, #1848BE 82%, #0C2478 100%
-    );
-}
-/* Body hint below the peek title bar */
-.peek-body {
-  height: 64px;
-  background: linear-gradient(180deg, #FDFCF8 0%, #EDE9DF 100%);
-  pointer-events: none;
-}
-.card-tb-icon { font-size: 14px; line-height: 1; flex-shrink: 0; }
-.card-peek-title {
-  font-family: 'VT323', monospace;
-  font-size: 18px;
-  color: rgba(255,255,255,0.9);
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-  line-height: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ── The main quest card — XP popup window ────────────────────── */
-.quest-card {
-  flex: 0 0 auto;
-  min-width: 0;
-  height: clamp(200px, 52dvh, 320px);
-  display: flex;
-  flex-direction: column;
-  background: #ECE9D8;
-  border: 2px solid #0A246A;
-  border-radius: 6px;
-  padding: 0;
-  box-shadow: 0 8px 28px rgba(0,0,0,0.32), 0 2px 6px rgba(0,0,0,0.18);
-  overflow: hidden;
-  z-index: 2;
-}
-.quest-card.done {
-  border-color: #2E7D32;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.16);
-}
-
-/* XP Luna title bar */
-.card-titlebar {
-  flex-shrink: 0;
-  min-height: 36px;
-  height: auto;
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 7px 6px 7px 8px;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 55%),
-    linear-gradient(90deg,
-      #0C2478 0%, #1848BE 18%, #3870DA 38%,
-      #4A88F0 50%,
-      #3870DA 62%, #1848BE 82%, #0C2478 100%
-    );
-  border-bottom: 1px solid #0A246A;
-  user-select: none;
-}
-.card-titlebar.done {
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 55%),
-    linear-gradient(90deg,
-      #0A3A0A 0%, #1B6E1B 18%, #2E9E2E 38%,
-      #3EBB3E 50%,
-      #2E9E2E 62%, #1B6E1B 82%, #0A3A0A 100%
-    );
-  border-bottom-color: #1B5E20;
-}
-
-.card-tb-left {
-  flex: 1;
-  display: flex;
-  align-items: flex-start;
-  gap: 5px;
-  min-width: 0;
-}
-.card-tb-icon {
-  font-size: 14px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-.card-tb-title {
-  font-family: 'VT323', monospace;
-  font-size: 20px;
-  color: #fff;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.55);
-  line-height: 1.25;
-  white-space: normal;
-  word-break: break-word;
-}
-
-.card-tb-right {
-  display: flex;
-  align-items: flex-start;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-/* XP-style red close button */
-.card-tb-x {
-  width: 22px;
-  height: 22px;
-  background: linear-gradient(180deg, #E88080 0%, #CC2020 55%, #AA1818 100%);
-  border: 1px solid;
-  border-color: #FF9999 #7A0000 #7A0000 #FF9999;
-  border-radius: 3px;
-  color: #fff;
-  font-size: 11px;
-  font-weight: bold;
-  font-family: 'Tahoma', sans-serif;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  flex-shrink: 0;
-  line-height: 1;
-  text-shadow: 0 1px 1px rgba(0,0,0,0.4);
-  margin-left: 2px;
-}
-.card-tb-x:hover {
-  background: linear-gradient(180deg, #FF9999 0%, #EE3030 55%, #CC1818 100%);
-  border-color: #FFAAAA #990000 #990000 #FFAAAA;
-}
-.card-tb-x:active {
-  background: linear-gradient(180deg, #AA1818 0%, #EE3030 100%);
-}
-
-/* Card content area (below the titlebar) */
-.card-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 10px 12px 8px;
-  background: linear-gradient(180deg, #FDFCF8 0%, #F5F1E8 100%);
-  overflow: hidden;
-}
-
-/* Slide animations: slide-right = next (card comes from below), slide-left = prev (from above) */
-@keyframes card-in-right {
-  from { opacity: 0; transform: translateY(48px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes card-in-left {
-  from { opacity: 0; transform: translateY(-48px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.quest-card.slide-right { animation: card-in-right 0.22s ease-out; }
-.quest-card.slide-left  { animation: card-in-left  0.22s ease-out; }
-
-/* ── Card header row ──────────────────────────────────────────── */
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  margin-bottom: 8px;
-  flex-shrink: 0;
-}
-.card-header-right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.card-num {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 5.5px;
-  color: #ACA899;
-  flex-shrink: 0;
-}
-.card-type-badge {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 4.5px;
-  padding: 3px 6px;
-  border-radius: 2px;
-  line-height: 1.8;
-  flex-shrink: 0;
-}
-.card-type-binary  { background: rgba(255,255,255,0.18); color: #fff; border: 1px solid rgba(255,255,255,0.35); }
-.card-type-count   { background: rgba(255,200,80,0.28);  color: #FFE8A0; border: 1px solid rgba(255,200,80,0.5); }
-.card-type-monthly { background: rgba(80,255,120,0.22);  color: #A0FFB8; border: 1px solid rgba(80,220,100,0.5); }
-
-.card-status {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 6px;
-  padding: 4px 7px;
-  border-radius: 2px;
-  line-height: 1.8;
-  flex-shrink: 0;
-}
-.card-status-done { background: #C8ECC8; color: #1A6A1A; border: 1px solid #4CAF50; }
-.card-status-open { background: #ECE9D8; color: #888;    border: 1px solid #ACA899; }
-
-/* ── Card title ───────────────────────────────────────────────── */
-
-.card-title {
-  font-family: 'VT323', monospace;
-  font-size: 36px;
-  color: #000;
-  line-height: 1.15;
-  margin-bottom: 10px;
-  text-align: left;
-  word-break: break-word;
-  flex-shrink: 0;
-}
-.quest-card.done .card-title {
-  color: #2E7D32;
-  text-decoration: line-through;
-  text-decoration-color: rgba(46,125,50,0.45);
-}
-
-/* ── Card controls ────────────────────────────────────────────── */
-
-.card-controls {
-  flex: 0 0 auto;
-  align-self: stretch;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: center;
-  gap: 8px;
-}
 
 /* Binary — big full-width check button */
 .card-check-btn {
@@ -2094,278 +1291,17 @@ body {
   line-height: 1;
 }
 
-/* Monthly — grid inside card (4 cols) */
-.card-monthly-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  width: 100%;
-}
-.card-month-grid {
-  grid-template-columns: repeat(4, 1fr);
-  margin-top: 0;
-  padding: 4px;
-  gap: 3px;
-}
-.card-month-grid .month-cell {
-  padding: 5px 2px;
-  font-size: 5px;
-}
-.card-monthly-count { text-align: center; }
-.card-monthly-count-label {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 6px;
-  color: #0A246A;
-  display: inline-block;
-  min-width: 80px;
-  text-align: center;
-  line-height: 1.4;
-}
-.card-monthly-count-label.maxed { color: #2E7D32; }
 
 /* ── Card meta (note, photo, deadline) ───────────────────────── */
-
-.card-meta {
-  border-top: 1px solid #DDD9C8;
-  padding-top: 8px;
-  margin-top: 2px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
 .card-note {
   font-family: 'VT323', monospace;
   font-size: 18px;
   color: #888;
   font-style: italic;
 }
-.card-photo {
-  width: 72px;
-  height: 72px;
-  border-radius: 3px;
-  align-self: flex-start;
-}
 
-/* ── Card deadline bar (bottom strip) ────────────────────────── */
-
-.card-deadline-bar {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 6px 12px 8px;
-  background: #EDE9DC;
-  border-top: 1px solid #D8D4C8;
-}
-.card-dl-btn {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 5px;
-  padding: 5px 10px;
-  background: linear-gradient(180deg, #F4F2EC 0%, #E0DDD4 100%);
-  border: 1px solid;
-  border-color: #FFFFFF #888070 #888070 #FFFFFF;
-  border-radius: 2px;
-  cursor: pointer;
-  color: #0A246A;
-  letter-spacing: 0.04em;
-}
-.card-dl-btn:hover { background: linear-gradient(180deg, #EEF4FF 0%, #D4E4FF 100%); }
-
-/* ── Calendar back face ───────────────────────────────────────── */
-
-.card-calendar-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 8px 10px 8px;
-  background: linear-gradient(180deg, #FDFCF8 0%, #F5F1E8 100%);
-  overflow: hidden;
-  animation: cal-slide-in 0.22s ease-out;
-}
-@keyframes cal-slide-in {
-  from { opacity: 0; transform: translateX(12px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-
-.cal-nav-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-  flex-shrink: 0;
-}
-.cal-month-label {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 6px;
-  color: #0A246A;
-  text-align: center;
-  line-height: 1.4;
-}
-.cal-nav {
-  width: 26px;
-  height: 26px;
-  font-size: 18px;
-  font-family: 'Tahoma', sans-serif;
-  background: linear-gradient(180deg, #F4F2EC 0%, #DCD8CC 100%);
-  border: 1px solid;
-  border-color: #FFFFFF #888070 #888070 #FFFFFF;
-  border-radius: 2px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #0A246A;
-  padding: 0;
-  line-height: 1;
-}
-.cal-nav:hover { background: linear-gradient(180deg, #EEF4FF 0%, #C8D8F0 100%); }
-
-.cal-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
-  flex: 1;
-  min-height: 0;
-}
-.cal-dow {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 4px;
-  text-align: center;
-  color: #888;
-  padding: 2px 0 3px;
-  line-height: 1;
-}
-.cal-day {
-  font-family: 'VT323', monospace;
-  font-size: 15px;
-  text-align: center;
-  padding: 2px 0;
-  cursor: pointer;
-  border: 1px solid transparent;
-  border-radius: 2px;
-  line-height: 1.1;
-  color: #222;
-}
-.cal-day:hover:not(.cal-past):not(.cal-empty) {
-  background: #D4E4FF;
-  border-color: #316AC5;
-  color: #0A246A;
-}
-.cal-day.cal-today {
-  border-color: #888;
-  background: #ECE9D8;
-  font-weight: bold;
-}
-.cal-day.cal-selected {
-  background: linear-gradient(180deg, #4A88F0 0%, #1848BE 100%);
-  border-color: #0A246A;
-  color: #fff;
-}
-.cal-day.cal-past, .cal-day.cal-empty {
-  color: #CCC;
-  cursor: default;
-}
-.cal-footer {
-  flex-shrink: 0;
-  text-align: center;
-  padding-top: 6px;
-}
-.cal-clear-btn {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 5px;
-  padding: 5px 10px;
-  background: linear-gradient(180deg, #FFF0F0 0%, #ECD4D4 100%);
-  border: 1px solid;
-  border-color: #FFAAAA #CC4444 #CC4444 #FFAAAA;
-  border-radius: 2px;
-  cursor: pointer;
-  color: #8B0000;
-}
-.cal-clear-btn:hover { background: linear-gradient(180deg, #FFDDD8 0%, #FFCCCC 100%); }
-.cal-hint {
-  font-family: 'VT323', monospace;
-  font-size: 15px;
-  color: #AAA;
-}
-
-/* ── Progress dots ────────────────────────────────────────────── */
-
-.card-dots {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-  flex-wrap: wrap;
-  padding: 6px 8px 4px;
-  flex-shrink: 0;
-}
-.card-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #DDD9C8;
-  border: 1px solid #ACA899;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: transform 0.12s, background 0.12s;
-}
-.card-dot:hover { transform: scale(1.35); }
-.card-dot.done    { background: #88CC88; border-color: #4CAF50; }
-.card-dot.current { background: #0A246A; border-color: #0A246A; transform: scale(1.5); }
-.card-dot.current.done { background: #0A246A; }
-.card-counter-text {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 5.5px;
-  color: #888;
-  text-align: center;
-}
 
 /* ── Card navigation ──────────────────────────────────────────── */
-
-.card-nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.card-nav-btn {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 6.5px;
-  padding: 8px 10px;
-  flex: 1;
-  min-height: 40px;
-  background: linear-gradient(180deg, #FAFAFA 0%, #E8E4D8 45%, #D0CCBC 50%, #C4C0B0 100%);
-  border: 1px solid;
-  border-color: #FFFFFF #808070 #808070 #FFFFFF;
-  border-radius: 3px;
-  cursor: pointer;
-  color: #000;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.card-nav-btn:hover:not(:disabled) {
-  background: linear-gradient(180deg, #DDEEFF 0%, #AACCEE 50%, #88AACC 100%);
-  border-color: #316AC5;
-  color: #0A246A;
-}
-.card-nav-btn:active:not(:disabled) {
-  background: linear-gradient(180deg, #B8CCDD 0%, #DDEEFF 100%);
-}
-.card-nav-btn:disabled {
-  color: #aaa;
-  cursor: default;
-  opacity: 0.5;
-}
-.card-nav-counter {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 5.5px;
-  color: #0A246A;
-  text-align: center;
-  min-width: 52px;
-  flex-shrink: 0;
-}
 
 
 /* ============================================================
@@ -2442,42 +1378,6 @@ body {
   margin-bottom: 6px;
   filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25));
 }
-.auth-pixel-bar {
-  display: flex;
-  gap: 3px;
-  justify-content: center;
-  width: 80px;
-  margin: 0 auto;
-}
-.auth-pixel-fill {
-  height: 12px;
-  background: #4CAF50;
-  flex: 2;
-  border: 1px solid #2E7D32;
-}
-.auth-pixel-empty {
-  height: 12px;
-  background: #9E9E9E;
-  flex: 1;
-  border: 1px solid #757575;
-}
-.auth-level-sep {
-  text-align: left;
-  font-family: 'Tahoma', sans-serif;
-  font-size: 10px;
-  color: #888;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  margin: 18px 0 10px;
-}
-.auth-status {
-  font-family: 'Courier New', monospace;
-  font-size: 11px;
-  color: #2E7D32;
-  line-height: 1.9;
-  text-align: left;
-  margin-bottom: 8px;
-}
 .auth-footer {
   border-top: 1px solid #B0A898;
   padding: 5px 12px;
@@ -2492,9 +1392,6 @@ body {
 }
 
 /* Username screen */
-.auth-window--username {
-  width: min(380px, 94vw);
-}
 .auth-field-label {
   display: block;
   font-family: 'Tahoma', sans-serif;
@@ -2568,10 +1465,6 @@ body {
   color: #0C2478;
   line-height: 1.4;
 }
-.auth-footer--buttons {
-  justify-content: flex-end;
-  gap: 6px;
-}
 .auth-nav-btn {
   font-family: 'Tahoma', sans-serif;
   font-size: 12px;
@@ -2593,8 +1486,6 @@ body {
 .auth-nav-btn--primary:active { background: #1040B0; }
 
 /* Story screen */
-.auth-window--story { width: min(360px, 94vw); }
-.auth-body--story   { padding: 14px 20px 16px; }
 .story-hero {
   text-align: center;
   margin-bottom: 16px;
@@ -2604,21 +1495,6 @@ body {
   display: block;
   margin-bottom: 0;
   filter: drop-shadow(0 0 10px rgba(255,200,0,0.5));
-}
-.story-hero-bar {
-  background: linear-gradient(90deg, #FFD700 65%, #9E9E9E 65%);
-  height: 14px;
-  width: 80%; margin: 0 auto;
-  border: 1px solid #888;
-  display: flex; align-items: center; justify-content: center;
-  position: relative;
-}
-.story-hero-label {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 5px;
-  color: #333;
-  text-shadow: 0 0 3px rgba(255,255,255,0.9);
-  position: absolute;
 }
 .story-main-title {
   font-size: 12px;
@@ -2654,7 +1530,6 @@ body {
   border-radius: 2px;
 }
 .story-feature-icon { font-size: 15px; min-width: 20px; }
-.story-start-btn    { width: 100%; }
 
 #auth-overlay {
   position: fixed;
@@ -2734,15 +1609,6 @@ body {
 }
 
 /* Window body */
-.auth-body {
-  background: #ECE9D8;
-  padding: 28px 24px 24px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  text-align: center;
-}
 
 .auth-pixel-title {
   font-family: 'Press Start 2P', monospace;
@@ -2804,23 +1670,6 @@ body {
 .auth-input:focus { border-color: #0A246A #ccc #ccc #0A246A; }
 
 /* Submit button */
-.auth-submit-btn {
-  padding: 0 20px;
-  height: 34px;
-  background: linear-gradient(180deg, #f0f0f0 0%, #d4d0c8 100%);
-  border: 2px solid;
-  border-color: #fff #888 #888 #fff;
-  border-radius: 3px;
-  font-family: 'Press Start 2P', monospace;
-  font-size: 8px;
-  color: #0C2478;
-  cursor: pointer;
-  box-shadow: 1px 1px 0 #aaa;
-  letter-spacing: 0.5px;
-  transition: filter 0.1s;
-}
-.auth-submit-btn:hover  { filter: brightness(1.04); }
-.auth-submit-btn:active { border-color: #888 #fff #fff #888; box-shadow: none; transform: translate(1px,1px); }
 
 .auth-error {
   font-size: 11px;
@@ -2988,69 +1837,6 @@ body {
 }
 
 /* ── Onboarding screen ──────────────────────────────────── */
-
-.auth-window--wide {
-  width: min(360px, 94vw);
-}
-
-.onboard-types {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 14px 0 10px;
-  width: 100%;
-}
-
-.onboard-type-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: #EEF3FC;
-  border: 1px solid #C0CCE8;
-  border-radius: 4px;
-  padding: 10px 12px;
-}
-
-.onboard-type-icon {
-  font-size: 20px;
-  min-width: 24px;
-  text-align: center;
-}
-
-.onboard-type-name {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 7px;
-  color: #0C2478;
-  min-width: 70px;
-}
-
-.onboard-type-desc {
-  font-family: 'Tahoma', sans-serif;
-  font-size: 13px;
-  color: #222;
-  line-height: 1.4;
-}
-
-.onboard-badge-hint {
-  font-size: 11px;
-  color: #666;
-  margin: 4px 0 12px;
-}
-
-.auth-skip-link {
-  background: none;
-  border: none;
-  color: #888;
-  font-family: 'Tahoma', sans-serif;
-  font-size: 11px;
-  cursor: pointer;
-  padding: 4px;
-  margin-top: 6px;
-  text-decoration: underline;
-  display: block;
-}
-
-.auth-skip-link:hover { color: #555; }
 
 /* ============================================================
    GOAL CRUD — Swipe actions, modal, add/shuffle buttons
@@ -3808,10 +2594,6 @@ body {
   100% { background: rgba(10,0,30,0.95); }
 }
 
-.badge-detail-wrap {
-  margin-top: 6px;
-}
-
 /* Rarity — subtle visual distinction, not loud */
 .badge-slot.rarity-rare .badge-gem.unlocked {
   animation: badge-pulse-rare 2.5s ease-in-out infinite alternate;
@@ -3847,20 +2629,6 @@ body {
   text-shadow: 0 0 4px orange;
 }
 .badge-slot { position: relative; }
-
-.badge-rarity-label {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 4px;
-  padding: 1px 4px;
-  border-radius: 2px;
-  vertical-align: middle;
-  margin-left: 4px;
-}
-.badge-rarity-label.rarity-common    { background: #E0E0E0; color: #555; }
-.badge-rarity-label.rarity-rare      { background: #B3E5FC; color: #01579B; }
-.badge-rarity-label.rarity-epic      { background: #E1BEE7; color: #6A1B9A; }
-.badge-rarity-label.rarity-legendary { background: #FFF9C4; color: #E65100; }
-.badge-rarity-label.rarity-secret    { background: #2A1040; color: #D4AAFF; }
 
 /* ── Scroll-reveal animation ─────────────────────────────────── */
 .badges-grid .badge-slot {

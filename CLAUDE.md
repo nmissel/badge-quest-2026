@@ -59,6 +59,7 @@ All files live in:
 | `sw.js` | Service worker — PWA caching |
 | `manifest.json` | PWA manifest |
 | `vercel.json` | Vercel deployment config |
+| `.vercelignore` | Files kept in git but not published on the site (docs, screenshots, test pages — BADGES.md would spoil the secret badges) |
 
 ---
 
@@ -268,6 +269,8 @@ Do not break:
 If touching `sw.js`, `manifest.json`, or the install flow:
 - treat as high risk
 - state what was verified
+
+The service worker serves app files **cache-first**: bump `CACHE` in `sw.js` (e.g. `eventyr-v13` → `v14`) in every change that touches app files, or phones keep running the old version.
 
 ---
 
