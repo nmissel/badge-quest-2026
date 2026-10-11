@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="robots" content="noindex">  <!-- prototype page: keep it out of search results -->
+<meta name="robots" content="noindex">  <!-- shown inside the app's BADGES tab; keep it out of search results -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Map — Night Legend</title>
+<title>Eventyr — Badge Map</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <style>
   *{ box-sizing:border-box; }
@@ -79,6 +79,17 @@
   .dialog button.primary{ background:#f4d99a; }
   .legend{ max-width:440px; margin-top:14px; color:#9a8f78; line-height:1.15; }
   .legend b{ color:#f4d99a; font-weight:normal; }
+
+  /* Inside the app (BADGES tab): just the map, as big as fits, no demo controls.
+     --view-shape (width ÷ height of the view) is set by the script to match the tab. */
+  .hud-bag{ display:none; }
+  body.app{ height:100vh; padding:0; justify-content:center; overflow:hidden; }
+  body.app h1, body.app .sub, body.app .tools, body.app .legend, body.app .satchel{ display:none; }
+  body.app .frame{ width:min(100vw, calc(100vh * var(--view-shape, .75))); padding:0; border-radius:0; box-shadow:none; }
+  body.app .bar, body.app .flash{ left:0; right:0; }
+  body.app .bar.top{ top:0; } body.app .bar.bot{ bottom:0; } body.app .flash{ inset:0; }
+  body.app .hud-bag{ display:block; left:auto; right:12px; letter-spacing:2px; }
+  body.app .hud-bag:empty{ display:none; }
 </style>
 </head>
 <body>
@@ -92,6 +103,7 @@
   <div class="bar bot" id="bar-bot"></div>
   <div class="flash" id="flash"></div>
   <div class="hud" id="hud"></div>
+  <div class="hud hud-bag" id="hud-bag"></div>
   <div class="toast" id="toast"></div>
   <div class="dialog" id="dialog" hidden>
     <div class="title"><span class="emblem" id="dlg-emblem"></span><span id="dlg-name"></span></div>
@@ -235,9 +247,17 @@ const REGIONS = {
   },
 };
 
-// Prototype switch: ?partner and/or ?team in the URL add those regions.
+// Two modes. Inside the app (the BADGES tab shows this page in an iframe) the map runs
+// on the player's real badges and quests. Opened on its own, or with ?demo (the tests
+// do that), it's the prototype playground with demo buttons.
 const params = new URLSearchParams(location.search);
-const HAS_PARTNER = params.has('partner'), HAS_TEAM = params.has('team');
+const DEMO = params.has('demo') || window.parent === window;
+if (!DEMO) document.body.classList.add('app');
+// Regions: in the demo, ?partner and/or ?team in the URL add them. In the app, app.js
+// sets them in the address after the # (#uid=…&partner&team), from your real groups.
+const appParams = new URLSearchParams(location.hash.slice(1));
+const HAS_PARTNER = (DEMO ? params : appParams).has('partner');
+const HAS_TEAM    = (DEMO ? params : appParams).has('team');
 const ORDER = [HAS_TEAM && 'team', 'solo', HAS_PARTNER && 'partner'].filter(Boolean);   // west to east
 
 const ROWS = REGIONS.solo.rows.length;
@@ -403,7 +423,12 @@ const rand = () => (seedState = (seedState * 16807) % 2147483647) / 2147483647;
 // ───────── Canvas setup ─────────
 const DPR = 2;
 // The screen is a window onto the world, 12 × 16 tiles, and a camera follows the hero.
-const VW = 12 * T, VH = 16 * T;
+// In the app the window takes the shape of the tab instead (16 tiles tall, 7–12 wide),
+// so a tall phone screen is filled edge to edge rather than getting dark bands.
+const VH = 16 * T;
+const viewWidth = () => DEMO || !innerHeight ? 12 * T : Math.max(7 * T, Math.min(12 * T, Math.round(VH * innerWidth / innerHeight)));
+let VW = viewWidth();                            // re-fitted when the tab changes shape (see the resize listener)
+document.documentElement.style.setProperty('--view-shape', VW / VH);
 const canvas = document.getElementById('map');
 canvas.width = VW * DPR; canvas.height = VH * DPR;
 const ctx = canvas.getContext('2d');
@@ -516,7 +541,7 @@ let walkId = 0, cutTimers = [], cutscene = null;   // so a reset can stop a ride
 function resetState(){
   walkId++; cutTimers.forEach(h => clock.cancel(h)); cutTimers = []; cutscene = null;
   buildLandmarks();
-  earned = new Set([0]);                       // Boulder starts earned for contrast
+  earned = new Set(DEMO ? [0] : []);           // demo: Boulder starts earned for contrast
   hero = { x: START.x, y: START.y, face: -1, step: 0 };
   steps = START_STEPS; found = new Set(); banner = null; hasSword = false; HERO_REVEAL = 2.6; day = 1; marker = null;
   updateHud(); updateSatchel();
@@ -626,6 +651,9 @@ function findPath(sx, sy, tx, ty){
 // Partner/team places add a campfire, a twin tablet or a banner pole.
 const ease = p => 1 - Math.pow(1 - p, 3);
 const seed = id => typeof id === 'number' ? id : id.charCodeAt(0) + +id.slice(1) * 3;   // numeric seed for any badge id
+// "Ready": earned in the app but not awakened yet (only in the app; the demo has no such thing).
+const isReady = id => !DEMO && unlocked.has(id) && !earned.has(id);
+const pulseOf = (l, t) => .5 + .5 * Math.sin(t / 350 + seed(l.id));   // 0…1, a slow heartbeat
 
 function drawTablet(l, x, y, s, t, heat){
   ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x + 3*s, y + 1, 12*s, 4*s, 0, 0, Math.PI*2); ctx.fill();
@@ -642,9 +670,12 @@ function drawTablet(l, x, y, s, t, heat){
     ctx.shadowColor = l.color; ctx.shadowBlur = heat * 14;
   } else if (earned.has(l.id)){
     ctx.shadowColor = l.color; ctx.shadowBlur = 10 + Math.sin(t / 500 + seed(l.id)) * 4;
+  } else if (isReady(l.id)){                         // earned in the app, waiting for a visit: the carving pulses
+    ctx.shadowColor = l.color; ctx.shadowBlur = 6 + pulseOf(l, t) * 12;
   }
   ctx.drawImage(heat === null && !earned.has(l.id) ? (DARK_IMG[l.id] || img) : img, x - S/2 - s, y - 27*s, S, S);
   if (earned.has(l.id)){ ctx.globalAlpha = .5; ctx.drawImage(img, x - S/2 - s, y - 27*s, S, S); }
+  else if (heat === null && isReady(l.id)){ ctx.globalAlpha = .2 + pulseOf(l, t) * .45; ctx.drawImage(img, x - S/2 - s, y - 27*s, S, S); }
   ctx.restore();
 }
 
@@ -890,9 +921,26 @@ function render(t){
   items.sort((a, b) => a.y - b.y).forEach(i => i.draw());
   drawPath();
   drawNight(t);
+  drawBeacons(t);
   drawMarker(t);
   if (c) c.intro.draw(c.l, cs, c.build, t);   // the build-up is drawn above the night
   ctx.restore();
+}
+
+// A badge you've earned but not visited sends a thin, pulsing beam up through the
+// night, so you can find its tablet even before you've explored that far.
+function drawBeacons(t){
+  for (const l of LANDMARKS){
+    if (!isReady(l.id) || (cutscene && cutscene.l === l)) continue;
+    const x = l.x*T + T/2, base = l.y*T + T - 22;
+    if (x < VIEW.x0 - 10 || x > VIEW.x1 + 10 || base < VIEW.y0) continue;
+    const a = .22 + pulseOf(l, t) * .3;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createLinearGradient(0, VIEW.y0, 0, base);
+    g.addColorStop(0, hexA(l.color, 0)); g.addColorStop(.7, hexA(l.color, a)); g.addColorStop(1, hexA('#ffffff', a + .2));
+    ctx.fillStyle = g; ctx.fillRect(x - 1.5, VIEW.y0, 3, base - VIEW.y0);
+    ctx.restore();
+  }
 }
 
 // A name ribbon over each shared region's mountain pass (under the night, so it
@@ -1306,9 +1354,10 @@ function walk(route){
       reveal({ x: tx, y: ty, r: HERO_REVEAL });
       sfx.step();
       const f = findAt(tx, ty); if (f) pickUp(f);
+      save();
       if (!path.length || (visit && path.length === 1)){
         walking = false; path = null; pendingTarget = null;
-        if (visit){ faceTo(visit); openDialog(visit); }
+        if (visit){ faceTo(visit); openDialog(visit); } else riseNextSecret();
         return;
       }
       if (steps <= 0){                // out of steps: make camp, keep the rest of the route on the map
@@ -1377,9 +1426,12 @@ function openDialog(l, ceremony = false){
     twin: ['Two small tablets side by side. One for each of you.', 'They wake when you both get there: ' + (l.desc || '').toLowerCase()],
     team: ['A banner stone. The flag hangs grey and still.', 'It wakes when the whole crew gets there: ' + (l.desc || '').toLowerCase()],
   }[l.kind] || ['', ''];
-  const lore = awake ? '“' + l.lore + '”' : DORMANT[0];
-  document.getElementById('dlg-state').textContent = awake ? (ceremony ? '' : 'This place is awake.') : DORMANT[1];
-  document.getElementById('dlg-awaken').hidden = awake;
+  const ready = isReady(l.id);
+  const lore = awake ? '“' + l.lore + '”' : ready ? 'The carving glows under the stone, as if it knows you.' : DORMANT[0];
+  document.getElementById('dlg-state').textContent = awake ? (ceremony ? '' : 'This place is awake.') : ready ? 'You earned this badge. It has been waiting for you.' : DORMANT[1];
+  document.getElementById('dlg-awaken').hidden = awake || (!DEMO && !ready);   // in the app, only earned badges can wake
+  // PROFESSOR OAK (a secret badge) is earned by looking at all 8 personal badges: on the map, that's visiting their tablets
+  if (!DEMO && l.kind === 'solo') parent.postMessage({ type: 'bq-map-seen', id: l.id }, location.origin);
   clearInterval(typer);
   if (ceremony){
     let i = 0; loreEl.textContent = '';
@@ -1401,7 +1453,7 @@ function whiteFlash(){
   el.classList.add('on');
   requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('on')));
 }
-document.getElementById('dlg-close').onclick = closeDialog;
+document.getElementById('dlg-close').onclick = () => { closeDialog(); riseNextSecret(); };
 // Awakening cutscene, staged like the intro: the badge's own build-up while the carving
 // heats up → white flash → the medal rises out and the night clears → typed lore.
 const MEDAL_TIME = 1.2;   // seconds between the flash and the text box
@@ -1411,7 +1463,7 @@ function startCutscene(l){
   cutscene = { l, t0: clock.now(), intro, speed, build };
   letterbox(true); intro.sound();
   cutTimers = [clock.later(() => {
-    earned.add(l.id); whiteFlash(); sfx.awaken();
+    earned.add(l.id); awake.add(l.id); whiteFlash(); sfx.awaken();
     if (intro.onFlash) intro.onFlash();
     const rv = reveal({ x: l.x, y: l.y, r: 1 });
     const t0 = clock.now();
@@ -1419,7 +1471,7 @@ function startCutscene(l){
       const k = Math.min(1, (now - t0) / 1100);
       rv.r = 1 + (LANDMARK_REVEAL - 1) * ease(k);
       renderShroud(rv);
-      if (k < 1) clock.frame(grow);
+      if (k < 1) clock.frame(grow); else save();
     };
     clock.frame(grow);
   }, build / speed * 1000),
@@ -1448,6 +1500,8 @@ function updateSatchel(){
   document.getElementById('satchel').innerHTML = got.length
     ? '<b>SATCHEL:</b> ' + got.map(f => f.icon).join(' ') + ' <span>(' + got.length + ' of ' + FINDS.length + ' found)</span>'
     : 'Your satchel is empty. Things glint in the night…';
+  // in the app the satchel sits in the map's corner: just what you carry, no count
+  document.getElementById('hud-bag').textContent = got.map(f => f.icon).join('');
 }
 function pickUp(f){
   found.add(f.id); updateSatchel(); sfx.find();
@@ -1465,7 +1519,7 @@ function revealFromMap([x, y]){
   const rv = { x, y, r: .5 }; reveals.push(rv);   // shown as it grows
   marker = { x, y, t0: clock.now() };
   const t0 = clock.now() + 500;
-  const grow = now => { const k = Math.max(0, Math.min(1, (now - t0) / 900)); rv.r = .5 + 1.9 * ease(k); renderShroud(rv); if (k < 1) clock.frame(grow); };
+  const grow = now => { const k = Math.max(0, Math.min(1, (now - t0) / 900)); rv.r = .5 + 1.9 * ease(k); renderShroud(rv); if (k < 1) clock.frame(grow); else save(); };
   clock.later(() => { clock.frame(grow); sfx.reveal(); }, 500);
   camLook = { x, y, until: clock.now() + 3200 };
 }
@@ -1560,11 +1614,141 @@ for (const [btn, key, has] of [['btn-partner', 'partner', HAS_PARTNER], ['btn-te
 
 document.getElementById('btn-reset').onclick = resetState;
 
+// ───────── Real data (inside the app) ─────────
+// app.js sends the player's real badges and quest count with postMessage. The hero's
+// own journey (where they stand, what's lit, steps, finds, which badges have been
+// awakened) belongs to this phone and is saved in localStorage, one save per player.
+// Nothing here writes to Firebase.
+const SAVE_KEY = 'bq_map_v1_' + (appParams.get('uid') || 'guest');
+let unlocked = new Set();     // badge ids earned in the app (sent by app.js)
+let awake = new Set();        // badge ids whose awakening has played on this phone
+let credited = null;          // the most finished quests ever paid out as steps (null = first visit)
+let lastDay = null;           // the last day the map was opened, as YYYY-MM-DD
+let announced = new Set();    // ready badges we've already pointed out
+const secretSpots = {};       // where each found secret rose: id → [x, y]
+const secretQueue = [];       // secrets found in the app, waiting to rise beside the hero
+const today = () => new Date().toLocaleDateString('sv');   // the 'sv' locale writes dates as YYYY-MM-DD
+
+// Positions are saved relative to your own land, so they stay put when a team region
+// appears to the west (or goes away) and the whole world shifts sideways.
+function save(){
+  if (DEMO) return;
+  const seen = new Set(), lights = [];
+  for (const r of reveals){                     // the same light is often added twice; keep one
+    const k = [r.x - SOLO_X, r.y, r.r].map(n => Math.round(n * 100) / 100);
+    if (!seen.has(k.join())){ seen.add(k.join()); lights.push(k); }
+  }
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      v: 1, hero: [Math.round(hero.x) - SOLO_X, Math.round(hero.y)], face: hero.face,
+      steps, credited, day: lastDay, found: [...found], sword: hasSword, banner,
+      lights, awake: [...awake], announced: [...announced],
+      secrets: Object.fromEntries(Object.entries(secretSpots).map(([id, [x, y]]) => [id, [x - SOLO_X, y]])),
+    }));
+  } catch {}                                    // private mode / storage full: the map still works, it just won't remember
+}
+
+function load(){
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch {}
+  if (!s) return;
+  found = new Set(s.found || []); hasSword = !!s.sword; banner = s.banner || null;
+  if (banner) HERO_REVEAL = BANNER_REVEAL;
+  steps = s.steps ?? START_STEPS; credited = s.credited ?? null; lastDay = s.day || null;
+  awake = new Set(s.awake || []); announced = new Set(s.announced || []);
+  earned = new Set(awake);                      // until app.js says which are still earned
+  for (const [id, [x, y]] of Object.entries(s.secrets || {})){
+    const sx = x + SOLO_X;
+    // a secret whose ground is gone (its region was removed) simply rises again somewhere else
+    if (passable(sx, y) && !landmarkAt(sx, y) && !findAt(sx, y)){ secretSpots[id] = [sx, y]; LANDMARKS.push({ ...DEF(id), x: sx, y }); }
+  }
+  const [hx, hy] = s.hero || [START.x - SOLO_X, START.y];
+  if (passable(hx + SOLO_X, hy) && !landmarkAt(hx + SOLO_X, hy)){ hero.x = hx + SOLO_X; hero.y = hy; }
+  hero.face = s.face || -1;
+  reveals = [{ x: START.x, y: START.y, r: 3.2 }, ...(s.lights || []).map(([x, y, r]) => ({ x: x + SOLO_X, y, r })),
+             { x: hero.x, y: hero.y, r: HERO_REVEAL }];
+  updateHud(); updateSatchel(); renderShroud(); snapCamera();
+}
+
+// What app.js sends: { unlocked: [badge ids], questsDone: number }.
+function applyState(msg){
+  unlocked = new Set(msg.unlocked || []);
+  // a tablet is drawn awake when it was awakened here AND is still earned in the app
+  earned = new Set([...awake].filter(id => unlocked.has(id)));
+  const news = [], done = msg.questsDone || 0;
+  if (credited === null){                       // first visit: every quest already behind you counts
+    credited = done; steps += done * QUEST_STEPS;
+    news.push(done ? 'Your hero sets out. ' + done + ' quest' + (done === 1 ? '' : 's') + ' already behind you: <b>+' + done * QUEST_STEPS + ' steps</b>.'
+                   : 'Your hero sets out into the night.<br>Every quest you finish gives <b>' + QUEST_STEPS + ' steps</b>.');
+  } else if (done > credited){                  // credited only ever goes up, so undo + redo never pays twice
+    const n = done - credited; credited = done; steps += n * QUEST_STEPS; sfx.quest();
+    news.push((n === 1 ? 'Quest complete!' : n + ' quests complete!') + ' Your hero gets <b>+' + n * QUEST_STEPS + ' steps</b>.');
+  }
+  newDay(news);
+  const glowing = LANDMARKS.filter(l => isReady(l.id) && !announced.has(l.id));
+  glowing.forEach(l => announced.add(l.id));
+  if (glowing.length){
+    const names = glowing.map(l => '<b>' + l.name + '</b>');
+    news.push('✦ ' + (names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names.at(-1) + ' glow' : names[0] + ' glows')
+      + ' in the night. Follow the light' + (names.length > 1 ? 's.' : '.'));
+  }
+  updateHud();
+  if (news.length) toast(news.join('<br>'), 2400 + news.length * 1600);
+  queueSecrets();
+  save();
+}
+
+// A new day (on the real calendar): the hero wakes rested with at least REST_STEPS.
+function newDay(news){
+  const d = today();
+  if (lastDay === d) return;
+  const first = lastDay === null;
+  lastDay = d;
+  if (first || steps >= REST_STEPS) return;
+  steps = REST_STEPS; sfx.morning();
+  news.push('☀ A new day. Your hero breaks camp, rested: <b>' + REST_STEPS + ' steps</b>.');
+}
+
+// Secrets have no place on the map: each one found in the app rises beside the hero,
+// one at a time, when the hero is standing still and nothing else is on screen.
+function queueSecrets(){
+  for (const b of SECRET_BADGE_DEFS)
+    if (unlocked.has(b.id) && !secretSpots[b.id] && !secretQueue.includes(b.id)) secretQueue.push(b.id);
+  riseNextSecret();
+}
+function riseNextSecret(){
+  if (DEMO || !secretQueue.length || walking || cutscene || !dlg.hidden) return;
+  const spot = secretSpot();
+  if (!spot){ toast('Something stirs nearby, but there’s no room here.<br>Ride somewhere more open.'); return; }
+  const id = secretQueue.shift();
+  const l = { ...DEF(id), x: spot[0], y: spot[1] };
+  LANDMARKS.push(l); secretSpots[id] = spot; faceTo(l);
+  path = null; pendingTarget = null;
+  startCutscene(l);
+}
+
+function startReal(){
+  document.getElementById('dlg-awaken').textContent = 'AWAKEN ▸';
+  load();
+  window.addEventListener('message', e => {
+    if (e.source !== parent || e.origin !== location.origin) return;   // only listen to our own app
+    if (e.data && e.data.type === 'bq-map-state') applyState(e.data);
+  });
+  document.addEventListener('visibilitychange', () => {   // the app came back to the front, maybe on a new day
+    if (document.hidden || credited === null) return;
+    const news = []; newDay(news);
+    if (news.length){ updateHud(); toast(news.join('<br>'), 4000); save(); }
+  });
+  window.addEventListener('pagehide', save);
+  parent.postMessage({ type: 'bq-map-ready' }, location.origin);   // "I've loaded: send me the player's data"
+}
+
 // ───────── Sound (tiny WebAudio blips) ─────────
 let soundOn = true, actx = null;
 function tone(freq, dur, type = 'square', gain = .05, delay = 0){
   if (!soundOn) return;
   actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+  if (actx.state === 'suspended') actx.resume();   // a sound before the first tap starts muted; the next tap wakes it
   const o = actx.createOscillator(), g = actx.createGain(), t0 = actx.currentTime + delay;
   o.type = type; o.frequency.setValueAtTime(freq, t0);
   g.gain.setValueAtTime(gain, t0); g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
@@ -1585,7 +1769,8 @@ const sfx = {
   noise: (dur, freq, gain) => {        // filtered noise: wind, water, crackle, thunder
     if (!soundOn) return;
     actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-    const buf = actx.createBuffer(1, actx.sampleRate * dur, actx.sampleRate), d = buf.getChannelData(0);
+    if (actx.state === 'suspended') actx.resume();
+    const buf =actx.createBuffer(1, actx.sampleRate * dur, actx.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     const src = actx.createBufferSource(), flt = actx.createBiquadFilter(), g = actx.createGain(), t0 = actx.currentTime;
     src.buffer = buf; flt.type = 'bandpass'; flt.frequency.value = freq; flt.Q.value = .8;
@@ -1602,6 +1787,9 @@ function hexA(hex, a){
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${Math.max(0, a)})`;
 }
+
+// The first tap anywhere also wakes the sound (browsers keep audio muted until you touch the page).
+document.addEventListener('pointerdown', () => { if (actx && actx.state === 'suspended') actx.resume(); });
 
 // debug handle for testing from the console
 window.__proto = {
@@ -1633,10 +1821,26 @@ window.__proto = {
   findPath, onRoad, tileLit, passable, reveal, pickUp, reset: resetState, startRide: walk,
   lit(){ return LIT.slice(); }, rebuildShroud(){ renderShroud(); },
   ride(route){ walk(route); if (clock.manual) clock.advance(15000, () => !walking); },
+  // the app side (real mode)
+  applyState, save, get unlocked(){ return unlocked; }, get awake(){ return awake; },
+  get secretQueue(){ return secretQueue; }, get saveKey(){ return SAVE_KEY; }, isReady,
 };
+
+// The tab can change shape after the map has loaded (phone rotated, the browser's address
+// bar sliding away): give the view the new shape, so it keeps filling the tab.
+if (!DEMO) addEventListener('resize', () => {
+  const w = viewWidth();
+  if (w === VW) return;
+  VW = w;
+  for (const c of [canvas, nightC, lightC]){ c.width = VW * DPR; c.height = VH * DPR; }
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);       // resizing a canvas resets its scale
+  document.documentElement.style.setProperty('--view-shape', VW / VH);
+  snapCamera();
+});
 
 drawTerrain();
 resetState();
+if (!DEMO) startReal();
 clock.frame(frame);
 </script>
 </body>

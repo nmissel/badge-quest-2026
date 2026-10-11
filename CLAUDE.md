@@ -52,6 +52,8 @@ All files live in:
 | `db.js` | Firestore reads/writes |
 | `auth.js` | Firebase Auth logic |
 | `badges.js` | Badge definitions and unlock logic |
+| `map.html` | Night Legend badge map. The BADGES tab shows it in an iframe (`renderBadgeMap` in app.js) and sends it real badge data via postMessage; map progress lives in localStorage only. Opened on its own or with `?demo` it's the prototype playground. Swap the tab back to the old badge cabinet with `BADGES_VIEW` in app.js |
+| `map-tests.html` | Browser tests for the map (open it from a local server, or run Chrome headless and read `#summary`) |
 | `partners.js` | Partner/team/invite logic |
 | `firebase.js` | Firebase SDK init and config |
 | `sw.js` | Service worker — PWA caching |

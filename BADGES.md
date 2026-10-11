@@ -60,7 +60,7 @@
 | ADVENTURE BEGINS | Burst | Add your very first personal quest |
 | NIGHT OWL | Moon | Complete any quest between midnight and 5 AM |
 | SPEEDRUNNER | Lightning | Complete 3 quests within 60 seconds |
-| PROFESSOR OAK | Scroll | Open the detail view for all 8 personal badges |
+| PROFESSOR OAK | Scroll | Look at all 8 personal badges: visit their tablets on the map (or open their detail view, in the cabinet) |
 | PHOTO JOURNALIST | Gem | Have photos attached to 5 different quests |
 | WRONG TURN | Hourglass | Try to add a 26th quest (hit the 25-quest limit) |
 | NOVELIST | Pentagon | Have notes written on 10 different quests |

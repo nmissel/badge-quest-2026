@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
 <meta name="robots" content="noindex">  <!-- prototype page: keep it out of search results -->
-  <title>Eventyr — Map Prototype Tests</title>
+  <title>Eventyr — Map Tests</title>
   <style>
     body { font-family: monospace; background: #1a1a1a; color: #eee; padding: 24px; font-size: 14px; }
     h1   { color: #FFD700; margin-bottom: 4px; }
@@ -20,8 +20,8 @@
   </style>
 </head>
 <body>
-  <h1>🧪 Eventyr — Map Prototype Tests</h1>
-  <p style="color:#aaa;margin:0 0 4px">Loads <code>shroud-prototype.html</code> in a hidden frame (solo, with a partner, with a team, with both) and checks layout, night, routes, steps, finds, secrets, ceremonies and reset.</p>
+  <h1>🧪 Eventyr — Map Tests</h1>
+  <p style="color:#aaa;margin:0 0 4px">Loads <code>map.html?demo</code> in a hidden frame (solo, with a partner, with a team, with both) and checks layout, night, routes, steps, finds, secrets, ceremonies and reset. Then loads it the way the app does and plays the app's part: real badges, quests, saving.</p>
   <div id="output"></div>
   <div id="summary">Running…</div>
   <iframe id="frame"></iframe>
@@ -41,20 +41,27 @@ function assert(description, actual, expected){
 }
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
-// Load the map with the given URL params and wait for its debug handle.
+// Load the map's demo mode with the given URL params and wait for its debug handle.
 const frame = document.getElementById('frame');
 let errors = [];
-async function load(params){
+async function open(url){
   errors = [];
-  frame.src = 'shroud-prototype.html' + (params ? '?' + params : '') + (params ? '&' : '?') + 't=' + Date.now();
+  frame.src = url;
   await new Promise(r => frame.onload = r);
   frame.contentWindow.addEventListener('error', e => errors.push(e.message));
   for (let i = 0; i < 100 && !frame.contentWindow.__proto; i++) await wait(20);
   const P = frame.contentWindow.__proto;
   P.manualClock();          // animations run on a clock the tests fast-forward
+  return P;
+}
+async function load(params){
+  const P = await open('map.html?demo' + (params ? '&' + params : '') + '&t=' + Date.now());
   P.reset();
   return P;
 }
+// Load the map the way the app does (no ?demo, settings after the #). The tests then
+// play app.js's part by calling applyState() with made-up badges and quest counts.
+const loadApp = hash => open('map.html?t=' + Date.now() + '#' + hash);
 const doc = () => frame.contentDocument;
 const click = id => doc().getElementById(id).click();
 const near = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1])) <= 1;
@@ -205,6 +212,64 @@ try {
   P.teleport(35, 21); P.render();
   const c = P.cam;
   assert('…or past the bottom-right', [P.view.x1, P.view.y1], [c.W, c.H]);
+
+  // ── Inside the app: real badges, steps from real quests, saved on the phone ──
+  suite('Inside the app');
+  const uid = 'test-' + Date.now();
+  P = await loadApp('uid=' + uid);
+  assert('no demo buttons or legend are shown', getComputedStyle(doc().querySelector('.tools')).display, 'none');
+  assert('nothing is awake before the app says what you\'ve earned', P.earned.size, 0);
+  P.applyState({ unlocked: [0, 1], questsDone: 2 });
+  assert('first visit: quests already done are paid out as steps (12 to start + 8 each)', P.steps, 12 + 2 * 8);
+  assert('earned but unvisited badges are "ready"; unearned ones are not', [P.isReady(0), P.isReady(1), P.isReady(2)], [true, true, false]);
+  P.open(2);
+  assert('a badge you haven\'t earned has no AWAKEN button', doc().getElementById('dlg-awaken').hidden, true);
+  P.open(0);
+  assert('a ready badge has one', doc().getElementById('dlg-awaken').hidden, false);
+  click('dlg-awaken'); P.advance(6000);
+  assert('pressing it plays the awakening and the badge is awake', [P.earned.has(0), P.awake.has(0), P.isReady(0)], [true, true, false]);
+  click('dlg-close');
+  P.applyState({ unlocked: [0, 1], questsDone: 3 });
+  assert('finishing a quest in the app gives 8 steps', P.steps, 12 + 3 * 8);
+  P.applyState({ unlocked: [0, 1], questsDone: 2 });
+  P.applyState({ unlocked: [0, 1], questsDone: 3 });
+  assert('undoing and redoing a quest doesn\'t pay twice', P.steps, 12 + 3 * 8);
+  const home = P.start, trip = P.findPath(home.x, home.y, home.x - 1, home.y - 2);   // open grass, inside the starting light
+  P.ride(trip);
+  const stopped = [P.hero.x, P.hero.y, P.steps];
+  assert('a short ride moves the hero', stopped.slice(0, 2), trip.at(-1));
+
+  P = await loadApp('uid=' + uid);
+  P.applyState({ unlocked: [0, 1], questsDone: 3 });
+  assert('after a reload the hero is where they stopped, with the same steps', [P.hero.x, P.hero.y, P.steps], stopped);
+  assert('…the awakened badge is still awake, and the ride\'s path is still lit', [P.earned.has(0), P.tileLit(...trip[0])], [true, true]);
+
+  P = await loadApp('uid=' + uid + '&team');
+  P.applyState({ unlocked: [0, 1], questsDone: 3 });
+  assert('when a team region appears in the west, the hero stays on the same spot of their own land',
+    [P.hero.x - P.start.x, P.hero.y], [stopped[0] - home.x, stopped[1]]);
+  P.applyState({ unlocked: [1], questsDone: 3 });
+  assert('a badge that\'s no longer earned in the app goes dark again', P.earned.has(0), false);
+  P.applyState({ unlocked: [0, 1, 's1'], questsDone: 3 });
+  P.advance(8000);
+  const sec = P.landmarks.find(l => l.id === 's1');
+  assert('a secret found in the app rises right beside the hero…', !!sec && Math.max(Math.abs(sec.x - P.hero.x), Math.abs(sec.y - P.hero.y)) <= 2, true);
+  assert('…off the road, blocking nothing, and awake after its ceremony', [P.onRoad(sec.x, sec.y), P.audit(), P.awake.has('s1')], [false, [], true]);
+
+  // pretend the last visit was long ago: close the map first (it saves itself as it
+  // closes, which would overwrite the change), then edit the save
+  const key = P.saveKey;
+  P.steps = 0;
+  frame.src = 'about:blank'; await new Promise(r => frame.onload = r);
+  const saved = JSON.parse(localStorage.getItem(key));
+  assert('closing the map saves it (steps spent right before closing are remembered)', saved.steps, 0);
+  saved.day = '2000-01-01'; localStorage.setItem(key, JSON.stringify(saved));
+  P = await loadApp('uid=' + uid + '&team');
+  P.applyState({ unlocked: [0, 1, 's1'], questsDone: 3 });
+  assert('opening the map on a new day: a resting hero gets 5 steps', P.steps, 5);
+  assert('…and the secret is back where it rose', !!P.landmarks.find(l => l.id === 's1' && l.x === sec.x && l.y === sec.y), true);
+  assert('no runtime errors inside the app', errors, []);
+  localStorage.removeItem(P.saveKey);
 } catch (e){
   failed++;
   output.innerHTML += `<div class="row fail"><span class="icon">💥</span>The test run crashed: ${e && e.stack || e}</div>`;

@@ -1273,7 +1273,67 @@ function renderTeamTab() {
 
 
 // ── BADGES TAB RENDER ─────────────────────────────────────────
+// Which view the BADGES tab shows:
+//   'map'     — the Night Legend world map (map.html), on your real badges
+//   'cabinet' — the badge grid (renderBadgeCabinet below)
+// The cabinet's code is kept, so swapping back is just this one word.
+const BADGES_VIEW = 'map';
+
 function renderBadgesTab() {
+  if (BADGES_VIEW === 'map') renderBadgeMap();
+  else renderBadgeCabinet();
+}
+
+// ── Badge map ─────────────────────────────────────────────────
+// map.html runs in an iframe that fills the tab. Its world depends on who you play
+// with, so that goes in its address (after the #); your badges and quest count are
+// sent over with postMessage. The map saves the hero's journey on this phone only.
+function renderBadgeMap() {
+  const wb = document.getElementById('win-body');
+  wb.className = 'win-body badge-map-body';
+  const hasTeam = allGroups.some(g => g.type === 'team');
+  const src = `map.html#uid=${encodeURIComponent(currentUser?.uid || 'guest')}${currentGroupId ? '&partner' : ''}${hasTeam ? '&team' : ''}`;
+  const frame = document.getElementById('badge-map-frame');
+  // Already showing the right world: just send fresh data (reloading would interrupt a ride)
+  if (frame && frame.dataset.src === src) { sendBadgeMapState(); return; }
+  // The map says 'bq-map-ready' once it has loaded, and gets its data then
+  wb.innerHTML = `<iframe id="badge-map-frame" class="badge-map-frame" title="Badge map" data-src="${src}" src="${src}"></iframe>`;
+}
+
+function badgeMapState() {
+  const meUnlocked      = data.me?.unlockedBadges || [];
+  const meDates         = data.me?.badgeDates     || {};
+  const activeTeamGroup = allGroups.filter(g => g.type === 'team').find(g => g.id === currentTeamId);
+  return {
+    type: 'bq-map-state',
+    // Same sources the cabinet reads, so both views always agree on what's earned
+    unlocked: [
+      ...BADGE_DEFS.filter(b => meUnlocked.includes(b.id)).map(b => b.id),
+      ...(data.team?.unlockedCombinedBadges || []),
+      ...(data.team?.unlockedBalanceBadges  || []),
+      ...earnedTeamGroupBadges(activeTeamGroup?._members || []).map(b => b.id),
+      ...SECRET_BADGE_DEFS.filter(b => meUnlocked.includes(b.id) || meDates[b.id]).map(b => b.id),
+    ],
+    // Every finished quest (yours and your party's) gives the hero steps
+    questsDone: countDone(data, 'me') + (data.together?.goals ? countDone(data, 'together') : 0),
+  };
+}
+
+function sendBadgeMapState() {
+  document.getElementById('badge-map-frame')?.contentWindow?.postMessage(badgeMapState(), location.origin);
+}
+
+window.addEventListener('message', e => {
+  if (e.origin !== location.origin) return;   // only our own map page
+  if (e.data?.type === 'bq-map-ready') sendBadgeMapState();
+  if (e.data?.type === 'bq-map-seen') {       // visiting a personal badge's tablet counts for PROFESSOR OAK
+    const b = BADGE_DEFS.find(bd => bd.id === e.data.id);
+    if (b) trackBadgeSeen(b);
+  }
+});
+
+// ── Badge cabinet ─────────────────────────────────────────────
+function renderBadgeCabinet() {
   const wb = document.getElementById('win-body');
   wb.className = 'win-body badges-body';
 
@@ -1444,8 +1504,12 @@ function openBadgeDetailModal(b, isUnlocked, earnedDate, hint) {
   }
 
   document.getElementById('badge-detail-overlay').style.display = 'flex';
+  trackBadgeSeen(b);
+}
 
-  // PROFESSOR OAK: track if all 8 personal badge details have been opened
+// PROFESSOR OAK: track if all 8 personal badges have been looked at —
+// in the cabinet's detail view, or by visiting their tablets on the map
+function trackBadgeSeen(b) {
   if (BADGE_DEFS.some(bd => bd.id === b.id)) {
     try {
       const seen = new Set(JSON.parse(localStorage.getItem('bq_badge_seen') || '[]'));
@@ -1453,7 +1517,10 @@ function openBadgeDetailModal(b, isUnlocked, earnedDate, hint) {
       localStorage.setItem('bq_badge_seen', JSON.stringify([...seen]));
       if (seen.size >= BADGE_DEFS.length) {
         const s = checkAndAwardSecretBadge(data, 's3');
-        if (s) { saveData(); pendingCelebrations.push({ type: 'secret', badge: s }); if (!celebrating) processCelebrations(); }
+        if (s) {
+          saveData(); pendingCelebrations.push({ type: 'secret', badge: s }); if (!celebrating) processCelebrations();
+          sendBadgeMapState();   // so the map can raise its tablet
+        }
       }
     } catch {}
   }
@@ -1851,12 +1918,20 @@ function showGoalComplete({ title, goalRef, tab }) {
   };
 }
 
+// A line under the badge popup pointing to the map (only when the map is the BADGES view)
+function setBadgePopupMapHint(text) {
+  const el = document.getElementById('badge-popup-map');
+  el.textContent   = BADGES_VIEW === 'map' ? text : '';
+  el.style.display = BADGES_VIEW === 'map' ? '' : 'none';
+}
+
 function showBadgeUnlock(badge) {
   sfxBadgeUnlock();
   const overlay = document.getElementById('badge-overlay');
   document.getElementById('badge-big').innerHTML         = makeBadgeSVG(badge, 100);
   document.getElementById('badge-popup-name').textContent = badge.name;
   document.getElementById('badge-popup-desc').textContent = badge.desc;
+  setBadgePopupMapHint('Its tablet now glows on your map. Ride there to awaken it.');
   overlay.style.display = 'flex';
   overlay.classList.add('flash');
   launchConfetti('confetti-2');
@@ -1874,6 +1949,7 @@ function showSecretBadgeUnlock(badge) {
   document.getElementById('badge-big').innerHTML          = makeBadgeSVG(badge, 100);
   document.getElementById('badge-popup-name').textContent = '✦ ' + badge.name;
   document.getElementById('badge-popup-desc').textContent = badge.desc;
+  setBadgePopupMapHint('Open your map: it rises right beside your hero.');
   overlay.style.display = 'flex';
   overlay.classList.add('secret-reveal');
   launchShimmer('confetti-2');

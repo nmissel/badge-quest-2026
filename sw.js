@@ -3,12 +3,13 @@
 //  Caches app shell for offline use
 // ============================================================
 
-const CACHE = 'eventyr-v11';
+const CACHE = 'eventyr-v12';
 
 const SHELL = [
   './index.html',
   './style.css',
   './app.js',
+  './map.html',
   './badges.js',
   './ui.js',
   './partners.js',
