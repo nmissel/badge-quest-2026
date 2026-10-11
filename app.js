@@ -4,7 +4,7 @@
 import { initAuth, signOutUser, currentUser, currentProfile } from './auth.js';
 import {
   loadUserData, loadGroupData, loadPartnerData,
-  syncAllToFirestore, saveUserGoal, saveGroupGoal,
+  saveChanges,
   getPendingInvitesForEmail, getSentInvites, addGroupToUser,
   saveUserProfile,
   sendChallenge, getPendingChallenges, dismissChallenge
@@ -198,7 +198,7 @@ function applyGoalInteraction(tab, id, action) {
   if (result === 'uncomplete') {
     recalcBadges(data, tab);
     recalcTeamBadges(data);
-    saveData(); render();
+    saveData({ goal, tab }); render();
   } else if (result === 'complete') {
     // Sink completed goal to bottom of list
     const goals = data[tab].goals;
@@ -243,11 +243,11 @@ function applyGoalInteraction(tab, id, action) {
     }
 
     pendingCelebrations.push({ type: 'goal', title: goal.title, goalRef: goal, tab });
-    saveData(); render();
+    saveData({ goal, tab, order: tab }); render();   // the finished quest sank to the bottom
     flashGoalRow(goal.id);
     if (!celebrating) processCelebrations();
   } else {
-    saveData(); render();
+    saveData({ goal, tab }); render();
   }
 }
 
@@ -381,15 +381,21 @@ function setDeadline(tab, id, dateStr) {
   if (!goal) return;
   goal.deadline = dateStr || null;
   hideDeadlinePopup();
-  saveData();
+  saveData({ goal, tab });
   render();
 }
 
 // ── STORAGE ───────────────────────────────────────────────────
-function saveData() {
-  if (!currentUser) return;
+// Say what changed, and only that gets written (see saveChanges in db.js):
+//   saveData({ goal, tab })               one quest
+//   saveData({ goal, tab, order: tab })   …and that board's order changed too
+//   saveData({ order: tab })              just the order (shuffle)
+//   saveData()                            just your badges (e.g. a secret badge)
+// Never write a whole board from this phone's copy: the party board is shared.
+function saveData(changes = {}) {
+  if (!currentUser) return Promise.resolve();
   setStatus('SAVING…');
-  syncAllToFirestore(currentUser.uid, currentGroupId, data)
+  return saveChanges(currentUser.uid, currentGroupId, data, changes)
     .then(() => setStatus('SAVED ✓', 2000))
     .catch(e => {
       console.error('Save error:', e);
@@ -412,7 +418,7 @@ async function seedGoals(presetKey) {
   } else {
     data.together.goals = goalsWithOrder;
   }
-  saveData();
+  await saveData({ seed: preset.tab });
   // Reload fresh from Firestore so we get proper _fsId stamps
   if (preset.tab === 'me') {
     data.me = await loadUserData(currentUser.uid);
@@ -447,6 +453,10 @@ function goalItemHTML(g, index, tab) {
 }
 
 // ── GOAL CRUD ─────────────────────────────────────────────────
+
+// Quest ids are timestamps, so they're unique across phones. The old "highest id + 1"
+// let two people adding a party quest pick the same id, and the second overwrote the first.
+const newGoalId = () => Date.now();
 
 function openGoalModal(tab = 'me', goalId = null) {
   const isNew = goalId === null;
@@ -515,6 +525,7 @@ function saveGoalModal() {
   const type      = document.querySelector('#gm-type-row .gm-seg.active')?.dataset.type  || 'binary';
   const ownerSel  = document.querySelector('#gm-owner-row .gm-seg.active')?.dataset.owner || 'me';
   const newTab    = (ownerSel === 'together' && currentGroupId) ? 'together' : 'me';
+  let saved, moved = null;   // what gets written: the quest, and where it used to live if it moved
 
   if (_editCtx) {
     // ── Edit existing ──────────────────────────────────────────
@@ -536,13 +547,18 @@ function saveGoalModal() {
       if (goal.done) { goal.done = false; goal.doneDate = null; }
     }
 
-    // Owner changed — move goal between tabs
+    // Owner changed — move goal between tabs. It gets a fresh id (its old one may
+    // already be taken on the other board) and the old copy is deleted.
     if (newTab !== oldTab) {
       data[oldTab].goals = data[oldTab].goals.filter(g => g.id !== goalId);
+      moved = { tab: oldTab, id: goalId };
+      goal.id = newGoalId();
+      goal.order = data[newTab].goals.length;
       data[newTab].goals.push(goal);
       recalcBadges(data, oldTab);
     }
     recalcBadges(data, newTab);
+    saved = goal;
 
   } else {
     // ── Create new ─────────────────────────────────────────────
@@ -554,10 +570,10 @@ function saveGoalModal() {
       if (s) { saveData(); pendingCelebrations.push({ type: 'secret', badge: s }); if (!celebrating) processCelebrations(); }
       return;
     }
-    const newId  = goals.length > 0 ? Math.max(...goals.map(g => g.id)) + 1 : 1;
-    const newGoal = { id: newId, title, type, done: false, doneDate: null, note: '', photo: null, deadline: null, order: goals.length,
+    const newGoal = { id: newGoalId(), title, type, done: false, doneDate: null, note: '', photo: null, deadline: null, order: goals.length,
                       ...GOAL_TYPES[type].initialState() };
     data[newTab].goals.push(newGoal);
+    saved = newGoal;
 
     // Secret badge: fire on very first personal quest ever
     if (newTab === 'me' && data.me.goals.length === 1) {
@@ -577,7 +593,7 @@ function saveGoalModal() {
     if (s) pendingCelebrations.push({ type: 'secret', badge: s });
   }
 
-  saveData();
+  saveData({ goal: saved, tab: newTab, moved });
   render();
   closeGoalModal();
   if (pendingCelebrations.length && !celebrating) processCelebrations();
@@ -621,7 +637,7 @@ function shuffleGoals(tab) {
   }
   data[tab].goals = [...undone, ...done];
   data[tab].goals.forEach((g, i) => { g.order = i; });
-  saveData();
+  saveData({ order: tab });
   const list = document.getElementById('goal-list');
   if (list) { list.style.animation = 'none'; list.offsetHeight; list.style.animation = 'shuffle-flash 0.35s ease'; }
   render();
@@ -1489,7 +1505,7 @@ function showGoalComplete({ title, goalRef, tab }) {
     const previewImg = photoPreview.querySelector('img');
     goalRef.photo = previewImg ? previewImg.src : null;
 
-    saveData(); // saves note + photo; badges already checked and queued
+    saveData({ goal: goalRef, tab }); // saves note + photo; badges already checked and queued
     render();
 
     overlay.style.display = 'none';

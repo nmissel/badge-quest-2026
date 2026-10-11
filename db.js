@@ -71,68 +71,56 @@ export async function loadPartnerData(partnerUid) {
   };
 }
 
-// ── Batch sync (called by saveData) ──────────────────────────
-// Writes all in-memory data to Firestore in one batch per section.
+// ── Saving (called by saveData) ──────────────────────────────
+// Each save writes only what changed. Party quests are shared, and each phone holds
+// its own copy: writing every quest from that copy (as the app used to) let an old
+// copy on one phone undo what the other person had just done, or bring back a quest
+// they'd deleted.
+//   goal + tab — one quest, all its fields
+//   moved      — { tab, id } where a quest that changed boards used to live: removed
+//   order      — a board whose quest order changed: only each quest's `order` field
+//   seed       — a board that was just filled with starter quests: all of them
+// Your own badge fields are written every time (only you ever change them).
 
-export async function syncAllToFirestore(uid, groupId, data) {
-  // Personal goals + badges
-  const userBatch = writeBatch(db);
-  data.me.goals.forEach(goal => {
-    const { _fsId, ...clean } = goal;
-    userBatch.set(
-      doc(db, 'users', uid, 'goals', String(goal.id)),
-      clean,
-      { merge: true }
-    );
-  });
-  userBatch.update(doc(db, 'users', uid), {
+const goalsPath = (uid, groupId, tab) =>
+  tab === 'me' ? ['users', uid, 'goals'] : (tab === 'together' && groupId) ? ['groups', groupId, 'goals'] : null;
+
+export async function saveChanges(uid, groupId, data, { goal, tab, moved, order, seed } = {}) {
+  const batch = writeBatch(db);
+  const setGoal = (path, g) => {
+    const { _fsId, ...clean } = g;
+    batch.set(doc(db, ...path, String(g.id)), clean, { merge: true });
+  };
+
+  const goalPath = goal && goalsPath(uid, groupId, tab);
+  if (goalPath) setGoal(goalPath, goal);
+
+  const movedPath = moved && goalsPath(uid, groupId, moved.tab);
+  if (movedPath) batch.delete(doc(db, ...movedPath, String(moved.id)));
+
+  const seedPath = seed && goalsPath(uid, groupId, seed);
+  if (seedPath) data[seed].goals.forEach(g => setGoal(seedPath, g));
+
+  batch.update(doc(db, 'users', uid), {
     unlockedBadges: data.me.unlockedBadges || [],
     badgeDates:     data.me.badgeDates     || {}
   });
-  await userBatch.commit();
+  await batch.commit();
 
-  // Party goals + badges
-  if (groupId && data.together) {
-    const groupBatch = writeBatch(db);
-    data.together.goals.forEach(goal => {
-      const { _fsId, ...clean } = goal;
-      groupBatch.set(
-        doc(db, 'groups', groupId, 'goals', String(goal.id)),
-        clean,
-        { merge: true }
-      );
-    });
-    groupBatch.update(doc(db, 'groups', groupId), {
-      unlockedCombinedBadges: data.together.unlockedCombinedBadges || [],
-      unlockedBalanceBadges:  data.together.unlockedBalanceBadges  || [],
-      badgeDates:             data.together.badgeDates             || {}
-    });
-    await groupBatch.commit();
+  // Order goes quest by quest with update(), not set(): update fails (quietly) for a
+  // quest someone else deleted, where set() would bring it back as an empty ghost.
+  const orderPath = order && goalsPath(uid, groupId, order);
+  if (orderPath) {
+    await Promise.all(data[order].goals.map(g =>
+      updateDoc(doc(db, ...orderPath, String(g.id)), { order: g.order }).catch(() => {})
+    ));
   }
 }
 
-// ── Single-goal helpers (used by CRUD in later phases) ────────
-
-export async function saveUserGoal(uid, goal) {
-  const { _fsId, ...clean } = goal;
-  await setDoc(
-    doc(db, 'users', uid, 'goals', String(goal.id)),
-    clean,
-    { merge: true }
-  );
-}
+// ── Deleting a quest ──────────────────────────────────────────
 
 export async function deleteUserGoal(uid, goalId) {
   await deleteDoc(doc(db, 'users', uid, 'goals', String(goalId)));
-}
-
-export async function saveGroupGoal(groupId, goal) {
-  const { _fsId, ...clean } = goal;
-  await setDoc(
-    doc(db, 'groups', groupId, 'goals', String(goal.id)),
-    clean,
-    { merge: true }
-  );
 }
 
 export async function deleteGroupGoal(groupId, goalId) {

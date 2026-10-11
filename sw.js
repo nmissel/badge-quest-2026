@@ -3,7 +3,7 @@
 //  Caches app shell for offline use
 // ============================================================
 
-const CACHE = 'eventyr-v15';
+const CACHE = 'eventyr-v16';
 
 const SHELL = [
   './index.html',
