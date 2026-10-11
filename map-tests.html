@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="robots" content="noindex">  <!-- prototype page: keep it out of search results -->
+  <title>Eventyr — Map Prototype Tests</title>
+  <style>
+    body { font-family: monospace; background: #1a1a1a; color: #eee; padding: 24px; font-size: 14px; }
+    h1   { color: #FFD700; margin-bottom: 4px; }
+    h2   { color: #88aaff; margin-top: 28px; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px; }
+    .pass { color: #44ff88; }
+    .fail { color: #ff4444; }
+    .row  { padding: 3px 0 3px 16px; }
+    .icon { font-size: 13px; margin-right: 6px; }
+    #summary { margin-top: 28px; padding: 14px 18px; border-radius: 6px; font-size: 15px; font-weight: bold; }
+    #summary.all-pass { background: #113322; color: #44ff88; border: 1px solid #44ff88; }
+    #summary.some-fail { background: #331111; color: #ff4444; border: 1px solid #ff4444; }
+    /* the live map under test; kept visible so the browser animates it at full speed */
+    iframe { position: fixed; right: 12px; bottom: 12px; width: 300px; height: 620px; pointer-events: none; border: 2px solid #333; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Eventyr — Map Prototype Tests</h1>
+  <p style="color:#aaa;margin:0 0 4px">Loads <code>shroud-prototype.html</code> in a hidden frame (solo, with a partner, with a team, with both) and checks layout, night, routes, steps, finds, secrets, ceremonies and reset.</p>
+  <div id="output"></div>
+  <div id="summary">Running…</div>
+  <iframe id="frame"></iframe>
+
+<script type="module">
+// ─────────────────────────────────────────────────────────────────
+//  MINI TEST RUNNER (same style as test.html, but async)
+// ─────────────────────────────────────────────────────────────────
+let passed = 0, failed = 0;
+const output = document.getElementById('output');
+const suite = name => output.innerHTML += `<h2>${name}</h2>`;
+function assert(description, actual, expected){
+  const ok = JSON.stringify(actual) === JSON.stringify(expected);
+  ok ? passed++ : failed++;
+  output.innerHTML += `<div class="row ${ok ? 'pass' : 'fail'}"><span class="icon">${ok ? '✅' : '❌'}</span>${description}` +
+    (ok ? '' : ` — expected <b>${JSON.stringify(expected)}</b>, got <b>${JSON.stringify(actual)}</b>`) + '</div>';
+}
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+// Load the map with the given URL params and wait for its debug handle.
+const frame = document.getElementById('frame');
+let errors = [];
+async function load(params){
+  errors = [];
+  frame.src = 'shroud-prototype.html' + (params ? '?' + params : '') + (params ? '&' : '?') + 't=' + Date.now();
+  await new Promise(r => frame.onload = r);
+  frame.contentWindow.addEventListener('error', e => errors.push(e.message));
+  for (let i = 0; i < 100 && !frame.contentWindow.__proto; i++) await wait(20);
+  const P = frame.contentWindow.__proto;
+  P.manualClock();          // animations run on a clock the tests fast-forward
+  P.reset();
+  return P;
+}
+const doc = () => frame.contentDocument;
+const click = id => doc().getElementById(id).click();
+const near = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1])) <= 1;
+
+const CONFIGS = [
+  ['solo',          '',               ['solo'],                    3],
+  ['with partner',  'partner=1',      ['solo', 'partner'],         4],
+  ['with team',     'team=1',         ['team', 'solo'],            4],
+  ['with both',     'partner=1&team=1', ['team', 'solo', 'partner'], 5],
+];
+
+try {
+  // ── Layout, in every combination of regions ──
+  for (const [label, params, areas, roadCount] of CONFIGS){
+    suite('Layout — ' + label);
+    const P = await load(params);
+    assert('regions sit west → east in the right order', P.areas.map(a => a.split(':')[0]), areas);
+    assert('every badge place is reachable and off the road', P.audit(), []);
+    P.giveSword();
+    assert('…and still is with the sword (forest walkable)', P.audit(), []);
+    P.reset();
+    assert('every badge place stands on grass', P.landmarks.filter(l => P.grid[l.y][l.x] !== '.').map(l => l.name), []);
+    assert('no find shares a tile with a badge place', P.finds.filter(f => P.landmarks.some(l => l.x === f.x && l.y === f.y)).map(f => f.id), []);
+    assert('roads that meet at a border are joined into one', P.roads.length, roadCount);
+    assert('the hero starts on lit, walkable ground', [P.tileLit(P.start.x, P.start.y), P.passable(P.start.x, P.start.y)], [true, true]);
+    assert('no runtime errors while loading', errors, []);
+  }
+
+  // ── The night ──
+  suite('Night (shroud)');
+  let P = await load('partner=1&team=1');
+  assert('a far corner starts dark', P.tileLit(1, 1), false);
+  P.reveal({ x: 1, y: 1, r: 2 });
+  assert('revealing lights it', P.tileLit(1, 1), true);
+  P.reveal({ x: 30, y: 15, r: 3 }); P.reveal({ x: 18, y: 10, r: 2.6 });
+  const step = P.lit();
+  P.rebuildShroud();
+  const full = P.lit();
+  assert('updating only around new light gives exactly the same night as a full rebuild', step.every((v, i) => v === full[i]), true);
+  assert('tiles outside the map are never lit', [P.tileLit(-1, 0), P.tileLit(0, 99)], [false, false]);
+
+  // ── Routes ──
+  suite('Routes (pathfinding)');
+  P = await load('');
+  P.revealAll();
+  const s = P.start;
+  const route = P.findPath(s.x, s.y, s.x - 4, s.y - 3);
+  assert('finds a route to a lit, open tile', !!route, true);
+  assert('every step moves to a neighbouring tile', route.every((p, i) => near(p, i ? route[i - 1] : [s.x, s.y])), true);
+  assert('the route ends on the tapped tile', route.at(-1), [s.x - 4, s.y - 3]);
+  assert('never cuts a corner past a blocked tile', route.every((p, i) => {
+    const [px, py] = i ? route[i - 1] : [s.x, s.y], dx = p[0] - px, dy = p[1] - py;
+    return !(dx && dy) || (P.passable(px + dx, py) && P.passable(px, py + dy));
+  }), true);
+  // forest: the solo map has a forest tile at local (5,19); without the sword it can't be entered
+  const forest = [P.start.x - 4, 19];
+  assert('forest is impassable without the sword', P.passable(...forest), false);
+  P.giveSword();
+  assert('…and passable with it', P.passable(...forest), true);
+  assert('a route into the forest exists with the sword', !!P.findPath(s.x, s.y, ...forest), true);
+  P.reset();
+  P.reveal({ x: s.x, y: s.y, r: 2 });
+  assert('no route into the dark', P.findPath(s.x, s.y, s.x - 7, 3), null);
+
+  // ── Steps, camp and rest ──
+  suite('Steps, camp and rest');
+  P = await load('');
+  P.revealAll();
+  P.steps = 3;
+  const long = P.findPath(s.x, s.y, s.x - 5, s.y - 6);
+  P.ride(long);
+  assert('riding spends one step per tile and stops when they run out', P.steps, 0);
+  assert('the hero stops after exactly 3 tiles', [P.hero.x, P.hero.y], long[2]);
+  click('btn-day');
+  assert('a new day tops steps up to 5', P.steps, 5);
+  P.steps = 9; click('btn-day');
+  assert('a new day never takes steps away', P.steps, 9);
+  P.steps = 0; click('btn-quest');
+  assert('finishing a quest gives 8 steps', P.steps, 8);
+
+  // ── Finds and gear ──
+  suite('Finds and gear');
+  P = await load('partner=1');
+  const byId = id => P.finds.find(f => f.id === id);
+  P.pickUp(byId('sword'));
+  assert('the sword lets the hero cut through forest', P.hasSword, true);
+  const before = P.heroReveal;
+  P.pickUp(byId('banner1'));
+  assert('a banner widens the hero\'s sight', P.heroReveal > before, true);
+  P.steps = 0; P.pickUp(byId('chest'));
+  assert('a chest adds 6 steps', P.steps, 6);
+  const sc = byId('scroll3');
+  const vale = +P.areas.find(a => a.startsWith('partner')).split(':')[1];
+  assert('with a partner, the gold scroll points into the Fellowship Vale', sc.shows[0] >= vale && sc.shows[0] < vale + 12, true);
+  P.pickUp(sc); P.advance(2000);
+  assert('a scroll lights the place it points to', P.tileLit(...sc.shows), true);
+  assert('every find is collected once', P.found.size, 4);
+
+  // ── Secrets never block the way ──
+  suite('Secrets');
+  P = await load('partner=1&team=1');
+  P.revealAll();
+  const spots = [[16, 9], [16, 19], [12, 6], [24, 6], [19, 10], [22, 15], [26, 7], [9, 7]];
+  for (const [x, y] of spots){
+    P.teleport(x, y);
+    const n = P.landmarks.length;
+    click('btn-secret'); P.unpose();
+    if (P.landmarks.length > n){
+      const l = P.landmarks.at(-1);
+      assert(`a secret near ${x},${y} appears next to the hero, off the road, blocking nothing`,
+        [near([l.x, l.y], [x, y]) || Math.max(Math.abs(l.x - x), Math.abs(l.y - y)) <= 2, P.onRoad(l.x, l.y), P.audit()], [true, false, []]);
+    } else assert(`near ${x},${y} no safe spot: it politely refuses`, doc().getElementById('toast').textContent.includes('No room'), true);
+  }
+
+  // ── Ceremonies: every badge's build-up draws without errors ──
+  suite('Ceremonies');
+  P = await load('partner=1&team=1');
+  P.revealAll();
+  for (const id of ['s1', 's8', 's2', 's0']){ P.teleport(P.start.x, P.start.y - 4); click('btn-secret'); P.unpose(); }
+  let drawn = 0;
+  for (const l of P.landmarks){
+    for (const at of [.2, .8, 1.6, 2.4]){ P.teleport(l.x, l.y + 1); P.pose(l.id, at); P.render(); drawn++; }
+  }
+  P.unpose();
+  assert(`${P.landmarks.length} badges × 4 moments drawn`, drawn, P.landmarks.length * 4);
+  assert('no runtime errors while drawing them', errors, []);
+
+  // ── Reset is safe at any moment ──
+  suite('Reset');
+  P = await load('');
+  P.revealAll(); P.steps = 20;
+  P.startRide(P.findPath(s.x, s.y, s.x - 5, s.y - 6));
+  P.advance(400);
+  const midRide = P.walking;
+  P.reset(); P.advance(1000);
+  assert('the hero was mid-ride when reset was pressed', midRide, true);
+  assert('reset in the middle of a ride puts the hero back at the start', [P.hero.x, P.hero.y, P.walking], [s.x, s.y, false]);
+  P.play(0); P.advance(500);
+  P.reset(); P.advance(4000);
+  assert('reset in the middle of a ceremony cancels it (no text box pops up later)', [P.cutscene, doc().getElementById('dialog').hidden], [null, true]);
+  assert('no runtime errors', errors, []);
+
+  // ── Camera ──
+  suite('Camera');
+  P = await load('partner=1&team=1');
+  P.teleport(0, 0); P.render();
+  assert('the view never shows past the world\'s edge (top-left)', [P.view.x0, P.view.y0], [0, 0]);
+  P.teleport(35, 21); P.render();
+  const c = P.cam;
+  assert('…or past the bottom-right', [P.view.x1, P.view.y1], [c.W, c.H]);
+} catch (e){
+  failed++;
+  output.innerHTML += `<div class="row fail"><span class="icon">💥</span>The test run crashed: ${e && e.stack || e}</div>`;
+}
+
+const sum = document.getElementById('summary');
+sum.className = failed ? 'some-fail' : 'all-pass';
+sum.textContent = failed ? `${failed} FAILED, ${passed} passed` : `ALL ${passed} TESTS PASSED`;
+document.title = sum.textContent;
+</script>
+</body>
+</html>

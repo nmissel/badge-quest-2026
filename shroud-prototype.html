@@ -1,0 +1,1643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex">  <!-- prototype page: keep it out of search results -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Map — Night Legend</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:radial-gradient(ellipse at 50% 25%, #0D1540 0%, #05050F 65%) fixed #05050F; color:#e8dcc0;
+    font-family:'VT323', monospace; font-size:18px;
+    display:flex; flex-direction:column; align-items:center;
+    padding:12px 12px 40px;
+  }
+  h1{ font-family:'Press Start 2P', monospace; font-size:11px; color:#f4d99a; margin:6px 0 4px; letter-spacing:1px; }
+  .sub{ margin:0 0 10px; color:#9a8f78; text-align:center; max-width:440px; line-height:1.15; }
+
+  .frame{
+    position:relative; width:min(100%, 440px);
+    padding:6px; border-radius:4px;
+    background:linear-gradient(#26305e, #121838);
+    box-shadow:0 0 0 2px #05050F, inset 0 0 0 2px #4a5aa0, 0 0 40px rgba(60,90,200,.25);
+  }
+  canvas{ display:block; width:100%; height:auto; background:#000; touch-action:none; cursor:pointer; }
+
+  .tools{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; justify-content:center; }
+  .tools button{
+    font-family:'Press Start 2P', monospace; font-size:9px; color:#f4d99a;
+    background:#2e2416; border:2px solid #8c7444; padding:8px 10px; cursor:pointer;
+  }
+  .tools button:active{ transform:translateY(1px); }
+  .tools button.on{ background:#f4d99a; color:#2e2416; }
+  .tools .sep{ width:100%; height:0; }
+
+  /* steps counter + toast, layered over the map */
+  .hud{
+    position:absolute; top:12px; left:12px; pointer-events:none;
+    font-family:'Press Start 2P', monospace; font-size:9px; color:#f4d99a;
+    background:rgba(5,5,15,.75); border:2px solid #4a5aa0; padding:5px 7px;
+  }
+  .hud.empty{ color:#9a8f78; }
+  .toast{
+    position:absolute; left:50%; top:46px; transform:translateX(-50%); pointer-events:none;
+    max-width:86%; text-align:center; font-size:18px; line-height:1.05;
+    background:rgba(5,5,15,.85); border:2px solid #4a5aa0; color:#f4e4bc; padding:6px 10px;
+    opacity:0; transition:opacity .35s ease;
+  }
+  .toast.on{ opacity:1; }
+  .satchel{ margin-top:8px; color:#9a8f78; text-align:center; min-height:20px; max-width:440px; }
+  .satchel b{ color:#f4d99a; font-weight:normal; }
+
+  .bar{ position:absolute; left:6px; right:6px; height:0; background:#000; transition:height .45s ease; pointer-events:none; }
+  .bar.top{ top:6px; } .bar.bot{ bottom:6px; }
+  .bar.on{ height:11%; }
+  .flash{ position:absolute; inset:6px; background:#fff; opacity:0; pointer-events:none; transition:opacity .7s ease-out; }
+  .flash.on{ opacity:1; transition:none; }
+
+  /* Pokémon-style dialog */
+  .dialog{
+    position:absolute; left:10px; right:10px; bottom:10px;
+    background:#f8f8f0; color:#202020;
+    border:4px solid #303030; border-radius:6px;
+    box-shadow:inset 0 0 0 2px #f8f8f0, inset 0 0 0 4px #6878a8;
+    padding:12px 14px 10px; font-size:19px; line-height:1.1;
+  }
+  .dialog .title{ font-family:'Press Start 2P', monospace; font-size:10px; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+  .dialog .emblem{ width:30px; height:30px; flex-shrink:0; display:flex; }
+  .dialog .emblem svg{ width:100%; height:100%; }
+  .dialog .emblem.dormant{ filter:grayscale(1) brightness(.55); }
+  .dialog .lore{ font-style:italic; }
+  .dialog .state{ margin-top:6px; color:#555; }
+  .dialog .row{ display:flex; justify-content:flex-end; gap:8px; margin-top:8px; }
+  .dialog button{
+    font-family:'Press Start 2P', monospace; font-size:9px; padding:7px 9px;
+    background:#fff; border:2px solid #303030; cursor:pointer;
+  }
+  .dialog button.primary{ background:#f4d99a; }
+  .legend{ max-width:440px; margin-top:14px; color:#9a8f78; line-height:1.15; }
+  .legend b{ color:#f4d99a; font-weight:normal; }
+</style>
+</head>
+<body>
+
+<h1>✦ NIGHT LEGEND ✦</h1>
+<p class="sub">The night sky, and a small ceremony for every badge. Ride to a tablet and press AWAKEN.</p>
+
+<div class="frame">
+  <canvas id="map"></canvas>
+  <div class="bar top" id="bar-top"></div>
+  <div class="bar bot" id="bar-bot"></div>
+  <div class="flash" id="flash"></div>
+  <div class="hud" id="hud"></div>
+  <div class="toast" id="toast"></div>
+  <div class="dialog" id="dialog" hidden>
+    <div class="title"><span class="emblem" id="dlg-emblem"></span><span id="dlg-name"></span></div>
+    <div class="lore" id="dlg-lore"></div>
+    <div class="state" id="dlg-state"></div>
+    <div class="row">
+      <button id="dlg-awaken" class="primary">AWAKEN (DEMO)</button>
+      <button id="dlg-close">OK ▸</button>
+    </div>
+  </div>
+</div>
+
+<div class="satchel" id="satchel"></div>
+
+<div class="tools">
+  <button id="btn-partner">+ PARTNER</button>
+  <button id="btn-team">+ TEAM</button>
+  <span class="sep"></span>
+  <button id="btn-quest">✓ FINISH A QUEST</button>
+  <button id="btn-day">☾ NEXT DAY</button>
+  <button id="btn-secret">? FIND A SECRET</button>
+  <span class="sep"></span>
+  <button id="btn-reset">RESET MAP</button>
+  <button id="btn-sound">SOUND: ON</button>
+</div>
+
+<div class="legend">
+  <p><b>Steps:</b> every finished quest gives your hero 8 steps. Green arrows are steps you have, red ones you don't yet. Out of steps? Your hero camps, and wakes each new day with at least 5 steps. Steps never expire.</p>
+  <p><b>Partner &amp; team:</b> they aren't separate maps. A partner adds the Fellowship Vale to the east, over the bridge; a team adds the Company Hold to the west. The camera follows your hero, and you can drag to look around.</p>
+  <p><b>Gear:</b> find the <b>sword</b> to cut paths through forests, and a <b>banner</b> to see further into the night. Both show on your hero.</p>
+  <p><b>Badges:</b> each one has its own awakening. Try the demo AWAKEN button on different tablets. Rarer badges get bigger scenes. Secrets appear right where you are.</p>
+  <p><b>Finds:</b> ride over things that glint. Scrolls are torn pieces of map: each one lights up a patch of the night somewhere else, and the view swings over to show you.</p>
+</div>
+
+<script type="module">
+import { BADGE_DEFS, COMBINED_BADGE_DEFS, BALANCE_BADGE_DEFS, TEAM_BADGE_DEFS, SECRET_BADGE_DEFS, makeBadgeSVG } from './badges.js';
+
+// ───────── World definition ─────────
+// . grass   T forest   M mountain   ~ water   B bridge
+// The world is laid out side by side: the Company Hold to the west (only if you
+// have a team), your own land in the middle, and the Fellowship Vale to the east
+// (only if you have a partner). The roads run out of your land into each region.
+// Coordinates inside a region are local; they're shifted when the world is built.
+const REGIONS = {
+  solo: {
+    name: '', tint: null,
+    rows: [
+      "MMMM.TTT~~TT",
+      "MMM...T.~~.T",
+      "MM.......~~.",
+      "T........~~.",
+      "TT........~~",
+      "T.....TT.~~.",
+      ".....TTT.~~.",
+      ".....TT..BB.",
+      "T........~~.",
+      "TT......~~..",
+      "T.......~~.T",
+      "..MM....~~TT",
+      ".MMM...~~~.T",
+      "..M...~~~~..",
+      "......~~~~..",
+      ".TT....~~...",
+      "TTT........M",
+      "TT.......MMM",
+      "T....TT...MM",
+      "....TTTT...M",
+      "..TTTTT.....",
+      "MMTTTT...TTT",
+    ],
+    places: { 0:[4,17], 1:[6,15], 2:[6,12], 3:[7,9], 4:[2,6], 5:[10,9], 6:[7,3], 7:[2,2] },
+    roads: (west, east) => [
+      [[9,20],[7.5,18.5],[6,16.5],[5,14.8],[4.2,12.5],[4.6,10],[5.5,8],[7.5,7],[9,7],[10,7], east ? [12,6.6] : [11.6,6.4]],
+      [[5.5,8],[4.3,5.6],[4,3.6],[4,2],[4,1.2]],
+      [[5.5,8],[3.5,7.4],[1.5,7], west ? [0,6.8] : [0.4,6.9]],
+    ],
+  },
+  partner: {
+    name: 'FELLOWSHIP VALE', tint: 'rgba(255,170,60,.10)', sign: [2.2, 5],   // warm, campfire-lit grass
+    rows: [
+      "MMMMMMMMMMMM",
+      "MTT....TTMMM",
+      "TT.......TMM",
+      "T.........TM",
+      "T...TT.....T",
+      "M..........T",
+      "...........T",
+      "....TT.....T",
+      "MT.........T",
+      "MT...~~~...T",
+      "MM...~~~...T",
+      "MT.........T",
+      "MT..TT.....T",
+      "M..........M",
+      "M...TTT....M",
+      "MT.........M",
+      "MTT.....TT.M",
+      "MT.........M",
+      "MM..TT....MM",
+      "MMT.......MM",
+      "MMMTT..TTMMM",
+      "MMMMMMMMMMMM",
+    ],
+    places: { c0:[2,10], b0:[8,6], c1:[8,2], b1:[2,3], b2:[9,13], c2:[6,18] },
+    roads: () => [
+      [[0,6.6],[2,6.7],[4.5,6.5],[6.5,5],[6,2.5]],
+      [[4.5,6.5],[3.6,8.6],[4,11.5],[6.5,13],[7.5,15.5],[6.5,17]],
+    ],
+  },
+  team: {
+    name: 'COMPANY HOLD', tint: 'rgba(90,140,255,.10)', sign: [9.8, 5],      // cool, banner-blue grass
+    rows: [
+      "MMMMMMMMMMMM",
+      "MMM.....TTMM",
+      "MM........TM",
+      "M...TT.....M",
+      "M..........T",
+      "T...~~~....T",
+      "T...~~~.....",
+      "T...........",
+      "TT.........T",
+      "M....TT....T",
+      "M..........M",
+      "MT.........M",
+      "M...MM.....M",
+      "M...MM.....T",
+      "T..........T",
+      "TT.........T",
+      "M...TT.....M",
+      "M..........M",
+      "MM.......TMM",
+      "MMM.....MMMM",
+      "MMMMTTTMMMMM",
+      "MMMMMMMMMMMM",
+    ],
+    places: { t0:[8,9], t1:[2,8], t2:[8,3], t3:[2,15], t4:[5,18] },
+    roads: () => [
+      [[12,6.8],[9,7.2],[6.5,8],[4,10],[3,12.5],[4,15],[5.5,16.6]],
+      [[6.5,8],[8,5.5],[6.5,2.5]],
+    ],
+  },
+};
+
+// Prototype switch: ?partner and/or ?team in the URL add those regions.
+const params = new URLSearchParams(location.search);
+const HAS_PARTNER = params.has('partner'), HAS_TEAM = params.has('team');
+const ORDER = [HAS_TEAM && 'team', 'solo', HAS_PARTNER && 'partner'].filter(Boolean);   // west to east
+
+const ROWS = REGIONS.solo.rows.length;
+const GRID = Array.from({ length: ROWS }, () => ''), PLACES = {}, ROADS = [], AREAS = [];
+let OX = 0;                                      // x offset of each region as it's laid out
+for (const key of ORDER){
+  const r = REGIONS[key];
+  r.rows.forEach((row, y) => GRID[y] += row);
+  for (const [id, [x, y]] of Object.entries(r.places)) PLACES[id] = [x + OX, y];
+  for (const line of (key === 'solo' ? r.roads(HAS_TEAM, HAS_PARTNER) : r.roads())) ROADS.push(line.map(([x, y]) => [x + OX, y]));
+  AREAS.push({ key, name: r.name, tint: r.tint, x0: OX, x1: OX + 12, sign: r.sign && [r.sign[0] + OX, r.sign[1]] });
+  OX += 12;
+}
+const local = (key, x, y) => [x + AREAS.find(a => a.key === key).x0, y];
+const SOLO_X = local('solo', 0, 0)[0];          // where your own land starts
+
+const COLS = GRID[0].length, T = 32;            // logical tile size in px
+const W = COLS * T, H = ROWS * T;
+const at = (x, y) => (GRID[y] && GRID[y][x]) || 'M';
+// With the sword, the hero can cut a way through forest.
+let hasSword = false;
+const passable = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS &&
+  (at(x, y) === '.' || at(x, y) === 'B' || (hasSword && at(x, y) === 'T'));
+
+// A road that starts where another ends (at a region border) continues it, so
+// the two are drawn as one unbroken curve.
+for (let i = ROADS.length - 1; i >= 0; i--){
+  const [sx, sy] = ROADS[i][0];
+  const prev = ROADS.find((r, j) => j !== i && Math.hypot(r.at(-1)[0] - sx, r.at(-1)[1] - sy) < .01);
+  if (prev){ prev.push(...ROADS[i].slice(1)); ROADS.splice(i, 1); }
+}
+// Catmull-Rom: a smooth curve that passes through every point, so a branch that
+// starts on a road's point meets the road exactly. Sampled into short segments
+// that are used both for drawing and for the "is this on a road?" check.
+function smooth(pts, per = 8){
+  const out = [], P = i => pts[Math.max(0, Math.min(pts.length - 1, i))];
+  for (let i = 0; i < pts.length - 1; i++){
+    const [p0, p1, p2, p3] = [P(i - 1), P(i), P(i + 1), P(i + 2)];
+    for (let k = 0; k < per; k++){
+      const t = k / per, t2 = t*t, t3 = t2*t;
+      out.push([0, 1].map(d => .5 * (2*p1[d] + (-p0[d] + p2[d])*t + (2*p0[d] - 5*p1[d] + 4*p2[d] - p3[d])*t2 + (-p0[d] + 3*p1[d] - 3*p2[d] + p3[d])*t3)));
+    }
+  }
+  out.push(pts.at(-1));
+  return out;
+}
+const ROAD_PATHS = ROADS.map(r => smooth(r));
+const roadDist = (x, y) => Math.min(...ROAD_PATHS.map(l => Math.min(...l.slice(1).map((p, i) => segDist(x, y, l[i], p)))));
+
+function segDist(px, py, [ax, ay], [bx, by]){
+  const dx = bx - ax, dy = by - ay, t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx*dx + dy*dy || 1)));
+  return Math.hypot(px - ax - t * dx, py - ay - t * dy);
+}
+// Is a tile on (or right beside) a road? Badge places must never be.
+const onRoad = (x, y) => roadDist(x, y) < .6;
+
+const ALL_DEFS = [
+  ...BADGE_DEFS.map(b => ({ ...b, kind: 'solo' })),
+  ...COMBINED_BADGE_DEFS.map(b => ({ ...b, kind: 'camp' })),     // shared total → campfire
+  ...BALANCE_BADGE_DEFS.map(b => ({ ...b, kind: 'twin' })),      // both partners → twin tablets
+  ...TEAM_BADGE_DEFS.map(b => ({ ...b, kind: 'team' })),         // whole crew → banner stone
+  ...SECRET_BADGE_DEFS.map(b => ({ ...b, kind: 'secret' })),
+];
+const DEF = id => ALL_DEFS.find(b => b.id === id);
+let LANDMARKS = [];
+function buildLandmarks(){
+  LANDMARKS = Object.entries(PLACES).map(([id, [x, y]]) => ({ ...DEF(isNaN(id) ? id : +id), x, y }));
+}
+
+// The real badge art, rasterised once for drawing on the canvas.
+const BADGE_IMG = {}, DARK_IMG = {};
+for (const b of ALL_DEFS){
+  const img = new Image();
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(makeBadgeSVG(b, 64));
+  BADGE_IMG[b.id] = img;
+  // the dark, dormant carving, prepared once
+  img.onload = () => {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d'); g.filter = 'grayscale(1) brightness(.35)'; g.drawImage(img, 0, 0, 64, 64);
+    DARK_IMG[b.id] = c;
+  };
+}
+
+// Things to find in the night. Ride over one to pick it up.
+// Gear goes on the hero: the sword cuts through forest, a banner lets you see further.
+// Scrolls are torn pieces of map: each lights a patch of night somewhere else.
+const soloAt = (x, y) => local('solo', x, y);
+const FINDS = [
+  { id:'scroll1', at:soloAt(1,18), icon:'📜', name:'A torn piece of map', text:'It shows a sword left in a stone, by the western mountains.', shows:soloAt(0,13) },
+  { id:'chest',   at:soloAt(10,20), icon:'🧰', name:'A small chest', text:'Inside: trail rations. +6 steps.', steps:6 },
+  { id:'sword',   at:soloAt(0,13), icon:'🗡️', name:'A sword in a stone', text:'Your hero pulls it free. Now you can cut a path through forests.', sword:true },
+  { id:'chest3',  at:soloAt(4,20), icon:'🧰', name:'A chest deep in the woods', text:'Only a blade could reach it. +6 steps.', steps:6 },
+  { id:'banner1', at:soloAt(5,10), icon:'🚩', name:'A crimson banner', text:'Raised high, it lets your hero see further into the night.', banner:'#C8323C' },
+  { id:'scroll2', at:soloAt(11,5), icon:'📜', name:'A water-stained map', text:'It marks a tablet high in the north, where the ground runs hot.', shows:soloAt(7,3) },
+  { id:'banner2', at:soloAt(0,7),  icon:'🏳️', name:'A teal banner', text:'Your hero swaps banners. Same sharp eyes, new colour.', banner:'#26A69A' },
+  { id:'scroll3', at:soloAt(5,1),  icon:'📜', name:'A map sealed in gold',
+    ...(HAS_PARTNER ? { text:'East, past the river: a valley where two travellers once lit a fire together.', shows:local('partner', 2, 10) }
+                    : { text:'It shows a chest hidden deep in the southern woods.', shows:soloAt(4,20) }) },
+  ...(HAS_PARTNER ? [{ id:'chest2', at:local('partner', 10, 4), icon:'🧰', name:'A shared chest', text:'Packed for two. +6 steps.', steps:6 }] : []),
+  ...(HAS_TEAM ? [{ id:'banner3', at:local('team', 9, 8), icon:'🏴', name:'The company standard', text:'A banner for the whole crew. Your hero sees further with it.', banner:'#FFD700' }] : []),
+].map(f => ({ ...f, x: f.at[0], y: f.at[1] }));
+const findAt = (x, y) => FINDS.find(f => f.x === x && f.y === y && !found.has(f.id));
+
+const START = { x: SOLO_X + 9, y: 20 };
+const landmarkAt = (x, y) => LANDMARKS.find(l => l.x === x && l.y === y);
+const walkable = (x, y) => passable(x, y) && !landmarkAt(x, y);
+
+// Every tile the hero can reach from the start (ignoring the night) — used to check
+// the layout on load and to make sure a secret never cuts anything off.
+function reachable(extraBlocked){
+  const key = (x, y) => y * COLS + x, seen = new Set([key(START.x, START.y)]), q = [[START.x, START.y]];
+  for (let qi = 0; qi < q.length; qi++){
+    const [x, y] = q[qi];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++){
+      const nx = x + dx, ny = y + dy;
+      if ((!dx && !dy) || seen.has(key(nx, ny)) || !walkable(nx, ny) || (extraBlocked && extraBlocked[0] === nx && extraBlocked[1] === ny)) continue;
+      if (dx && dy && (!passable(x + dx, y) || !passable(x, y + dy))) continue;
+      seen.add(key(nx, ny)); q.push([nx, ny]);
+    }
+  }
+  return { size: seen.size, has: (x, y) => seen.has(key(x, y)) };
+}
+const touches = (r, l) => [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]].some(([a, b]) => r.has(l.x + a, l.y + b));
+
+let HERO_REVEAL = 2.6;
+const BANNER_REVEAL = 3.4, LANDMARK_REVEAL = 3.6, QUEST_STEPS = 8, START_STEPS = 12;
+
+// ───────── Deterministic noise ─────────
+function hash(x, y, s = 0){
+  let h = (x * 374761393 + y * 668265263 + s * 2147483647) | 0;
+  h = (h ^ (h >>> 13)) * 1274126177 | 0;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+// ───────── Game clock ─────────
+// Everything that animates asks this clock for the time and schedules through it.
+// Normally it's the browser's own clock. Tests switch it to manual and fast-forward,
+// so rides and ceremonies finish instantly and the same way every run.
+const clock = {
+  manual: false, t: 0, frames: [], timers: [],
+  now(){ return this.manual ? this.t : performance.now(); },
+  frame(cb){ this.manual ? this.frames.push(cb) : requestAnimationFrame(cb); },
+  later(cb, ms){
+    if (!this.manual) return setTimeout(cb, ms);
+    const h = { at: this.t + ms, cb }; this.timers.push(h); return h;
+  },
+  cancel(h){ if (this.manual) this.timers = this.timers.filter(x => x !== h); else clearTimeout(h); },
+  // move time forward in 16 ms frames, running whatever falls due (stop early if done() says so)
+  advance(ms, done){
+    for (const end = this.t + ms; this.t < end && !(done && done());){
+      this.t += 16;
+      const due = this.timers.filter(x => x.at <= this.t);
+      this.timers = this.timers.filter(x => x.at > this.t);
+      due.forEach(x => x.cb());
+      const fr = this.frames; this.frames = [];
+      fr.forEach(cb => cb(this.t));
+    }
+  },
+};
+
+let seedState = 7;
+const rand = () => (seedState = (seedState * 16807) % 2147483647) / 2147483647;
+
+// ───────── Canvas setup ─────────
+const DPR = 2;
+// The screen is a window onto the world, 12 × 16 tiles, and a camera follows the hero.
+const VW = 12 * T, VH = 16 * T;
+const canvas = document.getElementById('map');
+canvas.width = VW * DPR; canvas.height = VH * DPR;
+const ctx = canvas.getContext('2d');
+ctx.scale(DPR, DPR);
+function makeLayer(w = W, h = H){
+  const c = document.createElement('canvas');
+  c.width = w * DPR; c.height = h * DPR;
+  const g = c.getContext('2d'); g.scale(DPR, DPR);
+  return [c, g];
+}
+
+// ───────── Terrain (drawn once) ─────────
+const [terrainC, tg] = makeLayer();
+
+function drawTerrain(){
+  seedState = 7;
+  // grass base + speckle
+  tg.fillStyle = '#4a8a2c'; tg.fillRect(0, 0, W, H);
+  for (let i = 0; i < 2600; i++){
+    const x = rand() * W, y = rand() * H, r = rand();
+    tg.fillStyle = r < .45 ? '#3d7a24' : r < .8 ? '#579a34' : '#6aac3e';
+    tg.fillRect(x | 0, y | 0, 2, 2);
+  }
+  // each shared region gets its own tint so it reads as a separate area
+  for (const a of AREAS) if (a.tint){ tg.fillStyle = a.tint; tg.fillRect(a.x0 * T, 0, (a.x1 - a.x0) * T, H); }
+  // water with sandy shore
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++){
+    const c = at(x, y);
+    if (c !== '~' && c !== 'B') continue;
+    tg.fillStyle = '#c9b27a';
+    tg.beginPath(); tg.roundRect(x*T - 3, y*T - 3, T + 6, T + 6, 9); tg.fill();
+  }
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++){
+    const c = at(x, y);
+    if (c !== '~' && c !== 'B') continue;
+    tg.fillStyle = '#2d64a8';
+    tg.beginPath(); tg.roundRect(x*T - 1, y*T - 1, T + 2, T + 2, 7); tg.fill();
+  }
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++){
+    const c = at(x, y);
+    if (c !== '~' && c !== 'B') continue;
+    tg.strokeStyle = 'rgba(150,200,255,.45)'; tg.lineWidth = 1.2;
+    for (let k = 0; k < 2; k++){
+      const yy = y*T + 9 + k*13 + hash(x, y, k)*4, xx = x*T + 4 + hash(x, y, k+5)*10;
+      tg.beginPath(); tg.moveTo(xx, yy); tg.quadraticCurveTo(xx + 5, yy - 3, xx + 10, yy); tg.stroke();
+    }
+  }
+  // road
+  const roadLine = (pts, w, col) => {
+    tg.strokeStyle = col; tg.lineWidth = w; tg.lineCap = 'round'; tg.lineJoin = 'round';
+    tg.beginPath();
+    pts.forEach(([x, y], i) => i ? tg.lineTo(x*T + T/2, y*T + T/2) : tg.moveTo(x*T + T/2, y*T + T/2));
+    tg.stroke();
+  };
+  for (const pts of ROAD_PATHS) roadLine(pts, 13, '#6b4f2a');
+  for (const pts of ROAD_PATHS) roadLine(pts, 9, '#9c7a45');
+  // bridge planks over road
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++){
+    if (at(x, y) !== 'B') continue;
+    tg.fillStyle = '#5a3d1e'; tg.fillRect(x*T - 2, y*T + 7, T + 4, 18);
+    for (let k = 0; k < 6; k++){ tg.fillStyle = k % 2 ? '#a07040' : '#8a5e33'; tg.fillRect(x*T - 2 + k*6, y*T + 8, 5, 16); }
+    tg.fillStyle = '#3d2812'; tg.fillRect(x*T - 2, y*T + 6, T + 4, 2); tg.fillRect(x*T - 2, y*T + 24, T + 4, 2);
+  }
+  // objects, back-to-front
+  const objs = [];
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++){
+    const c = at(x, y);
+    if (c === 'T'){
+      const n = 3 + (hash(x, y, 1) * 2 | 0);
+      for (let k = 0; k < n; k++) objs.push({ k:'tree', x: x*T + 4 + hash(x,y,k+10)*24, y: y*T + 8 + hash(x,y,k+20)*22, s: .8 + hash(x,y,k+30)*.45, oak: hash(x,y,k+40) < .3 });
+    } else if (c === 'M'){
+      objs.push({ k:'mtn', x: x*T + 16 + (hash(x,y,2)-.5)*6, y: y*T + 30, s: .95 + hash(x,y,3)*.35 });
+    }
+  }
+  // nothing grows on the road: drop trees and peaks whose base sits on it
+  const clear = objs.filter(o => roadDist(o.x / T - .5, o.y / T - .5) > (o.k === 'tree' ? .42 : .6));
+  clear.sort((a, b) => a.y - b.y);
+  for (const o of clear) o.k === 'tree' ? drawTree(tg, o) : drawMountain(tg, o);
+}
+
+function drawTree(g, { x, y, s, oak }){
+  g.fillStyle = 'rgba(0,0,0,.28)';
+  g.beginPath(); g.ellipse(x + 3, y + 1, 8*s, 3.5*s, 0, 0, Math.PI*2); g.fill();
+  g.fillStyle = '#4a3018'; g.fillRect(x - 1.5, y - 6*s, 3, 6*s);
+  if (oak){
+    g.fillStyle = '#2f6a22'; g.beginPath(); g.arc(x, y - 12*s, 8*s, 0, Math.PI*2); g.fill();
+    g.fillStyle = '#4b8f30'; g.beginPath(); g.arc(x - 2.5*s, y - 14*s, 5*s, 0, Math.PI*2); g.fill();
+    return;
+  }
+  const layers = [[0, 9, '#1d4a1c'], [-6, 7, '#265c22'], [-11, 5, '#2f6e28']];
+  for (const [dy, w, col] of layers){
+    g.fillStyle = col; g.beginPath();
+    g.moveTo(x - w*s, y - 4*s + dy*s); g.lineTo(x + w*s, y - 4*s + dy*s); g.lineTo(x, y - 16*s + dy*s); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.08)'; g.beginPath();
+    g.moveTo(x - w*s, y - 4*s + dy*s); g.lineTo(x, y - 4*s + dy*s); g.lineTo(x, y - 16*s + dy*s); g.closePath(); g.fill();
+  }
+}
+
+function drawMountain(g, { x, y, s }){
+  const w = 22*s, h = 30*s;
+  g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(x + 4, y, w*.9, 5, 0, 0, Math.PI*2); g.fill();
+  g.fillStyle = '#6f6a62'; g.beginPath(); g.moveTo(x - w, y); g.lineTo(x, y - h); g.lineTo(x + w, y); g.closePath(); g.fill();
+  g.fillStyle = '#9c968a'; g.beginPath(); g.moveTo(x - w, y); g.lineTo(x, y - h); g.lineTo(x - w*.15, y); g.closePath(); g.fill();
+  g.fillStyle = '#f2f2ee'; g.beginPath(); g.moveTo(x - w*.3, y - h*.7); g.lineTo(x, y - h); g.lineTo(x + w*.3, y - h*.7); g.lineTo(x + w*.1, y - h*.62); g.lineTo(x - w*.08, y - h*.72); g.closePath(); g.fill();
+}
+
+// ───────── State ─────────
+let reveals, hero, earned, path, pendingTarget, walking, steps, found, banner;
+let walkId = 0, cutTimers = [], cutscene = null;   // so a reset can stop a ride or a ceremony in progress
+function resetState(){
+  walkId++; cutTimers.forEach(h => clock.cancel(h)); cutTimers = []; cutscene = null;
+  buildLandmarks();
+  earned = new Set([0]);                       // Boulder starts earned for contrast
+  hero = { x: START.x, y: START.y, face: -1, step: 0 };
+  steps = START_STEPS; found = new Set(); banner = null; hasSword = false; HERO_REVEAL = 2.6; day = 1; marker = null;
+  updateHud(); updateSatchel();
+  reveals = [{ x: START.x, y: START.y, r: 3.2 }];
+  for (const l of LANDMARKS) if (earned.has(l.id)) reveals.push({ x: l.x, y: l.y, r: LANDMARK_REVEAL });
+  path = null; pendingTarget = null; walking = false;
+  closeDialog();
+  renderShroud();
+  camFree = false; camLook = null; snapCamera();
+}
+
+// ───────── Shroud ─────────
+// Computed on a grid of quarter-tiles. A cell is lit if it sits inside any reveal
+// circle, with noise wobbling each circle's edge so the border is ragged, not round.
+const SUB = 4, SW = COLS * SUB, SH = ROWS * SUB;
+const [shroudC, sg] = makeLayer();
+
+// Light only ever grows, so each cell is remembered once it's lit (LIT), and a new
+// or growing light only re-checks and repaints the cells around it.
+const LIT = new Uint8Array(SW * SH);
+function inLight(ix, iy, r){
+  const n = hash(ix >> 1, iy >> 1, 4) * .65 + hash(ix >> 2, iy >> 2, 5) * .35;
+  const dx = (ix + .5) / SUB - (r.x + .5), dy = (iy + .5) / SUB - (r.y + .5);
+  return dx*dx + dy*dy < (r.r - .45 + n * .9) ** 2;
+}
+const [shroudBlurC, sbg] = makeLayer();      // soft edge, blurred once per change (not per frame)
+function renderShroud(rv){                   // rv: the light that changed; none = rebuild all
+  let x0 = 0, y0 = 0, x1 = SW, y1 = SH;
+  if (rv){
+    const m = rv.r + .6;
+    x0 = Math.max(0, Math.floor((rv.x + .5 - m) * SUB)); x1 = Math.min(SW, Math.ceil((rv.x + .5 + m) * SUB));
+    y0 = Math.max(0, Math.floor((rv.y + .5 - m) * SUB)); y1 = Math.min(SH, Math.ceil((rv.y + .5 + m) * SUB));
+  } else LIT.fill(0);
+  const lights = rv ? [rv] : reveals, step = T / SUB;
+  for (let iy = y0; iy < y1; iy++) for (let ix = x0; ix < x1; ix++){
+    const i = iy * SW + ix;
+    if (!LIT[i] && lights.some(r => inLight(ix, iy, r))) LIT[i] = 1;
+  }
+  // repaint the dark cells in that box
+  sg.clearRect(x0 * step, y0 * step, (x1 - x0) * step, (y1 - y0) * step);
+  sg.fillStyle = '#000';
+  for (let iy = y0; iy < y1; iy++) for (let ix = x0; ix < x1; ix++)
+    if (!LIT[iy * SW + ix]) sg.fillRect(ix * step, iy * step, step + .5, step + .5);
+  // re-blur just that box (plus a margin, so the blur blends into what's around it)
+  const pad = 12, bx = x0 * step - pad, by = y0 * step - pad, bw = (x1 - x0) * step + pad * 2, bh = (y1 - y0) * step + pad * 2;
+  sbg.save(); sbg.beginPath(); sbg.rect(bx, by, bw, bh); sbg.clip();
+  sbg.clearRect(bx, by, bw, bh); sbg.filter = 'blur(5px)';
+  const sx = Math.max(0, bx - pad), sy = Math.max(0, by - pad), sw = Math.min(W, bx + bw + pad) - sx, sh = Math.min(H, by + bh + pad) - sy;
+  sbg.drawImage(shroudC, sx * DPR, sy * DPR, sw * DPR, sh * DPR, sx, sy, sw, sh);
+  sbg.restore();
+}
+// add a new light and show it
+function reveal(rv){ reveals.push(rv); renderShroud(rv); return rv; }
+// a tile counts as explored when the cell at its centre is lit
+const tileLit = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS && LIT[(y * SUB + SUB / 2) * SW + x * SUB + SUB / 2] === 1;
+
+// ───────── Pathfinding (8-way, no corner cutting) ─────────
+// A tiny binary min-heap of [distance, x, y], so the nearest tile pops first.
+function heapPush(h, v){
+  h.push(v);
+  for (let i = h.length - 1; i > 0;){ const p = (i - 1) >> 1; if (h[p][0] <= h[i][0]) break; [h[p], h[i]] = [h[i], h[p]]; i = p; }
+}
+function heapPop(h){
+  const top = h[0], last = h.pop();
+  if (h.length){
+    h[0] = last;
+    for (let i = 0;;){
+      const l = 2 * i + 1, r = l + 1; let m = i;
+      if (l < h.length && h[l][0] < h[m][0]) m = l;
+      if (r < h.length && h[r][0] < h[m][0]) m = r;
+      if (m === i) break; [h[m], h[i]] = [h[i], h[m]]; i = m;
+    }
+  }
+  return top;
+}
+function findPath(sx, sy, tx, ty){
+  const key = (x, y) => y * COLS + x;
+  const dist = new Map([[key(sx, sy), 0]]), prev = new Map();
+  const open = [[0, sx, sy]];
+  while (open.length){
+    const [d, x, y] = heapPop(open);
+    if (x === tx && y === ty) break;
+    if (d > dist.get(key(x, y))) continue;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++){
+      if (!dx && !dy) continue;
+      const nx = x + dx, ny = y + dy;
+      const isGoal = nx === tx && ny === ty && landmarkAt(nx, ny);
+      if ((!walkable(nx, ny) && !isGoal) || !tileLit(nx, ny)) continue;
+      if (dx && dy && (!passable(x + dx, y) || !passable(x, y + dy))) continue;
+      const nd = d + (dx && dy ? 1.414 : 1);
+      if (nd < (dist.get(key(nx, ny)) ?? Infinity)){
+        dist.set(key(nx, ny), nd); prev.set(key(nx, ny), [x, y]); heapPush(open, [nd, nx, ny]);
+      }
+    }
+  }
+  if (!prev.has(key(tx, ty))) return null;
+  const out = [[tx, ty]];
+  let cur = [tx, ty];
+  while (cur[0] !== sx || cur[1] !== sy){ cur = prev.get(key(cur[0], cur[1])); out.push(cur); }
+  return out.reverse().slice(1);
+}
+
+// ───────── Landmark + hero sprites (placeholders) ─────────
+// Every badge place is built around a stone tablet with the emblem carved into it.
+// Dormant: the carving is dark. Cutscene: it heats up, then the medal rises out.
+// Awake: the carving burns in the badge's colour and the medal hovers above.
+// Partner/team places add a campfire, a twin tablet or a banner pole.
+const ease = p => 1 - Math.pow(1 - p, 3);
+const seed = id => typeof id === 'number' ? id : id.charCodeAt(0) + +id.slice(1) * 3;   // numeric seed for any badge id
+
+function drawTablet(l, x, y, s, t, heat){
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x + 3*s, y + 1, 12*s, 4*s, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#6d6a72';
+  ctx.beginPath(); ctx.moveTo(x - 11*s, y); ctx.lineTo(x - 11*s, y - 22*s); ctx.quadraticCurveTo(x - 11*s, y - 33*s, x, y - 33*s);
+  ctx.quadraticCurveTo(x + 11*s, y - 33*s, x + 11*s, y - 22*s); ctx.lineTo(x + 11*s, y); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#545159'; ctx.fillRect(x + 6*s, y - 24*s, 5*s, 24*s);
+  ctx.fillStyle = '#4a4750'; ctx.fillRect(x - 13*s, y - 3, 26*s, 4);
+  const S = 16 * s, img = BADGE_IMG[l.id];
+  if (!img.complete) return;
+  ctx.save();
+  if (heat !== null){                                // heating up during the build-up
+    ctx.filter = 'grayscale(' + (1 - heat) + ') brightness(' + (.35 + heat * .9) + ')';
+    ctx.shadowColor = l.color; ctx.shadowBlur = heat * 14;
+  } else if (earned.has(l.id)){
+    ctx.shadowColor = l.color; ctx.shadowBlur = 10 + Math.sin(t / 500 + seed(l.id)) * 4;
+  }
+  ctx.drawImage(heat === null && !earned.has(l.id) ? (DARK_IMG[l.id] || img) : img, x - S/2 - s, y - 27*s, S, S);
+  if (earned.has(l.id)){ ctx.globalAlpha = .5; ctx.drawImage(img, x - S/2 - s, y - 27*s, S, S); }
+  ctx.restore();
+}
+
+function drawLandmark(l, t){
+  const awake = earned.has(l.id), sd = seed(l.id);
+  const cs = cutscene && cutscene.l === l ? (cutscene.pose ?? (t - cutscene.t0) / 1000 * cutscene.speed) : null;
+  const building = cs !== null && cs < cutscene.build;
+  const heat = building ? cs / cutscene.build : null;
+  const lit = awake && !building;
+  const x = l.x*T + T/2, y = l.y*T + T - 5;
+
+  if (l.kind === 'twin'){                       // one small tablet for each partner
+    drawTablet(l, x - 7, y, .62, t, heat);
+    drawTablet(l, x + 7, y, .62, t, heat);
+  } else if (l.kind === 'team'){                // banner stone: the crew's flag on a pole
+    ctx.fillStyle = '#4a3018'; ctx.fillRect(x + 10, y - 40, 2, 40);
+    const wave = Math.sin(t / 300 + sd) * 1.5;
+    ctx.fillStyle = lit ? l.color : '#4b4852';
+    ctx.beginPath(); ctx.moveTo(x + 12, y - 40); ctx.lineTo(x + 26, y - 37 + wave); ctx.lineTo(x + 12, y - 30); ctx.fill();
+    drawTablet(l, x - 3, y, .85, t, heat);
+  } else if (l.kind === 'camp'){                // standing stone behind a fire ring
+    drawTablet(l, x, y - 6, .75, t, heat);
+    for (let k = 0; k < 7; k++){
+      const a = k / 7 * Math.PI * 2;
+      ctx.fillStyle = k % 2 ? '#77737c' : '#5c5962';
+      ctx.fillRect(x + Math.cos(a) * 10 - 2, y + 2 + Math.sin(a) * 4 - 2, 4, 3);
+    }
+    ctx.fillStyle = '#4a3018'; ctx.fillRect(x - 6, y + 1, 12, 2);
+    if (lit || building){
+      const f = building ? heat : 1;
+      for (let k = 0; k < 5; k++){
+        const h = (6 + Math.sin(t / 90 + k * 1.7) * 2.5) * f;
+        ctx.fillStyle = k % 2 ? '#FFD060' : '#FF7A2A';
+        ctx.beginPath(); ctx.moveTo(x - 5 + k * 2.5, y + 2); ctx.lineTo(x - 3.8 + k * 2.5, y + 2 - h); ctx.lineTo(x - 2.5 + k * 2.5, y + 2); ctx.fill();
+      }
+    }
+  } else {
+    drawTablet(l, x, y, 1, t, heat);
+  }
+  if (!lit) return;
+  // rising embers in the badge colour
+  for (let k = 0; k < 4; k++){
+    const p = ((t / 1600 + k / 4 + sd * .13) % 1);
+    ctx.fillStyle = hexA(l.color, 1 - p);
+    ctx.fillRect(x - 8 + hash(k, sd, 31) * 16, y - 30 - p * 22, 1.6, 1.6);
+  }
+  // the medal: rising and spinning during the cutscene, hovering afterwards
+  let lift = 1, scale = 1, flip = 1;
+  if (cs !== null){
+    const p = Math.max(0, Math.min(1, (cs - cutscene.build) / 1));
+    lift = ease(p); scale = p < .6 ? .55 + p / .6 * .75 : 1.3 - (p - .6) / .4 * .3;
+    flip = Math.cos(p * Math.PI * 4);
+  }
+  const M = 20 * scale, cy = y - 20 - lift * 24 + (cs === null ? Math.sin(t / 700 + sd) * 1.5 : 0);
+  const pulse = .5 + Math.sin(t / 500 + sd) * .18;
+  const grd = ctx.createRadialGradient(x, cy, 2, x, cy, 22);
+  grd.addColorStop(0, hexA(l.color, pulse)); grd.addColorStop(1, hexA(l.color, 0));
+  ctx.fillStyle = grd; ctx.fillRect(x - 24, cy - 24, 48, 48);
+  ctx.save(); ctx.translate(x, cy); ctx.scale(Math.max(.08, Math.abs(flip)), 1);
+  ctx.shadowColor = l.color; ctx.shadowBlur = 8;
+  ctx.drawImage(BADGE_IMG[l.id], -M/2, -M/2, M, M); ctx.restore();
+}
+
+// The amber adventurer from the intro cinematic (index.html #hero-sprite-hero),
+// as runs of [row, fromCol, toCol] on its 12×13 pixel grid. Facing right.
+const HERO_BODY = [[0,4,7],[1,3,8],[2,3,8],[3,3,8],[4,4,7],[5,1,10],[6,1,11],[7,1,10],[8,2,9],[9,2,9]];
+const HERO_LEGS = [
+  [[10,2,3],[10,8,9],[11,2,3],[11,8,9],[12,1,3],[12,8,10]],   // standing
+  [[10,2,3],[10,8,9],[11,3,4],[11,7,8],[12,3,5],[12,6,8]],    // mid-stride
+];
+const HERO_PX = 1.7, HERO_AMBER = '#D4782A';
+
+function drawHero(t){
+  const x = hero.x*T + T/2, y = hero.y*T + T - 4;
+  const stride = walking && Math.sin(hero.step * Math.PI * 2) > 0 ? 1 : 0;
+  const bob = walking ? -stride * 1.2 : 0;
+  const w = 12 * HERO_PX, h = 13 * HERO_PX;
+  // out of steps: the hero makes camp beside a small fire
+  if (!steps && !walking && !cutscene){
+    const fx = x - hero.face * 15, fy = y - 1;
+    ctx.fillStyle = '#4a3018'; ctx.fillRect(fx - 5, fy - 1, 10, 2);
+    for (let k = 0; k < 4; k++){
+      const h = 5 + Math.sin(t / 90 + k * 1.9) * 2;
+      ctx.fillStyle = k % 2 ? '#FFD060' : '#FF7A2A';
+      ctx.beginPath(); ctx.moveTo(fx - 4 + k * 2.5, fy); ctx.lineTo(fx - 2.8 + k * 2.5, fy - h); ctx.lineTo(fx - 1.5 + k * 2.5, fy); ctx.fill();
+    }
+  }
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x + 1, y, 10, 3.5, 0, 0, Math.PI*2); ctx.fill();
+  ctx.translate(x, y + bob); ctx.scale(hero.face, 1);
+  if (banner){                                   // a found banner, carried on a pole behind the hero
+    ctx.fillStyle = '#4a3018'; ctx.fillRect(-w/2 - 1, -h - 10, 1.6, h + 6);
+    const wave = Math.sin(t / 220) * 1.2;
+    ctx.fillStyle = banner;
+    ctx.beginPath(); ctx.moveTo(-w/2 - 1, -h - 10); ctx.lineTo(-w/2 - 12, -h - 7 + wave); ctx.lineTo(-w/2 - 1, -h - 3); ctx.fill();
+  }
+  ctx.shadowColor = 'rgba(212,120,42,' + (.75 + Math.sin(t / 500) * .2) + ')'; ctx.shadowBlur = 9;
+  ctx.fillStyle = HERO_AMBER;
+  for (const [r, a, b] of [...HERO_BODY, ...HERO_LEGS[stride]])
+    ctx.fillRect(-w/2 + a*HERO_PX, -h + r*HERO_PX, (b - a + 1)*HERO_PX + .3, HERO_PX + .3);
+  if (hasSword){                                  // a sword held out in front, blade up
+    ctx.shadowColor = 'rgba(200,220,255,.8)'; ctx.shadowBlur = 4;
+    const sx = w/2 - 1, sy = -h + 6 * HERO_PX;
+    ctx.fillStyle = '#e6ebf2'; ctx.fillRect(sx, sy - 13, 2, 13);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(sx, sy - 13, 1, 12);
+    ctx.fillStyle = '#c9a227'; ctx.fillRect(sx - 2.5, sy, 7, 1.8);
+    ctx.fillStyle = '#6b4320'; ctx.fillRect(sx + .2, sy + 1.8, 1.6, 3.5);
+  }
+  ctx.restore();
+}
+
+// Route arrows, HoMM3-style: green for steps you have, red for steps you don't yet.
+// (Riding onto a landmark tile costs nothing — the hero stops next to it.)
+function drawPath(){
+  if (!path) return;
+  const goalLm = landmarkAt(...path[path.length - 1]);
+  for (let i = 0; i < path.length; i++){
+    const [x, y] = path[i], cx = x*T + T/2, cy = y*T + T/2;
+    const ok = i < steps || (goalLm && i === path.length - 1 && i === steps);
+    const fg = ok ? '#43e04b' : '#ff5a4a', bg = ok ? '#0d3b0d' : '#4a0d0d';
+    ctx.save(); ctx.translate(cx, cy);
+    ctx.lineWidth = 4; ctx.strokeStyle = bg; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (i === path.length - 1){
+      for (const col of [bg, fg]){
+        ctx.strokeStyle = col; ctx.lineWidth = col === fg ? 2.5 : 5;
+        ctx.beginPath(); ctx.moveTo(-5, -5); ctx.lineTo(5, 5); ctx.moveTo(5, -5); ctx.lineTo(-5, 5); ctx.stroke();
+      }
+    } else {
+      const [nx, ny] = path[i + 1];
+      ctx.rotate(Math.atan2(ny - y, nx - x));
+      for (const col of [bg, fg]){
+        ctx.strokeStyle = col; ctx.lineWidth = col === fg ? 2.5 : 5;
+        ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(5, 0); ctx.moveTo(1, -4); ctx.lineTo(5, 0); ctx.lineTo(1, 4); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+}
+
+// ───────── Night sky + moonlight ─────────
+// The sky (gradient + stars) fills the shroud shape; stars twinkle each frame.
+const [skyC, skyG] = makeLayer();
+const [nightC, nightG] = makeLayer(VW, VH);
+const [lightC, lightG] = makeLayer(VW, VH);
+const STARS = [];
+(() => {
+  const g = skyG.createRadialGradient(W/2, H*.3, 10, W/2, H*.3, Math.max(W, H)*.8);
+  g.addColorStop(0, '#0D1540'); g.addColorStop(.65, '#05050F'); g.addColorStop(1, '#03030a');
+  skyG.fillStyle = g; skyG.fillRect(0, 0, W, H);
+  for (let i = 0; i < 170 * COLS / 12; i++)
+    STARS.push({ x: hash(i, 1, 21) * W, y: hash(i, 2, 22) * H, r: hash(i, 3, 23) < .85 ? 1 : 1.8, ph: hash(i, 4, 24) * 6.28, sp: 1 + hash(i, 5, 25) * 2 });
+})();
+
+// Copy the part of a world-sized layer that's on screen.
+const blit = (g, layer) => g.drawImage(layer, VIEW.x0 * DPR, VIEW.y0 * DPR, VW * DPR, VH * DPR, VIEW.x0, VIEW.y0, VW, VH);
+function drawNight(t){
+  // the view-sized layers draw in world coordinates, shifted by the camera
+  for (const g of [lightG, nightG]) g.setTransform(DPR, 0, 0, DPR, -VIEW.x0 * DPR, -VIEW.y0 * DPR);
+  // 1) moonlit tint over the explored land, with warm pools of light cut out
+  lightG.clearRect(VIEW.x0, VIEW.y0, VW, VH);
+  lightG.fillStyle = 'rgba(14,22,70,.5)'; lightG.fillRect(VIEW.x0, VIEW.y0, VW, VH);
+  lightG.globalCompositeOperation = 'destination-out';
+  const pool = (x, y, r, a) => {
+    const g = lightG.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, 'rgba(0,0,0,' + a + ')'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    lightG.fillStyle = g; lightG.fillRect(x - r, y - r, r*2, r*2);
+  };
+  pool(hero.x*T + T/2, hero.y*T + T/2, 78, .95);
+  for (const l of LANDMARKS) if (earned.has(l.id)) pool(l.x*T + T/2, l.y*T + T/2, 58 + Math.sin(t / 600 + seed(l.id)) * 3, .85);
+  lightG.globalCompositeOperation = 'source-over';
+  ctx.drawImage(lightC, VIEW.x0, VIEW.y0, VW, VH);
+  // warm amber spill around the hero
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const hx = hero.x*T + T/2, hy = hero.y*T + T/2, hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, 46);
+  hg.addColorStop(0, 'rgba(212,120,42,.22)'); hg.addColorStop(1, 'rgba(212,120,42,0)');
+  ctx.fillStyle = hg; ctx.fillRect(hx - 46, hy - 46, 92, 92);
+  ctx.restore();
+
+  // 2) soft dark halo where the land meets the night
+  ctx.save(); ctx.globalAlpha = .55; blit(ctx, shroudBlurC); ctx.restore();
+
+  // 3) the night sky itself, cut to the shroud's shape
+  nightG.globalCompositeOperation = 'source-over';
+  nightG.clearRect(VIEW.x0, VIEW.y0, VW, VH);
+  blit(nightG, skyC);
+  for (const st of STARS){
+    if (st.x < VIEW.x0 || st.x > VIEW.x1 || st.y < VIEW.y0 || st.y > VIEW.y1) continue;
+    const a = .2 + .8 * (0.5 + 0.5 * Math.sin(t / 1000 * st.sp + st.ph));
+    nightG.fillStyle = 'rgba(255,255,255,' + a.toFixed(2) + ')';
+    nightG.fillRect(st.x, st.y, st.r, st.r);
+  }
+  nightG.globalCompositeOperation = 'destination-in';
+  blit(nightG, shroudC);
+  ctx.drawImage(nightC, VIEW.x0, VIEW.y0, VW, VH);
+}
+
+// ───────── Camera ─────────
+// The view glides after the hero. Dragging lets you look around (camFree);
+// riding again brings it back. A map scroll can point it somewhere for a moment.
+const VIEW = { x0: 0, y0: 0, x1: VW, y1: VH };
+const cam = { x: 0, y: 0 };
+let camFree = false, camLook = null;
+const clampCam = () => {
+  cam.x = Math.max(0, Math.min(W - VW, cam.x));
+  cam.y = Math.max(0, Math.min(H - VH, cam.y));
+};
+function camTarget(){
+  if (camLook && clock.now() < camLook.until) return [camLook.x*T + T/2 - VW/2, camLook.y*T + T/2 - VH/2];
+  camLook = null;
+  return [hero.x*T + T/2 - VW/2, hero.y*T + T/2 - VH/2];
+}
+// is a tile (with a 2-tile margin for tall sprites and glows) inside the view?
+const onScreen = (x, y) => x*T > VIEW.x0 - 2*T && x*T < VIEW.x1 + T && y*T > VIEW.y0 - T && y*T < VIEW.y1 + 2*T;
+function snapCamera(){ [cam.x, cam.y] = camTarget(); clampCam(); }
+let camT = 0;
+function moveCamera(t){
+  const dt = Math.min(.1, Math.max(0, (t - camT) / 1000)); camT = t;
+  if (!camFree){
+    const [tx, ty] = camTarget(), k = 1 - Math.exp(-dt * 7.5);   // ≈ 12% per frame at 60 fps
+    cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
+  }
+  clampCam();
+  VIEW.x0 = Math.round(cam.x); VIEW.y0 = Math.round(cam.y); VIEW.x1 = VIEW.x0 + VW; VIEW.y1 = VIEW.y0 + VH;
+}
+
+// ───────── Render loop ─────────
+function frame(t){ render(t); clock.frame(frame); }
+function render(t){
+  moveCamera(t);
+  const c = cutscene, cs = c ? (c.pose ?? (t - c.t0) / 1000 * c.speed) : null;
+  const k = c ? Math.min(1, cs / c.build) : 0;
+  const shake = c && cs < c.build ? (c.intro.shake ? c.intro.shake(k, cs) : (1 - k) * 2.2 + .6) : 0;
+  ctx.fillStyle = '#05050F'; ctx.fillRect(0, 0, VW, VH);
+  ctx.save();
+  ctx.translate(-VIEW.x0, -VIEW.y0);
+  if (shake) ctx.translate((Math.random() - .5) * shake * 2, (Math.random() - .5) * shake * 2);
+  blit(ctx, terrainC);
+  drawFinds(t);
+  drawAreaNames();
+  // y-sort landmarks with the hero so whoever is lower is drawn in front
+  const items = LANDMARKS.filter(l => onScreen(l.x, l.y)).map(l => ({ y: l.y, draw: () => drawLandmark(l, t) }));
+  items.push({ y: hero.y + .01, draw: () => drawHero(t) });
+  items.sort((a, b) => a.y - b.y).forEach(i => i.draw());
+  drawPath();
+  drawNight(t);
+  drawMarker(t);
+  if (c) c.intro.draw(c.l, cs, c.build, t);   // the build-up is drawn above the night
+  ctx.restore();
+}
+
+// A name ribbon over each shared region's mountain pass (under the night, so it
+// shows once you've explored up to it).
+function drawAreaNames(){
+  for (const a of AREAS){
+    if (!a.sign) continue;
+    const x = a.sign[0]*T, y = a.sign[1]*T;
+    ctx.font = '8px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(a.name).width + 14;
+    ctx.fillStyle = '#3d2812'; ctx.fillRect(x - tw/2 - 1, y - 8, tw + 2, 16);
+    ctx.fillStyle = '#f4e4bc'; ctx.fillRect(x - tw/2, y - 7, tw, 14);
+    ctx.fillStyle = '#3d2812'; ctx.fillText(a.name, x, y + 1);
+  }
+}
+
+// Finds sit on the ground under the night layer, so they only show once explored.
+function drawFinds(t){
+  for (const f of FINDS){
+    if (found.has(f.id) || !onScreen(f.x, f.y)) continue;
+    const x = f.x*T + T/2, y = f.y*T + T/2 + Math.sin(t / 400 + f.x) * 1.5;
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x, f.y*T + T - 7, 7, 2.5, 0, 0, Math.PI*2); ctx.fill();
+    ctx.font = '15px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(f.icon, x, y);
+    const a = (Math.sin(t / 300 + f.y) + 1) / 2;   // a glint, so finds catch the eye
+    ctx.fillStyle = 'rgba(255,255,255,' + a.toFixed(2) + ')';
+    ctx.fillRect(x + 5, y - 9, 2, 2); ctx.fillRect(x + 4, y - 8, 4, 0.01 + a * 1.2);
+  }
+}
+
+// ───────── Awakening build-ups ─────────
+// Every awakening follows the same beats: letterbox → BUILD-UP → white flash →
+// medal rises → lore types out. Only the build-up changes per badge, and rarer
+// badges get a longer one. Each intro draws in world coordinates above the night.
+const BUILD = { common:.9, rare:1.3, epic:1.7, legendary:2.6, secret:1.4 };
+const fadeOut = (cs, b) => cs < b ? 1 : Math.max(0, 1 - (cs - b) / .8);
+const spot = l => [l.x*T + T/2, l.y*T + T - 5];
+
+// Pillar of light from the tablet, drawn above the night sky so it pierces the dark.
+function drawPillar(l, cs, b){
+  const x = l.x*T + T/2, base = l.y*T + T - 20;
+  const grow = Math.min(1, cs / b), fade = fadeOut(cs, b);
+  const w = 4 + grow * 9, top = base - grow * (base - VIEW.y0);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const halo = ctx.createRadialGradient(x, base, 0, x, base, 40);
+  halo.addColorStop(0, hexA(l.color, .5 * fade)); halo.addColorStop(1, hexA(l.color, 0));
+  ctx.fillStyle = halo; ctx.fillRect(x - 40, base - 40, 80, 80);
+  const g = ctx.createLinearGradient(0, top, 0, base);
+  g.addColorStop(0, hexA(l.color, 0)); g.addColorStop(.6, hexA(l.color, .55 * fade)); g.addColorStop(1, hexA('#ffffff', .9 * fade));
+  ctx.fillStyle = g; ctx.fillRect(x - w/2, top, w, base - top);
+  ctx.fillStyle = hexA('#ffffff', .8 * fade); ctx.fillRect(x - w/6, top, w/3, base - top);
+  ctx.restore();
+}
+
+// Jagged cracks running out from the tablet's base (Boulder, Volcano).
+function drawCracks(l, k, glow, fade){
+  const [x, y] = spot(l), sd = seed(l.id);
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (let i = 0; i < 7; i++){
+    let a = i / 7 * Math.PI * 2 + hash(i, sd, 60), px = x, py = y;
+    const pts = [[px, py]], n = Math.ceil(k * 8);
+    for (let s = 0; s < n; s++){
+      a += (hash(i, s, 61 + sd) - .5) * 1.1;
+      px += Math.cos(a) * 9; py += Math.sin(a) * 4;
+      pts.push([px, py]);
+    }
+    for (const [col, lw] of [['rgba(10,6,4,' + fade + ')', 3.2], [hexA(glow, fade), 1.3]]){
+      ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath();
+      pts.forEach(([px, py], j) => j ? ctx.lineTo(px, py) : ctx.moveTo(px, py)); ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+// A soft glowing dot (wisps, lights, sparks).
+function glowDot(x, y, r, col, a){
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
+  g.addColorStop(0, hexA('#ffffff', a)); g.addColorStop(.3, hexA(col, a * .8)); g.addColorStop(1, hexA(col, 0));
+  ctx.fillStyle = g; ctx.fillRect(x - r * 3, y - r * 3, r * 6, r * 6);
+}
+// Lights travelling from points to the tablet with a short trail (Soul, Team, Earth).
+function converge(l, starts, k, col, spin = 0){
+  const [x, y] = spot(l), ty = y - 20;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  starts.forEach(([sx, sy], i) => {
+    const delay = (i % 5) * .08;
+    for (let tr = 0; tr < 4; tr++){
+      const p = ease(Math.max(0, Math.min(1, (k - delay - tr * .025) / (1 - delay))));
+      const ang = spin * (1 - p) * 6 + i;
+      const r = spin * (1 - p) * 30;
+      const px = sx + (x - sx) * p + Math.cos(ang) * r, py = sy + (ty - sy) * p + Math.sin(ang) * r * .6;
+      glowDot(px, py, tr ? 1.4 : 2.2, col, (tr ? .35 : .9) * (1 - p * .3));
+    }
+  });
+  ctx.restore();
+}
+
+const INTROS = {
+  // the classic: a pillar of light shoots up through the night
+  pillar: { draw: drawPillar, sound: () => sfx.rumble() },
+
+  // BOULDER — the ground cracks open around the stone
+  0: {
+    shake: k => 1 + k * 3.5,
+    sound: () => { tone(40, 1, 'sawtooth', .08); sfx.noise(.9, 180, .12); },
+    draw(l, cs, b){
+      const k = Math.min(1, cs / b), f = fadeOut(cs, b), [x, y] = spot(l), sd = seed(l.id);
+      drawCracks(l, k, '#ffcf8a', f);
+      for (let i = 0; i < 18; i++){                 // dust kicked up from the cracks
+        const p = (cs * .9 + hash(i, sd, 70)) % 1, a = hash(i, sd, 71) * Math.PI * 2;
+        ctx.fillStyle = 'rgba(190,170,140,' + ((1 - p) * .6 * f).toFixed(2) + ')';
+        ctx.fillRect(x + Math.cos(a) * (8 + p * 20), y + Math.sin(a) * 6 - p * 18, 3, 3);
+      }
+    },
+  },
+  // CASCADE — a waterfall pours out of the night sky onto the tablet
+  1: {
+    shake: () => .6,
+    sound: () => sfx.noise(1.1, 900, .09),
+    draw(l, cs, b){
+      const k = Math.min(1, cs / b), f = fadeOut(cs, b), [x, y] = spot(l), top = VIEW.y0;
+      const bottom = Math.min(y - 10, top + k * 2.2 * (y - top)), w = 6 + k * 10;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createLinearGradient(0, top, 0, bottom);
+      g.addColorStop(0, hexA('#42A5F5', 0)); g.addColorStop(1, hexA('#9fd6ff', .7 * f));
+      ctx.fillStyle = g; ctx.fillRect(x - w/2, top, w, bottom - top);
+      for (let i = 0; i < 9; i++){                   // falling streaks
+        const sx = x - w/2 + hash(i, 1, 80) * w, off = top + (cs * 520 + hash(i, 2, 81) * 400) % (bottom - top + 40) - 40;
+        ctx.fillStyle = hexA('#ffffff', .7 * f); ctx.fillRect(sx, off, 1.2, 16);
+      }
+      if (bottom >= y - 10){                         // splash rings at the base
+        for (let r = 0; r < 3; r++){
+          const p = (cs * 1.4 + r / 3) % 1;
+          ctx.strokeStyle = hexA('#bfe6ff', (1 - p) * .8 * f); ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.ellipse(x, y - 4, 6 + p * 22, 2 + p * 7, 0, 0, Math.PI*2); ctx.stroke();
+        }
+      }
+      ctx.restore();
+    },
+  },
+  // THUNDER — storm clouds swallow the stars, then lightning strikes the tablet
+  2: {
+    shake: k => k > .8 ? 4 : .4,
+    sound: () => { sfx.noise(1.2, 120, .06); clock.later(() => sfx.noise(.5, 2400, .16), cutscene.build / cutscene.speed * 800); },
+    draw(l, cs, b){
+      const k = Math.min(1, cs / b), f = fadeOut(cs, b), [x, y] = spot(l);
+      ctx.fillStyle = 'rgba(2,2,12,' + (.55 * Math.min(1, k * 2) * f).toFixed(2) + ')'; ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < 7; i++){                   // rolling clouds
+        const cx = VIEW.x0 + hash(i, 3, 90) * VW + cs * 18 * (i % 2 ? 1 : -1), cy = VIEW.y0 + 20 + hash(i, 4, 91) * 70;
+        ctx.fillStyle = 'rgba(40,40,60,' + (.8 * Math.min(1, k * 2) * f).toFixed(2) + ')';
+        ctx.beginPath(); ctx.ellipse(cx, cy, 50, 18, 0, 0, Math.PI*2); ctx.fill();
+      }
+      if (k < .8 && Math.sin(cs * 23) > .96){        // distant flicker
+        ctx.fillStyle = 'rgba(200,210,255,.15)'; ctx.fillRect(0, 0, W, H);
+      }
+      if (k > .8 && f > 0){                          // the strike
+        ctx.save(); ctx.strokeStyle = '#ffffff'; ctx.shadowColor = '#FFEE58'; ctx.shadowBlur = 16; ctx.lineWidth = 3; ctx.lineJoin = 'miter';
+        ctx.globalAlpha = f;
+        ctx.beginPath(); ctx.moveTo(x + 30, 0);
+        let px = x + 30;
+        for (let s = 1; s <= 10; s++){ px = x + (30 - s * 3) + (hash(s, Math.floor(cs * 12), 92) - .5) * 26; ctx.lineTo(s === 10 ? x : px, (y - 20) * s / 10); }
+        ctx.stroke(); ctx.restore();
+      }
+    },
+  },
+  // RAINBOW — a band of colour draws itself from the hero to the tablet
+  3: {
+    shake: () => 0,
+    sound: () => [523, 587, 659, 698, 784, 880].forEach((f, i) => tone(f, .25, 'triangle', .05, i * .2)),
+    draw(l, cs, b){
+      const k = Math.min(1, cs / b), f = fadeOut(cs, b), [x, y] = spot(l);
+      const hx = hero.x*T + T/2, hy = hero.y*T + T/2 - 10, mx = (hx + x) / 2, my = Math.min(hy, y) - 110;
+      const cols = ['#ff5a5a', '#ffa64a', '#ffe14a', '#5ade6a', '#4aa8ff', '#a06aff'];
+      ctx.save(); ctx.lineCap = 'round'; ctx.shadowColor = 'rgba(255,255,255,.6)'; ctx.shadowBlur = 6;
+      cols.forEach((col, j) => {
+        ctx.strokeStyle = hexA(col, .9 * f); ctx.lineWidth = 3; ctx.beginPath();
+        const N = 40, o = j * 3 - 7;
+        for (let s = 0; s <= N * k; s++){
+          const p = s / N, px = (1-p)*(1-p)*hx + 2*(1-p)*p*mx + p*p*x, py = (1-p)*(1-p)*(hy + o) + 2*(1-p)*p*(my + o) + p*p*(y - 20 + o);
+          s ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+        }
+        ctx.stroke();
+      });
+      ctx.restore();
+    },
+  },
+  // SOUL — little lights drift out of the dark and gather around the tablet
+  4: {
+    shake: () => 0,
+    sound: () => [784, 988, 1175, 1319, 1568].forEach((f, i) => tone(f, .6, 'sine', .035, i * .3)),
+    draw(l, cs, b){
+      const k = Math.min(1, cs / b), sd = seed(l.id);
+      if (cs > b) return;
+      const starts = Array.from({ length: 16 }, (_, i) => [VIEW.x0 + hash(i, sd, 100) * VW, VIEW.y0 + hash(i, sd, 101) * VH]);
+      converge(l, starts, k, '#CE93D8', 1);
+    },
+  },
+  // MARSH — vines climb the tablet and a flower opens on top
+  5: {
+    shake: () => .3,
+    sound: () => [196, 247, 294, 392].forEach((f, i) => tone(f, .5, 'triangle', .05, i * .35)),
+    draw(l, cs, b){
+      const k = Math.min(1, cs / b), f = fadeOut(cs, b), [x, y] = spot(l);
+      ctx.save(); ctx.globalAlpha = f; ctx.lineCap = 'round';
+      for (let v = 0; v < 5; v++){
+        const bx = x - 14 + v * 7, side = v % 2 ? 1 : -1;
+        ctx.strokeStyle = v % 2 ? '#2f7a2c' : '#4caf50'; ctx.lineWidth = 2.6; ctx.beginPath();
+        const N = Math.ceil(k * 20);
+        let px = bx, py = y;
+        ctx.moveTo(px, py);
+        for (let s = 1; s <= N; s++){
+          px = bx + Math.sin(s * .5 + v) * 4 * side + (x - bx) * s / 26; py = y - s * 2.3; ctx.lineTo(px, py);
+          if (s % 4 === 0){ ctx.fillStyle = '#7ccf6e'; ctx.beginPath(); ctx.ellipse(px + side * 3, py, 3.5, 1.8, side * .5, 0, Math.PI*2); ctx.fill(); }
+        }
+        ctx.stroke();
+      }
+      if (k > .7){                                   // the flower opens
+        const p = ((k - .7) / .3) * 1.8, fy = y - 50;
+        for (let i = 0; i < 6; i++){
+          const a = i / 6 * Math.PI * 2;
+          ctx.fillStyle = '#f8bbd0';
+          ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * 4 * p, fy + Math.sin(a) * 4 * p, 3.5 * p, 2 * p, a, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.fillStyle = '#ffe14a'; ctx.beginPath(); ctx.arc(x, fy, 2 * p, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    },
+  },
+  // VOLCANO — the ground glows red and a fountain of embers erupts
+  6: {
+    shake: k => 1 + k * 2.5,
+    sound: () => { tone(45, 1.6, 'sawtooth', .08); sfx.noise(1.6, 300, .1); },
+    draw(l, cs, b){
+      const k = Math.min(1, cs / b), f = fadeOut(cs, b), [x, y] = spot(l), sd = seed(l.id);
+      ctx.fillStyle = 'rgba(255,50,0,' + ((.08 + Math.sin(cs * 9) * .04) * k * f).toFixed(3) + ')'; ctx.fillRect(0, 0, W, H);
+      drawCracks(l, k, '#ff5a1f', f);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const n = Math.floor(10 + k * 40);
+      for (let i = 0; i < n; i++){                   // embers on arcs
+        const p = (cs * .8 + hash(i, sd, 110)) % 1, vx = (hash(i, sd, 111) - .5) * 70, vy = 90 + hash(i, sd, 112) * 70;
+        const px = x + vx * p, py = y - 20 - vy * p + 140 * p * p;
+        glowDot(px, py, 1.2, i % 3 ? '#ff7a2a' : '#ffd060', (1 - p) * f);
+      }
+      ctx.restore();
+    },
+  },
+  // EARTH — every tablet you've woken sends its light here, then the night lifts
+  7: {
+    shake: k => k > .75 ? 3 : .5,
+    sound: () => [262, 330, 392, 523, 659, 784].forEach((f, i) => tone(f, 1.2, 'triangle', .045, i * .35)),
+    onFlash(){
+      const rv = reveal({ x: SOLO_X + 6, y: 11, r: 1 });
+      const t0 = clock.now();
+      const grow = now => { const p = Math.min(1, (now - t0) / 2600); rv.r = 1 + (COLS + 2) * ease(p); renderShroud(rv); if (p < 1) clock.frame(grow); };
+      clock.frame(grow);
+    },
+    draw(l, cs, b){
+      const k = Math.min(1, cs / b), f = fadeOut(cs, b), [x, y] = spot(l);
+      const others = LANDMARKS.filter(o => o !== l && earned.has(o.id));
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+      others.forEach((o, i) => {                     // beams from every lit tablet
+        const p = ease(Math.max(0, Math.min(1, (k - i * .06) / .6)));
+        const [ox, oy] = spot(o), sy = oy - 20;
+        ctx.strokeStyle = hexA(o.color, .6 * f); ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(ox, sy); ctx.lineTo(ox + (x - ox) * p, sy + (y - 20 - sy) * p); ctx.stroke();
+        ctx.strokeStyle = hexA('#ffffff', .7 * f); ctx.lineWidth = 1; ctx.stroke();
+      });
+      ctx.restore();
+      if (k > .6) drawPillar(l, (k - .6) / .4 * b, b);
+    },
+  },
+
+  // PARTNER: shared total — the campfire flares up and throws sparks into the sky
+  camp: {
+    shake: () => .5,
+    sound: () => { sfx.noise(1, 1500, .05); [392, 494, 587].forEach((f, i) => tone(f, .4, 'triangle', .05, .3 + i * .2)); },
+    draw(l, cs, b){
+      const k = Math.min(1, cs / b), f = fadeOut(cs, b), [x, y] = spot(l), sd = seed(l.id);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      glowDot(x, y - 4, 6 + k * 10, '#ff8a2a', .6 * f);
+      for (let i = 0; i < 26; i++){
+        const p = (cs * .9 + hash(i, sd, 120)) % 1;
+        glowDot(x + Math.sin(p * 9 + i) * 8 * p, y - p * 120 * k, 1, '#ffd060', (1 - p) * f);
+      }
+      ctx.restore();
+    },
+  },
+  // PARTNER: balance — one light from each side of the map meets at the twin tablets
+  twin: {
+    shake: () => 0,
+    sound: () => { tone(330, 1.2, 'sine', .05); tone(494, 1.2, 'sine', .05); clock.later(() => sfx.chime2(), cutscene.build / cutscene.speed * 900); },
+    draw(l, cs, b){
+      const k = Math.min(1, cs / b), f = fadeOut(cs, b), [x, y] = spot(l), ty = y - 16, p = ease(k);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      for (const [sx, tx] of [[VIEW.x0, x - 7], [VIEW.x1, x + 7]]){
+        const px = sx + (tx - sx) * p;
+        const g = ctx.createLinearGradient(sx, 0, px, 0);
+        g.addColorStop(0, hexA(l.color, 0)); g.addColorStop(1, hexA(l.color, .7 * f));
+        ctx.fillStyle = g; ctx.fillRect(Math.min(sx, px), ty - 1.5, Math.abs(px - sx), 3);
+        glowDot(px, ty, 2.5, l.color, f);
+      }
+      ctx.restore();
+    },
+  },
+  // TEAM — every crew member's light streams in from the edges of the map
+  team: {
+    shake: () => .3,
+    sound: () => [440, 523, 659, 784, 880].forEach((f, i) => tone(f, .35, 'square', .03, i * .22)),
+    draw(l, cs, b){
+      if (cs > b) return;
+      const { x0, y0, x1, y1 } = VIEW, starts = [[x0, y0 + 60], [x1, y0 + 140], [x0, y1 - 80], [x1, y1 - 30], [(x0 + x1) / 2, y0]];
+      converge(l, starts, Math.min(1, cs / b), '#D4782A', 0);
+    },
+  },
+
+  // SECRET: NIGHT OWL — a moon rises and an owl swoops across it
+  s1: {
+    shake: () => 0,
+    sound: () => { tone(420, .25, 'sine', .07, .2); tone(360, .45, 'sine', .07, .5); tone(420, .25, 'sine', .07, 1); },
+    draw(l, cs, b){
+      const k = Math.min(1, cs / b), f = fadeOut(cs, b), [x, y] = spot(l);
+      const mx = Math.min(VIEW.x1 - 34, Math.max(VIEW.x0 + 34, x + (x < (VIEW.x0 + VIEW.x1) / 2 ? 60 : -60))), my = Math.max(VIEW.y0 + 34, y - 70 - k * 30);
+      ctx.save(); ctx.globalAlpha = f;
+      const g = ctx.createRadialGradient(mx, my, 10, mx, my, 70); g.addColorStop(0, 'rgba(240,240,255,.35)'); g.addColorStop(1, 'rgba(240,240,255,0)');
+      ctx.fillStyle = g; ctx.fillRect(mx - 70, my - 70, 140, 140);
+      ctx.fillStyle = '#f2f0e6'; ctx.beginPath(); ctx.arc(mx, my, 28, 0, Math.PI*2); ctx.fill();
+      const ox = VIEW.x0 - 30 + k * (VW + 60), oy = my + 10 + Math.sin(k * Math.PI * 2) * 30, flap = Math.sin(cs * 18) * 7;
+      ctx.fillStyle = '#120c20';
+      ctx.beginPath(); ctx.ellipse(ox, oy, 6, 8, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(ox - 4, oy - 2); ctx.lineTo(ox - 20, oy - 4 + flap); ctx.lineTo(ox - 4, oy + 4); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(ox + 4, oy - 2); ctx.lineTo(ox + 20, oy - 4 + flap); ctx.lineTo(ox + 4, oy + 4); ctx.fill();
+      ctx.fillStyle = '#ffd060'; ctx.fillRect(ox - 3, oy - 4, 2, 2); ctx.fillRect(ox + 1, oy - 4, 2, 2);
+      ctx.restore();
+    },
+  },
+  // SECRET: HAUNTED — the world goes cold and a ghost drifts through
+  s8: {
+    shake: () => 0,
+    sound: () => { tone(520, 1.4, 'sine', .04); tone(530, 1.4, 'sine', .04); },
+    draw(l, cs, b){
+      const k = Math.min(1, cs / b), f = fadeOut(cs, b), [x, y] = spot(l);
+      ctx.fillStyle = 'rgba(120,160,220,' + (.18 * f).toFixed(2) + ')'; ctx.fillRect(0, 0, W, H);
+      const gx = VIEW.x0 - 20 + (x - VIEW.x0 + 20) * ease(k) + Math.sin(cs * 6) * 4, gy = y - 30 + Math.sin(cs * 4) * 5;
+      ctx.save(); ctx.globalAlpha = .75 * f;
+      ctx.fillStyle = '#eef4ff'; ctx.beginPath(); ctx.arc(gx, gy, 10, Math.PI, 0);
+      for (let i = 0; i <= 4; i++) ctx.lineTo(gx + 10 - i * 5, gy + 12 + (i % 2 ? -3 : 0) + Math.sin(cs * 10 + i) * 1.5);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#1a2440'; ctx.fillRect(gx - 5, gy - 3, 3, 4); ctx.fillRect(gx + 2, gy - 3, 3, 4);
+      ctx.restore();
+    },
+  },
+  // SECRET: SPEEDRUNNER — the whole ceremony, at triple speed, with speed lines
+  s2: {
+    speed: 3,
+    sound: () => [880, 988, 1175, 1319].forEach((f, i) => tone(f, .06, 'square', .04, i * .05)),
+    draw(l, cs, b){
+      const f = fadeOut(cs, b);
+      ctx.save(); ctx.globalAlpha = .5 * f; ctx.fillStyle = '#bfe6ff';
+      for (let i = 0; i < 14; i++){
+        const yy = VIEW.y0 + hash(i, 5, 130) * VH, xx = VIEW.x0 + (cs * 1400 + hash(i, 6, 131) * VW) % (VW + 80) - 80;
+        ctx.fillRect(xx, yy, 60, 1.5);
+      }
+      ctx.restore();
+      drawPillar(l, cs, b);
+    },
+  },
+  // other secrets — a big "?" spins above the tablet and bursts into stars
+  secret: {
+    shake: () => 0,
+    sound: () => [659, 622, 659, 494, 587, 523].forEach((f, i) => tone(f, .14, 'square', .035, i * .13)),
+    draw(l, cs, b){
+      const k = Math.min(1, cs / b), [x, y] = spot(l), sd = seed(l.id);
+      ctx.save();
+      if (cs < b){
+        ctx.translate(x, y - 40); ctx.scale(Math.cos(cs * 8), 1);
+        ctx.font = (14 + k * 10) + 'px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.shadowColor = l.color; ctx.shadowBlur = 12; ctx.fillStyle = '#fff';
+        ctx.fillText('?', 0, 0);
+      } else {
+        const p = Math.min(1, (cs - b) / .9);
+        ctx.globalCompositeOperation = 'lighter';
+        for (let i = 0; i < 16; i++){
+          const a = i / 16 * Math.PI * 2 + hash(i, sd, 140);
+          glowDot(x + Math.cos(a) * p * 40, y - 40 + Math.sin(a) * p * 30, 1.4, l.color, 1 - p);
+        }
+      }
+      ctx.restore();
+    },
+  },
+};
+const introFor = l => INTROS[l.id] || INTROS[l.kind] || INTROS.pillar;
+
+// ───────── Walking ─────────
+const SPEED = 5.5; // tiles per second
+function walk(route){
+  const goal = route[route.length - 1], visit = landmarkAt(goal[0], goal[1]);
+  if (visit && route.length === 1){ path = null; faceTo(visit); openDialog(visit); return; }
+  walking = true; path = route.slice(); camFree = false;
+  const id = ++walkId;
+  let from = { x: hero.x, y: hero.y }, last = clock.now();
+  const tick = now => {
+    if (id !== walkId) return;                  // the map was reset mid-ride
+    const [tx, ty] = path[0] || [hero.x, hero.y];
+    const dx = tx - from.x, dy = ty - from.y, len = Math.hypot(dx, dy) || 1;
+    hero.step += (now - last) / 1000 * SPEED / len;
+    last = now;
+    if (dx) hero.face = dx > 0 ? 1 : -1;
+    if (hero.step >= 1){
+      hero.x = tx; hero.y = ty; hero.step = 0; from = { x: tx, y: ty };
+      path.shift();
+      steps--; updateHud();
+      reveal({ x: tx, y: ty, r: HERO_REVEAL });
+      sfx.step();
+      const f = findAt(tx, ty); if (f) pickUp(f);
+      if (!path.length || (visit && path.length === 1)){
+        walking = false; path = null; pendingTarget = null;
+        if (visit){ faceTo(visit); openDialog(visit); }
+        return;
+      }
+      if (steps <= 0){                // out of steps: make camp, keep the rest of the route on the map
+        walking = false;
+        toast('Out of steps. Your hero makes camp.<br>Rest until tomorrow, or finish a quest to ride on.');
+        return;
+      }
+    } else {
+      hero.x = from.x + dx * hero.step; hero.y = from.y + dy * hero.step;
+    }
+    clock.frame(tick);
+  };
+  clock.frame(tick);
+}
+
+function faceTo(l){ if (l.x !== hero.x) hero.face = l.x > hero.x ? 1 : -1; }
+
+// ───────── Input ─────────
+let drag = null;
+canvas.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, moved: false }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const r = canvas.getBoundingClientRect(), sc = VW / r.width;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (!drag.moved && Math.hypot(dx, dy) < 8) return;
+  drag.moved = true; camFree = true; camLook = null;
+  cam.x -= dx * sc; cam.y -= dy * sc; clampCam();
+  drag.x = e.clientX; drag.y = e.clientY;
+});
+canvas.addEventListener('pointerup', () => { setTimeout(() => drag = null, 0); });
+canvas.addEventListener('pointercancel', () => { drag = null; });
+canvas.addEventListener('click', e => {
+  if (drag && drag.moved) return;               // that was a drag, not a tap
+  if (walking || cutscene) return;
+  const r = canvas.getBoundingClientRect();
+  const tx = Math.floor(((e.clientX - r.left) / r.width * VW + VIEW.x0) / T);
+  const ty = Math.floor(((e.clientY - r.top) / r.height * VH + VIEW.y0) / T);
+  closeDialog();
+  if (tx === hero.x && ty === hero.y) return;
+  if (!tileLit(tx, ty)){ sfx.nope(); return; }
+  if (pendingTarget && pendingTarget[0] === tx && pendingTarget[1] === ty && path){
+    const justVisiting = path.length === 1 && landmarkAt(tx, ty);   // standing next to it already
+    if (steps <= 0 && !justVisiting){ sfx.nope(); toast('No steps left. Rest until tomorrow or finish a quest —<br>your route will wait for you.'); return; }
+    pendingTarget = null; walk(path); return;
+  }
+  const route = (walkable(tx, ty) || landmarkAt(tx, ty)) ? findPath(hero.x, hero.y, tx, ty) : null;
+  if (!route){ sfx.nope(); path = null; pendingTarget = null; return; }
+  path = route; pendingTarget = [tx, ty]; sfx.plot();
+});
+
+// ───────── Dialog ─────────
+const dlg = document.getElementById('dialog');
+let dlgLandmark = null;
+let typer = null;
+function openDialog(l, ceremony = false){
+  dlgLandmark = l;
+  const awake = earned.has(l.id);
+  const em = document.getElementById('dlg-emblem');
+  em.innerHTML = makeBadgeSVG(l, 30);
+  em.classList.toggle('dormant', !awake);
+  document.getElementById('dlg-name').textContent = ceremony ? (l.kind === 'secret' ? 'SECRET FOUND: ' + l.name : l.name + ' AWAKENED!') : l.name;
+  const loreEl = document.getElementById('dlg-lore');
+  const DORMANT = {
+    solo: ['A stone tablet. The emblem carved into it is dark.', 'It will light up when you earn this badge: ' + (l.desc || '').toLowerCase()],
+    camp: ['A cold fire ring by a standing stone. Room for the whole party.', 'It lights when you two get there together: ' + (l.desc || '').toLowerCase()],
+    twin: ['Two small tablets side by side. One for each of you.', 'They wake when you both get there: ' + (l.desc || '').toLowerCase()],
+    team: ['A banner stone. The flag hangs grey and still.', 'It wakes when the whole crew gets there: ' + (l.desc || '').toLowerCase()],
+  }[l.kind] || ['', ''];
+  const lore = awake ? '“' + l.lore + '”' : DORMANT[0];
+  document.getElementById('dlg-state').textContent = awake ? (ceremony ? '' : 'This place is awake.') : DORMANT[1];
+  document.getElementById('dlg-awaken').hidden = awake;
+  clearInterval(typer);
+  if (ceremony){
+    let i = 0; loreEl.textContent = '';
+    typer = setInterval(() => {
+      loreEl.textContent = lore.slice(0, ++i);
+      if (i % 2) sfx.blip();
+      if (i >= lore.length) clearInterval(typer);
+    }, 28);
+  } else loreEl.textContent = lore;
+  dlg.hidden = false;
+}
+function closeDialog(){ dlg.hidden = true; dlgLandmark = null; clearInterval(typer); letterbox(false); }
+function letterbox(on){
+  document.getElementById('bar-top').classList.toggle('on', on);
+  document.getElementById('bar-bot').classList.toggle('on', on);
+}
+function whiteFlash(){
+  const el = document.getElementById('flash');
+  el.classList.add('on');
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('on')));
+}
+document.getElementById('dlg-close').onclick = closeDialog;
+// Awakening cutscene, staged like the intro: the badge's own build-up while the carving
+// heats up → white flash → the medal rises out and the night clears → typed lore.
+const MEDAL_TIME = 1.2;   // seconds between the flash and the text box
+function startCutscene(l){
+  const intro = introFor(l), speed = intro.speed || 1, build = BUILD[l.rarity] || 1.2;
+  cutTimers.forEach(h => clock.cancel(h));      // a new ceremony replaces any unfinished one
+  cutscene = { l, t0: clock.now(), intro, speed, build };
+  letterbox(true); intro.sound();
+  cutTimers = [clock.later(() => {
+    earned.add(l.id); whiteFlash(); sfx.awaken();
+    if (intro.onFlash) intro.onFlash();
+    const rv = reveal({ x: l.x, y: l.y, r: 1 });
+    const t0 = clock.now();
+    const grow = now => {
+      const k = Math.min(1, (now - t0) / 1100);
+      rv.r = 1 + (LANDMARK_REVEAL - 1) * ease(k);
+      renderShroud(rv);
+      if (k < 1) clock.frame(grow);
+    };
+    clock.frame(grow);
+  }, build / speed * 1000),
+  clock.later(() => { cutscene = null; openDialog(l, true); letterbox(true); }, (build + MEDAL_TIME) / speed * 1000)];
+}
+document.getElementById('dlg-awaken').onclick = () => {
+  const l = dlgLandmark; if (!l) return;
+  dlg.hidden = true; dlgLandmark = null;
+  startCutscene(l);
+};
+
+// ───────── Steps, finds, secrets ─────────
+function updateHud(){
+  const el = document.getElementById('hud');
+  el.innerHTML = '👢 STEPS ' + steps;
+  el.classList.toggle('empty', steps <= 0);
+}
+let toastTimer = null;
+function toast(html, ms = 2600){
+  const el = document.getElementById('toast');
+  el.innerHTML = html; el.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), ms);
+}
+function updateSatchel(){
+  const got = FINDS.filter(f => found.has(f.id));
+  document.getElementById('satchel').innerHTML = got.length
+    ? '<b>SATCHEL:</b> ' + got.map(f => f.icon).join(' ') + ' <span>(' + got.length + ' of ' + FINDS.length + ' found)</span>'
+    : 'Your satchel is empty. Things glint in the night…';
+}
+function pickUp(f){
+  found.add(f.id); updateSatchel(); sfx.find();
+  if (f.steps){ steps += f.steps; updateHud(); }
+  if (f.sword) hasSword = true;
+  if (f.banner){ banner = f.banner; HERO_REVEAL = BANNER_REVEAL; reveal({ x: hero.x, y: hero.y, r: HERO_REVEAL }); }
+  toast(f.icon + ' <b>' + f.name + '</b><br>' + f.text, f.shows ? 4600 : f.text.length > 60 ? 4200 : 2800);
+  if (f.shows) revealFromMap(f.shows);
+}
+
+// A torn map piece: light a patch of night far away, mark it, and pan the view
+// there for a moment before coming back to the hero.
+let marker = null;
+function revealFromMap([x, y]){
+  const rv = { x, y, r: .5 }; reveals.push(rv);   // shown as it grows
+  marker = { x, y, t0: clock.now() };
+  const t0 = clock.now() + 500;
+  const grow = now => { const k = Math.max(0, Math.min(1, (now - t0) / 900)); rv.r = .5 + 1.9 * ease(k); renderShroud(rv); if (k < 1) clock.frame(grow); };
+  clock.later(() => { clock.frame(grow); sfx.reveal(); }, 500);
+  camLook = { x, y, until: clock.now() + 3200 };
+}
+function drawMarker(t){
+  if (!marker) return;
+  const age = (t - marker.t0) / 1000;
+  if (age > 7){ marker = null; return; }
+  const x = marker.x*T + T/2, y = marker.y*T + T/2, a = Math.min(1, 7 - age);
+  ctx.save(); ctx.globalAlpha = a;
+  for (let r = 0; r < 2; r++){
+    const p = (age * .8 + r / 2) % 1;
+    ctx.strokeStyle = 'rgba(244,217,154,' + (1 - p) + ')'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(x, y + 6, 8 + p * 20, 3 + p * 8, 0, 0, Math.PI*2); ctx.stroke();
+  }
+  const bob = Math.sin(age * 6) * 3;            // a bouncing map pin
+  ctx.fillStyle = '#C8323C'; ctx.strokeStyle = '#3d2812'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(x, y - 6 + bob); ctx.lineTo(x - 6, y - 16 + bob); ctx.arc(x, y - 18 + bob, 6, Math.PI * .8, Math.PI * .2); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
+document.getElementById('btn-quest').onclick = () => {
+  if (cutscene) return;
+  steps += QUEST_STEPS; updateHud(); sfx.quest();
+  toast('Quest complete! Your hero gets <b>+' + QUEST_STEPS + ' steps</b>.');
+};
+
+// A new day: the hero wakes rested with at least REST_STEPS. Days you're away
+// don't stack up or get lost — it's a gentle floor, not a daily chore.
+const REST_STEPS = 5;
+let day = 1;
+document.getElementById('btn-day').onclick = () => {
+  if (cutscene || walking) return;
+  day++; sfx.morning();
+  if (steps < REST_STEPS){
+    steps = REST_STEPS; updateHud();
+    toast('☀ Day ' + day + '. Your hero breaks camp, rested.<br>Ready to ride: <b>' + REST_STEPS + ' steps</b>.');
+  } else toast('☀ Day ' + day + '. Your hero still has ' + steps + ' steps from yesterday.');
+};
+
+// Secrets have no place on the map: a tablet rises right next to the hero —
+// but never on a road, and never where it would cut the hero off from anything.
+const SECRET_ORDER = ['s1', 's8', 's2', 's0', 's3', 's4', 's5', 's6', 's7', 's9'];
+function secretSpot(){
+  const base = reachable(), cands = [];
+  for (const rad of [1, 2]) for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++){
+    if (Math.max(Math.abs(dx), Math.abs(dy)) !== rad) continue;
+    cands.push([hero.x + dx, hero.y + dy, rad + (Math.sign(dx) === hero.face ? 0 : .5)]);
+  }
+  cands.sort((a, b) => a[2] - b[2]);
+  for (const [x, y] of cands){
+    if (!walkable(x, y) || !tileLit(x, y) || findAt(x, y) || onRoad(x, y)) continue;
+    const after = reachable([x, y]);
+    if (after.size !== base.size - 1) continue;              // would wall off some ground
+    if (!LANDMARKS.every(l => touches(after, l))) continue;   // or some badge
+    return [x, y];
+  }
+  return null;
+}
+document.getElementById('btn-secret').onclick = () => {
+  if (cutscene || walking) return;
+  const id = SECRET_ORDER.find(id => !earned.has(id) && !LANDMARKS.some(l => l.id === id));
+  if (!id){ toast('Every secret is found. (For this demo, anyway.)'); return; }
+  const spot = secretSpot();
+  if (!spot){ toast('No room here for a secret to appear without blocking the way. Ride somewhere more open.'); return; }
+  closeDialog(); path = null; pendingTarget = null;
+  const l = { ...DEF(id), x: spot[0], y: spot[1] };
+  LANDMARKS.push(l); faceTo(l);
+  startCutscene(l);
+};
+
+// Prototype switches: add or remove the partner / team regions (reloads the map).
+for (const [btn, key, has] of [['btn-partner', 'partner', HAS_PARTNER], ['btn-team', 'team', HAS_TEAM]]){
+  const el = document.getElementById(btn);
+  el.textContent = (has ? '− ' : '+ ') + key.toUpperCase();
+  el.classList.toggle('on', has);
+  el.onclick = () => {
+    const p = new URLSearchParams(location.search);
+    has ? p.delete(key) : p.set(key, '1');
+    location.search = p.toString();
+  };
+}
+
+// Layout check: every badge place must be off the road and reachable.
+(() => {
+  buildLandmarks();
+  const r = reachable();
+  for (const l of LANDMARKS){
+    if (onRoad(l.x, l.y)) console.warn('[layout] on a road:', l.name);
+    if (!touches(r, l)) console.warn('[layout] unreachable:', l.name);
+  }
+})();
+
+document.getElementById('btn-reset').onclick = resetState;
+
+// ───────── Sound (tiny WebAudio blips) ─────────
+let soundOn = true, actx = null;
+function tone(freq, dur, type = 'square', gain = .05, delay = 0){
+  if (!soundOn) return;
+  actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+  const o = actx.createOscillator(), g = actx.createGain(), t0 = actx.currentTime + delay;
+  o.type = type; o.frequency.setValueAtTime(freq, t0);
+  g.gain.setValueAtTime(gain, t0); g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+  o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + dur);
+}
+const sfx = {
+  step:  () => tone(140 + Math.random()*30, .05, 'triangle', .06),
+  plot:  () => { tone(660, .05); tone(880, .06, 'square', .05, .05); },
+  nope:  () => tone(120, .12, 'square', .04),
+  awaken:() => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .3, 'triangle', .07, i * .08)),
+  rumble:() => { tone(48, .9, 'sawtooth', .07); tone(62, .9, 'square', .025); },
+  blip:  () => tone(900, .025, 'square', .02),
+  reveal:() => [659, 784, 988, 1319].forEach((f, i) => tone(f, .35, 'sine', .04, i * .1)),
+  morning:() => [392, 494, 587, 784].forEach((f, i) => tone(f, .3, 'triangle', .045, i * .12)),
+  find:  () => [784, 1047, 1319].forEach((f, i) => tone(f, .12, 'square', .04, i * .07)),
+  quest: () => [392, 523, 659, 784].forEach((f, i) => tone(f, .14, 'square', .045, i * .08)),
+  chime2:() => { tone(440, .6, 'sine', .06); tone(660, .6, 'sine', .05); },
+  noise: (dur, freq, gain) => {        // filtered noise: wind, water, crackle, thunder
+    if (!soundOn) return;
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const buf = actx.createBuffer(1, actx.sampleRate * dur, actx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = actx.createBufferSource(), flt = actx.createBiquadFilter(), g = actx.createGain(), t0 = actx.currentTime;
+    src.buffer = buf; flt.type = 'bandpass'; flt.frequency.value = freq; flt.Q.value = .8;
+    g.gain.setValueAtTime(gain, t0); g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+    src.connect(flt).connect(g).connect(actx.destination); src.start(t0);
+  },
+};
+document.getElementById('btn-sound').onclick = e => {
+  soundOn = !soundOn; e.target.textContent = 'SOUND: ' + (soundOn ? 'ON' : 'OFF');
+};
+
+// helpers
+function hexA(hex, a){
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${Math.max(0, a)})`;
+}
+
+// debug handle for testing from the console
+window.__proto = {
+  get hero(){ return hero; }, get walking(){ return walking; }, get earned(){ return earned; },
+  revealAll(){ reveal({ x: COLS / 2, y: ROWS / 2, r: COLS }); },
+  get cam(){ return { ...cam, VW, VH, W, H }; }, giveSword(){ hasSword = true; },
+  get cutscene(){ return cutscene; },
+  awaken(id){ earned.add(id); },
+  open(id){ openDialog(LANDMARKS.find(l => l.id === id)); },
+  play(id){ startCutscene(LANDMARKS.find(l => l.id === id)); },
+  // freeze a build-up at a moment (seconds), for checking it frame by frame
+  pose(id, at, wasEarned = false){ const l = LANDMARKS.find(l => l.id === id), intro = introFor(l); wasEarned ? earned.add(id) : earned.delete(id); cutscene = { l, intro, speed: intro.speed || 1, build: BUILD[l.rarity] || 1.2, pose: at }; letterbox(true); },
+  render(){ render(clock.now()); },
+  // tests: switch to a manual clock, then fast-forward it
+  manualClock(){ if (!clock.manual){ clock.t = performance.now(); clock.manual = true; } },
+  advance(ms, done){ clock.advance(ms, done); },
+  // layout audit: places on a road or cut off from the start
+  audit(){ const r = reachable(); return LANDMARKS.filter(l => onRoad(l.x, l.y) || !touches(r, l)).map(l => l.name); },
+  get areas(){ return AREAS.map(a => a.key + ":" + a.x0); },
+  get terrain(){ return terrainC; },
+  unpose(){ cutscene = null; letterbox(false); },
+  get steps(){ return steps; }, set steps(n){ steps = n; updateHud(); },
+  get landmarks(){ return LANDMARKS; }, get found(){ return found; },
+  teleport(x, y){ hero.x = x; hero.y = y; reveal({ x, y, r: HERO_REVEAL }); snapCamera(); },
+  // used by map-tests.html
+  get finds(){ return FINDS; }, get roads(){ return ROADS; }, get grid(){ return GRID; },
+  get hasSword(){ return hasSword; }, get heroReveal(){ return HERO_REVEAL; }, get start(){ return START; },
+  get view(){ return { ...VIEW }; }, get camFree(){ return camFree; },
+  findPath, onRoad, tileLit, passable, reveal, pickUp, reset: resetState, startRide: walk,
+  lit(){ return LIT.slice(); }, rebuildShroud(){ renderShroud(); },
+  ride(route){ walk(route); if (clock.manual) clock.advance(15000, () => !walking); },
+};
+
+drawTerrain();
+resetState();
+clock.frame(frame);
+</script>
+</body>
+</html>
