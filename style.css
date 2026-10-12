@@ -27,8 +27,8 @@ body {
 .app {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
-  height: 100vh; /* fallback for older browsers */
+  height: 100vh;  /* fallback for older browsers */
+  height: 100dvh; /* the height you can actually see: in a Safari tab, 100vh reaches under the toolbar */
   max-width: 800px;
   margin: 0 auto;
   background: #ECE9D8;
