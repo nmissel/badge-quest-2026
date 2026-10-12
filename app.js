@@ -2031,6 +2031,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTabLabels();
 
     init();
+    setStatus('QUESTS LOADED ✓', 2000);
     checkQuestReminders();
 
     // Show invite banner if there are pending invites
